@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ComingSoon } from "./components/ComingSoon";
+import { LogStream } from "./components/LogStream";
 import { Sidebar } from "./components/Sidebar";
 import { SourceDialog } from "./components/SourceDialog";
 import { SourceGrid } from "./components/SourceGrid";
@@ -9,6 +10,9 @@ import type { LogSource } from "./api/types";
 import type { Screen } from "./screens";
 import { SCREEN_TITLES } from "./screens";
 import { CollapseIcon } from "./components/icons";
+import { createLogger } from "./utils/logger";
+
+const logger = createLogger("App");
 
 type ThemeMode = "dark" | "light";
 type DialogState = { mode: "add" } | { mode: "edit"; source: LogSource };
@@ -25,6 +29,7 @@ function App() {
     () => localStorage.getItem(SIDEBAR_STORAGE_KEY) === "true",
   );
   const [screen, setScreen] = useState<Screen>("sources");
+  const [logCount, setLogCount] = useState(0);
   const [dialogState, setDialogState] = useState<DialogState | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const { sources, loading, error, create, update, remove, check } = useSources();
@@ -43,6 +48,7 @@ function App() {
     try {
       await remove(id);
     } catch (e) {
+      logger.warn(`Failed to delete source ${id}`, e);
       setActionError(e instanceof ApiError ? e.message : "Failed to delete source");
     }
   };
@@ -52,6 +58,7 @@ function App() {
     try {
       await check(id);
     } catch (e) {
+      logger.warn(`Failed to test source ${id}`, e);
       setActionError(e instanceof ApiError ? e.message : "Failed to test connection");
     }
   };
@@ -80,6 +87,9 @@ function App() {
           {screen === "sources" && (
             <span className="text-muted">{sources.length} source{sources.length === 1 ? "" : "s"}</span>
           )}
+          {screen === "logs" && (
+            <span className="text-muted">{logCount} result{logCount === 1 ? "" : "s"}</span>
+          )}
         </div>
 
         <div className="content">
@@ -95,7 +105,9 @@ function App() {
             />
           )}
 
-          {screen !== "sources" && <ComingSoon title={SCREEN_TITLES[screen]} />}
+          {screen === "logs" && <LogStream sources={sources} onCountChange={setLogCount} />}
+
+          {(screen === "dashboard" || screen === "alerts") && <ComingSoon title={SCREEN_TITLES[screen]} />}
         </div>
       </div>
 

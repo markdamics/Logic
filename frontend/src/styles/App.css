@@ -378,3 +378,214 @@ body,
   font-size: 13px;
   margin-bottom: 16px;
 }
+
+/* Generic input (used outside .form-field, e.g. log filters) */
+
+.input {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 9px 10px;
+  color: var(--color-text);
+  font-size: 14px;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+/* Log stream */
+
+.log-stream {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.log-filters {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.log-search {
+  width: 260px;
+  flex: none;
+}
+
+.log-severity-chips {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.chip-toggle {
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-muted);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.chip-toggle:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.chip-toggle.level-error.active {
+  background: var(--color-error);
+  border-color: var(--color-error);
+  color: #fff;
+}
+
+.chip-toggle.level-warn.active {
+  background: var(--color-warning);
+  border-color: var(--color-warning);
+  color: #1a1206;
+}
+
+.chip-toggle.level-info.active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-primary-contrast);
+}
+
+.chip-toggle.level-debug.active {
+  background: var(--color-text-muted);
+  border-color: var(--color-text-muted);
+  color: var(--color-bg);
+}
+
+.log-presets {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.log-presets-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  margin-right: 4px;
+}
+
+.preset-btn {
+  border: 1px solid var(--color-primary);
+  background: transparent;
+  color: var(--color-primary);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.preset-btn:hover {
+  background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+}
+
+.log-table-wrapper {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--color-surface);
+}
+
+.log-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.log-table th,
+.log-table td {
+  text-align: left;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.log-table th {
+  cursor: pointer;
+  user-select: none;
+  color: var(--color-text-muted);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.log-table th:hover {
+  color: var(--color-primary);
+}
+
+.log-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.log-table tbody tr:hover {
+  background: var(--color-surface-raised);
+}
+
+.log-time {
+  font-family: ui-monospace, Consolas, monospace;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.log-message {
+  font-family: ui-monospace, Consolas, monospace;
+  white-space: pre-line; /* preserve real line breaks in multi-line stack traces */
+}
+
+.log-empty {
+  text-align: center;
+  color: var(--color-text-muted);
+  padding: 32px 16px;
+}
+
+.level-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.level-chip.level-error {
+  background: var(--color-error-bg);
+  color: var(--color-error);
+}
+
+.level-chip.level-warn {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+
+.level-chip.level-info {
+  background: color-mix(in srgb, var(--color-primary) 16%, transparent);
+  color: var(--color-primary);
+}
+
+.level-chip.level-debug {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.log-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}

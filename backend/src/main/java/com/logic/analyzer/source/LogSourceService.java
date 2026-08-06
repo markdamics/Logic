@@ -5,6 +5,8 @@ import com.logic.analyzer.source.connectivity.SourceConnectivityChecker;
 import com.logic.analyzer.source.dto.ConnectionTestResult;
 import com.logic.analyzer.source.dto.LogSourceCreateRequest;
 import com.logic.analyzer.source.dto.LogSourceResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.EnumMap;
@@ -13,6 +15,8 @@ import java.util.Map;
 
 @Service
 public class LogSourceService {
+
+    private static final Logger log = LoggerFactory.getLogger(LogSourceService.class);
 
     private final LogSourceRepository repository;
     private final Map<SourceType, SourceConnectivityChecker> checkersByType;
@@ -43,7 +47,9 @@ public class LogSourceService {
                 request.username(),
                 request.password()
         );
-        return LogSourceResponse.from(repository.save(source));
+        LogSource saved = repository.save(source);
+        log.info("Created {} source '{}' (id={})", saved.getType(), saved.getName(), saved.getId());
+        return LogSourceResponse.from(saved);
     }
 
     public LogSourceResponse update(Long id, LogSourceCreateRequest request) {
@@ -59,7 +65,9 @@ public class LogSourceService {
                 request.username(),
                 request.password()
         );
-        return LogSourceResponse.from(repository.save(source));
+        LogSource saved = repository.save(source);
+        log.info("Updated source {} -> '{}' ({})", id, saved.getName(), saved.getType());
+        return LogSourceResponse.from(saved);
     }
 
     public void delete(Long id) {
@@ -67,16 +75,25 @@ public class LogSourceService {
             throw new SourceNotFoundException(id);
         }
         repository.deleteById(id);
+        log.info("Deleted source {}", id);
     }
 
     public ConnectionTestResult testConnection(Long id) {
         LogSource source = repository.findById(id).orElseThrow(() -> new SourceNotFoundException(id));
         SourceConnectivityChecker checker = checkersByType.get(source.getType());
+
+        log.info("Testing connection for source {} ('{}', {})", id, source.getName(), source.getType());
         ConnectionTestResult result = checker.check(source);
 
         source.setStatus(result.status());
         source.setLastCheckedAt(result.checkedAt());
         repository.save(source);
+
+        if (result.status() == SourceStatus.REACHABLE) {
+            log.info("Source {} is reachable: {}", id, result.message());
+        } else {
+            log.warn("Source {} is unreachable: {}", id, result.message());
+        }
 
         return result;
     }

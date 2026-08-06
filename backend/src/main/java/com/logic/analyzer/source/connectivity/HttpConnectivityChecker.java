@@ -4,6 +4,8 @@ import com.logic.analyzer.source.LogSource;
 import com.logic.analyzer.source.SourceStatus;
 import com.logic.analyzer.source.SourceType;
 import com.logic.analyzer.source.dto.ConnectionTestResult;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.net.URI;
@@ -16,6 +18,8 @@ import java.util.Set;
 
 @Component
 public class HttpConnectivityChecker implements SourceConnectivityChecker {
+
+    private static final Logger log = LoggerFactory.getLogger(HttpConnectivityChecker.class);
 
     private static final Duration TIMEOUT = Duration.ofSeconds(5);
 
@@ -39,6 +43,7 @@ public class HttpConnectivityChecker implements SourceConnectivityChecker {
             return new ConnectionTestResult(SourceStatus.UNREACHABLE, "Invalid URL: " + source.getPath(), now);
         }
 
+        log.debug("Checking HTTP source at {}", uri);
         try {
             HttpRequest headRequest = HttpRequest.newBuilder(uri)
                     .method("HEAD", HttpRequest.BodyPublishers.noBody())
@@ -47,6 +52,7 @@ public class HttpConnectivityChecker implements SourceConnectivityChecker {
             HttpResponse<Void> response = httpClient.send(headRequest, HttpResponse.BodyHandlers.discarding());
 
             if (isSuccessful(response.statusCode())) {
+                log.debug("HEAD {} -> {}", uri, response.statusCode());
                 return new ConnectionTestResult(SourceStatus.REACHABLE,
                         "HEAD request succeeded (" + response.statusCode() + ")", now);
             }
@@ -60,12 +66,15 @@ public class HttpConnectivityChecker implements SourceConnectivityChecker {
             HttpResponse<Void> getResponse = httpClient.send(rangedGet, HttpResponse.BodyHandlers.discarding());
 
             if (isSuccessful(getResponse.statusCode())) {
+                log.debug("Ranged GET {} -> {}", uri, getResponse.statusCode());
                 return new ConnectionTestResult(SourceStatus.REACHABLE,
                         "Ranged GET succeeded (" + getResponse.statusCode() + ")", now);
             }
+            log.warn("HTTP check failed for {} - server responded with {}", uri, getResponse.statusCode());
             return new ConnectionTestResult(SourceStatus.UNREACHABLE,
                     "Server responded with status " + getResponse.statusCode(), now);
         } catch (Exception e) {
+            log.warn("HTTP check failed for {} - {}", uri, e.getMessage());
             return new ConnectionTestResult(SourceStatus.UNREACHABLE, "HTTP request failed: " + e.getMessage(), now);
         }
     }

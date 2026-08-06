@@ -3,6 +3,9 @@ import type { FormEvent } from "react";
 import { createPortal } from "react-dom";
 import type { CreateSourceRequest, LogSource, SourceType } from "../api/types";
 import { ApiError } from "../api/client";
+import { createLogger } from "../utils/logger";
+
+const logger = createLogger("SourceDialog");
 
 interface SourceDialogProps {
   source?: LogSource;
@@ -44,6 +47,7 @@ export function SourceDialog({ source, onClose, onSubmit }: SourceDialogProps) {
       await onSubmit(req);
       onClose();
     } catch (e) {
+      logger.warn(`Failed to ${isEdit ? "update" : "add"} source`, e);
       setError(e instanceof ApiError ? e.message : `Failed to ${isEdit ? "update" : "add"} source`);
     } finally {
       setSubmitting(false);

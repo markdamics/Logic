@@ -7,6 +7,8 @@ import com.logic.analyzer.source.dto.ConnectionTestResult;
 import net.schmizz.sshj.SSHClient;
 import net.schmizz.sshj.sftp.SFTPClient;
 import net.schmizz.sshj.transport.verification.PromiscuousVerifier;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -14,6 +16,8 @@ import java.util.Set;
 
 @Component
 public class SftpConnectivityChecker implements SourceConnectivityChecker {
+
+    private static final Logger log = LoggerFactory.getLogger(SftpConnectivityChecker.class);
 
     private static final int DEFAULT_PORT = 22;
     private static final int CONNECT_TIMEOUT_MS = 5000;
@@ -28,6 +32,7 @@ public class SftpConnectivityChecker implements SourceConnectivityChecker {
         Instant now = Instant.now();
         int port = source.getPort() != null ? source.getPort() : DEFAULT_PORT;
 
+        log.debug("Connecting via SFTP to {}:{} as '{}'", source.getHost(), port, source.getUsername());
         try (SSHClient ssh = new SSHClient()) {
             // Known simplification for this initial phase: host key verification is
             // disabled so ad-hoc dev servers work without a pre-seeded known_hosts.
@@ -40,9 +45,11 @@ public class SftpConnectivityChecker implements SourceConnectivityChecker {
             try (SFTPClient sftp = ssh.newSFTPClient()) {
                 sftp.stat(source.getPath());
             }
+            log.debug("SFTP check succeeded for {}:{}{}", source.getHost(), port, source.getPath());
             return new ConnectionTestResult(SourceStatus.REACHABLE,
                     "Connected via SFTP and found remote path", now);
         } catch (Exception e) {
+            log.warn("SFTP check failed for {}:{}{} - {}", source.getHost(), port, source.getPath(), e.getMessage());
             return new ConnectionTestResult(SourceStatus.UNREACHABLE,
                     "SFTP connection failed: " + e.getMessage(), now);
         }
