@@ -1,8 +1,17 @@
+# Maven build output
+target/
+
+# H2 database files (backend dev data)
+backend/data/
+*.mv.db
+*.trace.db
+
+# Node / frontend build output
+node_modules/
+dist/
+
 # Compiled class file
 *.class
-
-# Log file
-*.log
 
 # BlueJ files
 *.ctxt

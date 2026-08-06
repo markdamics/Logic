@@ -1,0 +1,300 @@
+2026-08-06 08:00:41,000 [INFO] AuthService - Scheduled job 'cleanup' completed in 1131ms
+2026-08-06 08:00:50,000 [ERROR] AuthService - Unhandled exception: java.lang.IllegalStateException
+2026-08-06 08:00:52,000 [INFO] PaymentGateway - User 1434 logged in
+2026-08-06 08:01:05,000 [ERROR] NotificationWorker - Unhandled exception: java.lang.IllegalStateException
+2026-08-06 08:01:43,000 [INFO] AuthService - User 6574 logged in
+2026-08-06 08:01:53,000 [INFO] OrderProcessor - Request processed successfully in 384ms
+2026-08-06 08:02:16,000 [INFO] UserAPI - Cache refreshed for key 'session:8527'
+2026-08-06 08:02:24,000 [DEBUG] AuthService - Connection pool size: 1205
+2026-08-06 08:02:37,000 [ERROR] AuthService - Failed to process order #183667: connection timeout
+2026-08-06 08:02:52,000 [INFO] CacheManager - Cache refreshed for key 'session:6977'
+2026-08-06 08:03:16,000 [INFO] PaymentGateway - Scheduled job 'cleanup' completed in 1098ms
+2026-08-06 08:03:57,000 [INFO] UserAPI - Scheduled job 'cleanup' completed in 1007ms
+2026-08-06 08:04:22,000 [INFO] NotificationWorker - Scheduled job 'cleanup' completed in 2286ms
+2026-08-06 08:04:43,000 [INFO] PaymentGateway - Request processed successfully in 1297ms
+2026-08-06 08:04:48,000 [INFO] UserAPI - Scheduled job 'cleanup' completed in 1293ms
+2026-08-06 08:05:20,000 [DEBUG] NotificationWorker - SQL query executed: SELECT * FROM users WHERE id=5339
+2026-08-06 08:05:36,000 [ERROR] UserAPI - Unhandled exception: java.lang.IllegalStateException
+2026-08-06 08:06:02,000 [INFO] PaymentGateway - User 9085 logged in
+2026-08-06 08:06:06,000 [INFO] PaymentGateway - Scheduled job 'cleanup' completed in 660ms
+2026-08-06 08:06:11,000 [DEBUG] CacheManager - Connection pool size: 1922
+2026-08-06 08:06:47,000 [INFO] NotificationWorker - Scheduled job 'cleanup' completed in 474ms
+2026-08-06 08:07:05,000 [ERROR] OrderProcessor - Failed to process order #265840: connection timeout
+2026-08-06 08:07:35,000 [INFO] NotificationWorker - Scheduled job 'cleanup' completed in 1083ms
+2026-08-06 08:07:47,000 [WARN] AuthService - Deprecated API endpoint called by client
+2026-08-06 08:08:11,000 [INFO] UserAPI - Health check passed
+2026-08-06 08:08:13,000 [INFO] OrderProcessor - Cache refreshed for key 'session:1949'
+2026-08-06 08:08:50,000 [INFO] AuthService - Scheduled job 'cleanup' completed in 1995ms
+2026-08-06 08:09:25,000 [INFO] PaymentGateway - Scheduled job 'cleanup' completed in 1951ms
+2026-08-06 08:09:59,000 [WARN] CacheManager - Response time exceeded threshold: 2213ms
+2026-08-06 08:10:19,000 [DEBUG] NotificationWorker - Connection pool size: 1534
+2026-08-06 08:10:48,000 [INFO] PaymentGateway - User 6539 logged in
+2026-08-06 08:11:26,000 [WARN] PaymentGateway - Response time exceeded threshold: 34ms
+2026-08-06 08:12:07,000 [INFO] PaymentGateway - Request processed successfully in 133ms
+2026-08-06 08:12:40,000 [INFO] OrderProcessor - Scheduled job 'cleanup' completed in 1993ms
+2026-08-06 08:12:49,000 [ERROR] UserAPI - Unhandled exception: java.lang.IllegalStateException
+2026-08-06 08:13:20,000 [DEBUG] PaymentGateway - Entering method processRequest() with params id=471507
+2026-08-06 08:13:48,000 [DEBUG] CacheManager - Connection pool size: 226
+2026-08-06 08:14:14,000 [ERROR] OrderProcessor - Failed to process order #299448: connection timeout
+2026-08-06 08:14:49,000 [DEBUG] PaymentGateway - SQL query executed: SELECT * FROM users WHERE id=5563
+2026-08-06 08:15:05,000 [INFO] CacheManager - Health check passed
+2026-08-06 08:15:40,000 [INFO] AuthService - User 7658 logged in
+2026-08-06 08:16:11,000 [INFO] CacheManager - Request processed successfully in 679ms
+2026-08-06 08:16:36,000 [INFO] CacheManager - Cache refreshed for key 'session:8973'
+2026-08-06 08:16:49,000 [INFO] PaymentGateway - Request processed successfully in 2377ms
+2026-08-06 08:17:10,000 [INFO] AuthService - Health check passed
+2026-08-06 08:17:44,000 [INFO] AuthService - Health check passed
+2026-08-06 08:18:23,000 [INFO] NotificationWorker - User 2964 logged in
+2026-08-06 08:18:39,000 [WARN] UserAPI - Retrying connection to downstream service (attempt 340)
+2026-08-06 08:19:17,000 [WARN] UserAPI - Deprecated API endpoint called by client
+2026-08-06 08:19:38,000 [INFO] OrderProcessor - Order #579434 created
+2026-08-06 08:19:59,000 [INFO] AuthService - Order #176819 created
+2026-08-06 08:20:34,000 [INFO] UserAPI - Cache refreshed for key 'session:6718'
+2026-08-06 08:20:50,000 [INFO] OrderProcessor - User 9900 logged in
+2026-08-06 08:21:10,000 [WARN] NotificationWorker - Retrying connection to downstream service (attempt 2276)
+2026-08-06 08:21:17,000 [INFO] OrderProcessor - Request processed successfully in 443ms
+2026-08-06 08:21:36,000 [WARN] PaymentGateway - Deprecated API endpoint called by client
+2026-08-06 08:22:08,000 [INFO] AuthService - Request processed successfully in 1739ms
+2026-08-06 08:22:09,000 [INFO] PaymentGateway - Scheduled job 'cleanup' completed in 1077ms
+2026-08-06 08:22:38,000 [WARN] NotificationWorker - Cache miss rate above 80% for key 'session:1158'
+2026-08-06 08:22:43,000 [ERROR] PaymentGateway - Unhandled exception: java.lang.IllegalStateException
+2026-08-06 08:23:19,000 [INFO] CacheManager - User 6050 logged in
+2026-08-06 08:23:22,000 [INFO] PaymentGateway - Scheduled job 'cleanup' completed in 1027ms
+2026-08-06 08:23:58,000 [DEBUG] UserAPI - Connection pool size: 638
+2026-08-06 08:24:10,000 [DEBUG] AuthService - Entering method processRequest() with params id=941204
+2026-08-06 08:24:53,000 [ERROR] PaymentGateway - Database connection lost, retrying...
+2026-08-06 08:24:56,000 [DEBUG] PaymentGateway - Entering method processRequest() with params id=420015
+2026-08-06 08:25:11,000 [INFO] AuthService - Scheduled job 'cleanup' completed in 796ms
+2026-08-06 08:25:29,000 [INFO] OrderProcessor - Cache refreshed for key 'session:7548'
+2026-08-06 08:26:04,000 [INFO] AuthService - Request processed successfully in 1074ms
+2026-08-06 08:26:21,000 [INFO] AuthService - Health check passed
+2026-08-06 08:26:42,000 [DEBUG] UserAPI - Connection pool size: 478
+2026-08-06 08:26:55,000 [INFO] AuthService - Scheduled job 'cleanup' completed in 1791ms
+2026-08-06 08:27:30,000 [ERROR] NotificationWorker - NullPointerException in OrderProcessor.validate()
+2026-08-06 08:28:13,000 [INFO] UserAPI - Cache refreshed for key 'session:5920'
+2026-08-06 08:28:33,000 [ERROR] CacheManager - Database connection lost, retrying...
+2026-08-06 08:28:42,000 [INFO] CacheManager - Scheduled job 'cleanup' completed in 1557ms
+2026-08-06 08:29:19,000 [INFO] CacheManager - Health check passed
+2026-08-06 08:29:33,000 [DEBUG] UserAPI - Connection pool size: 1324
+2026-08-06 08:30:02,000 [ERROR] PaymentGateway - Unhandled exception: java.lang.IllegalStateException
+2026-08-06 08:30:08,000 [INFO] UserAPI - Scheduled job 'cleanup' completed in 1377ms
+2026-08-06 08:30:24,000 [ERROR] OrderProcessor - NullPointerException in OrderProcessor.validate()
+2026-08-06 08:30:27,000 [INFO] CacheManager - Health check passed
+2026-08-06 08:31:08,000 [WARN] PaymentGateway - Cache miss rate above 80% for key 'session:7547'
+2026-08-06 08:31:18,000 [ERROR] NotificationWorker - Failed to process order #329471: connection timeout
+2026-08-06 08:31:30,000 [ERROR] UserAPI - Payment authorization failed for order #989545: card declined
+2026-08-06 08:31:38,000 [DEBUG] PaymentGateway - SQL query executed: SELECT * FROM users WHERE id=6198
+2026-08-06 08:32:07,000 [WARN] NotificationWorker - Cache miss rate above 80% for key 'session:8305'
+2026-08-06 08:32:38,000 [DEBUG] OrderProcessor - Entering method processRequest() with params id=608136
+2026-08-06 08:33:19,000 [INFO] OrderProcessor - Order #345884 created
+2026-08-06 08:33:37,000 [INFO] OrderProcessor - Health check passed
+2026-08-06 08:33:52,000 [DEBUG] NotificationWorker - Entering method processRequest() with params id=535020
+2026-08-06 08:34:19,000 [INFO] UserAPI - Order #316881 created
+2026-08-06 08:34:46,000 [DEBUG] UserAPI - Connection pool size: 85
+2026-08-06 08:34:47,000 [INFO] OrderProcessor - Order #883826 created
+2026-08-06 08:35:22,000 [WARN] PaymentGateway - Cache miss rate above 80% for key 'session:5471'
+2026-08-06 08:35:54,000 [INFO] CacheManager - Cache refreshed for key 'session:3704'
+2026-08-06 08:36:24,000 [INFO] UserAPI - Health check passed
+2026-08-06 08:37:01,000 [ERROR] AuthService - Failed to process order #584125: connection timeout
+2026-08-06 08:37:13,000 [INFO] OrderProcessor - Order #576786 created
+2026-08-06 08:37:34,000 [INFO] CacheManager - Cache refreshed for key 'session:5133'
+2026-08-06 08:37:40,000 [DEBUG] AuthService - Connection pool size: 2214
+2026-08-06 08:37:55,000 [ERROR] AuthService - Failed to process order #309044: connection timeout
+2026-08-06 08:37:57,000 [WARN] PaymentGateway - Response time exceeded threshold: 522ms
+2026-08-06 08:38:05,000 [WARN] PaymentGateway - Cache miss rate above 80% for key 'session:7043'
+2026-08-06 08:38:44,000 [WARN] NotificationWorker - Retrying connection to downstream service (attempt 675)
+2026-08-06 08:39:22,000 [INFO] OrderProcessor - Health check passed
+2026-08-06 08:39:35,000 [INFO] UserAPI - Scheduled job 'cleanup' completed in 999ms
+2026-08-06 08:39:55,000 [ERROR] UserAPI - Failed to process order #464069: connection timeout
+2026-08-06 08:40:30,000 [DEBUG] NotificationWorker - SQL query executed: SELECT * FROM users WHERE id=9289
+2026-08-06 08:40:52,000 [INFO] CacheManager - Order #479781 created
+2026-08-06 08:41:33,000 [DEBUG] NotificationWorker - Entering method processRequest() with params id=869440
+2026-08-06 08:42:07,000 [ERROR] OrderProcessor - Unhandled exception: java.lang.IllegalStateException
+2026-08-06 08:42:35,000 [ERROR] UserAPI - Database connection lost, retrying...
+2026-08-06 08:42:41,000 [INFO] CacheManager - User 7209 logged in
+2026-08-06 08:42:43,000 [DEBUG] OrderProcessor - Entering method processRequest() with params id=472060
+2026-08-06 08:43:00,000 [INFO] OrderProcessor - Health check passed
+2026-08-06 08:43:13,000 [INFO] PaymentGateway - Scheduled job 'cleanup' completed in 1669ms
+2026-08-06 08:43:29,000 [ERROR] CacheManager - Payment authorization failed for order #197573: card declined
+2026-08-06 08:43:48,000 [INFO] CacheManager - Scheduled job 'cleanup' completed in 1001ms
+2026-08-06 08:44:26,000 [INFO] CacheManager - Health check passed
+2026-08-06 08:45:02,000 [INFO] OrderProcessor - Scheduled job 'cleanup' completed in 1863ms
+2026-08-06 08:45:19,000 [INFO] AuthService - Scheduled job 'cleanup' completed in 793ms
+2026-08-06 08:45:54,000 [ERROR] PaymentGateway - NullPointerException in OrderProcessor.validate()
+2026-08-06 08:46:32,000 [WARN] UserAPI - Deprecated API endpoint called by client
+2026-08-06 08:46:47,000 [INFO] PaymentGateway - Cache refreshed for key 'session:9751'
+2026-08-06 08:47:05,000 [INFO] AuthService - Health check passed
+2026-08-06 08:47:37,000 [INFO] AuthService - Health check passed
+2026-08-06 08:48:06,000 [INFO] PaymentGateway - Request processed successfully in 1039ms
+2026-08-06 08:48:11,000 [DEBUG] CacheManager - Entering method processRequest() with params id=259097
+2026-08-06 08:48:21,000 [WARN] OrderProcessor - Retrying connection to downstream service (attempt 1021)
+2026-08-06 08:48:48,000 [WARN] UserAPI - Response time exceeded threshold: 2145ms
+2026-08-06 08:49:17,000 [INFO] UserAPI - Order #739244 created
+2026-08-06 08:49:24,000 [INFO] NotificationWorker - User 2330 logged in
+2026-08-06 08:49:40,000 [INFO] UserAPI - Request processed successfully in 646ms
+2026-08-06 08:50:09,000 [ERROR] UserAPI - Payment authorization failed for order #342720: card declined
+2026-08-06 08:50:28,000 [ERROR] OrderProcessor - Payment authorization failed for order #377405: card declined
+2026-08-06 08:51:09,000 [WARN] NotificationWorker - Response time exceeded threshold: 1746ms
+2026-08-06 08:51:24,000 [ERROR] PaymentGateway - Database connection lost, retrying...
+2026-08-06 08:51:35,000 [INFO] UserAPI - Scheduled job 'cleanup' completed in 2336ms
+2026-08-06 08:51:43,000 [DEBUG] NotificationWorker - SQL query executed: SELECT * FROM users WHERE id=5460
+2026-08-06 08:52:18,000 [DEBUG] CacheManager - Entering method processRequest() with params id=553014
+2026-08-06 08:52:39,000 [WARN] OrderProcessor - Retrying connection to downstream service (attempt 379)
+2026-08-06 08:53:16,000 [WARN] AuthService - Deprecated API endpoint called by client
+2026-08-06 08:53:28,000 [DEBUG] UserAPI - Connection pool size: 1816
+2026-08-06 08:54:06,000 [DEBUG] NotificationWorker - SQL query executed: SELECT * FROM users WHERE id=8700
+2026-08-06 08:54:33,000 [INFO] OrderProcessor - Scheduled job 'cleanup' completed in 433ms
+2026-08-06 08:55:00,000 [ERROR] CacheManager - Database connection lost, retrying...
+2026-08-06 08:55:06,000 [INFO] OrderProcessor - Cache refreshed for key 'session:7622'
+2026-08-06 08:55:07,000 [ERROR] UserAPI - Payment authorization failed for order #296694: card declined
+2026-08-06 08:55:41,000 [INFO] UserAPI - Order #313446 created
+2026-08-06 08:55:59,000 [WARN] PaymentGateway - Deprecated API endpoint called by client
+2026-08-06 08:56:01,000 [ERROR] UserAPI - NullPointerException in OrderProcessor.validate()
+2026-08-06 08:56:02,000 [WARN] CacheManager - Retrying connection to downstream service (attempt 925)
+2026-08-06 08:56:10,000 [ERROR] PaymentGateway - Payment authorization failed for order #839677: card declined
+2026-08-06 08:56:28,000 [DEBUG] CacheManager - SQL query executed: SELECT * FROM users WHERE id=8483
+2026-08-06 08:56:38,000 [DEBUG] PaymentGateway - Connection pool size: 2086
+2026-08-06 08:56:56,000 [DEBUG] OrderProcessor - Connection pool size: 1099
+2026-08-06 08:57:16,000 [WARN] UserAPI - Cache miss rate above 80% for key 'session:8316'
+2026-08-06 08:57:47,000 [INFO] OrderProcessor - Health check passed
+2026-08-06 08:58:08,000 [INFO] NotificationWorker - User 7274 logged in
+2026-08-06 08:58:35,000 [INFO] OrderProcessor - Scheduled job 'cleanup' completed in 1942ms
+2026-08-06 08:59:18,000 [ERROR] PaymentGateway - Payment authorization failed for order #626690: card declined
+2026-08-06 08:59:56,000 [INFO] AuthService - Order #579123 created
+2026-08-06 08:59:57,000 [ERROR] PaymentGateway - Payment authorization failed for order #592296: card declined
+2026-08-06 09:00:14,000 [INFO] UserAPI - Scheduled job 'cleanup' completed in 1633ms
+2026-08-06 09:00:36,000 [ERROR] UserAPI - Payment authorization failed for order #667296: card declined
+2026-08-06 09:00:39,000 [WARN] AuthService - Response time exceeded threshold: 1182ms
+2026-08-06 09:00:45,000 [DEBUG] AuthService - Connection pool size: 416
+2026-08-06 09:01:30,000 [INFO] AuthService - Request processed successfully in 1333ms
+2026-08-06 09:01:53,000 [INFO] CacheManager - User 9702 logged in
+2026-08-06 09:02:30,000 [ERROR] PaymentGateway - NullPointerException in OrderProcessor.validate()
+2026-08-06 09:02:55,000 [WARN] NotificationWorker - Response time exceeded threshold: 2043ms
+2026-08-06 09:03:25,000 [ERROR] OrderProcessor - Payment authorization failed for order #943718: card declined
+2026-08-06 09:03:55,000 [INFO] NotificationWorker - Health check passed
+2026-08-06 09:04:18,000 [WARN] OrderProcessor - Cache miss rate above 80% for key 'session:8484'
+2026-08-06 09:04:38,000 [INFO] CacheManager - Order #499889 created
+2026-08-06 09:05:15,000 [INFO] UserAPI - Cache refreshed for key 'session:1359'
+2026-08-06 09:05:58,000 [DEBUG] OrderProcessor - Entering method processRequest() with params id=735863
+2026-08-06 09:06:30,000 [INFO] PaymentGateway - Health check passed
+2026-08-06 09:06:43,000 [WARN] OrderProcessor - Response time exceeded threshold: 402ms
+2026-08-06 09:07:12,000 [INFO] UserAPI - Cache refreshed for key 'session:2476'
+2026-08-06 09:07:33,000 [ERROR] CacheManager - NullPointerException in OrderProcessor.validate()
+2026-08-06 09:08:08,000 [INFO] UserAPI - Health check passed
+2026-08-06 09:08:39,000 [INFO] NotificationWorker - Cache refreshed for key 'session:8673'
+2026-08-06 09:08:49,000 [INFO] NotificationWorker - Scheduled job 'cleanup' completed in 1632ms
+2026-08-06 09:09:15,000 [INFO] OrderProcessor - Health check passed
+2026-08-06 09:09:59,000 [ERROR] NotificationWorker - Database connection lost, retrying...
+2026-08-06 09:10:40,000 [INFO] AuthService - Scheduled job 'cleanup' completed in 962ms
+2026-08-06 09:11:20,000 [WARN] OrderProcessor - Response time exceeded threshold: 263ms
+2026-08-06 09:11:40,000 [ERROR] CacheManager - Failed to process order #139019: connection timeout
+2026-08-06 09:12:00,000 [DEBUG] AuthService - Entering method processRequest() with params id=242254
+2026-08-06 09:12:25,000 [DEBUG] OrderProcessor - Connection pool size: 2217
+2026-08-06 09:12:35,000 [DEBUG] NotificationWorker - Entering method processRequest() with params id=393328
+2026-08-06 09:12:38,000 [ERROR] OrderProcessor - NullPointerException in OrderProcessor.validate()
+2026-08-06 09:13:02,000 [INFO] NotificationWorker - Cache refreshed for key 'session:6876'
+2026-08-06 09:13:28,000 [INFO] PaymentGateway - Request processed successfully in 1867ms
+2026-08-06 09:13:42,000 [ERROR] NotificationWorker - Unhandled exception: java.lang.IllegalStateException
+2026-08-06 09:14:04,000 [INFO] PaymentGateway - Health check passed
+2026-08-06 09:14:40,000 [INFO] UserAPI - User 6383 logged in
+2026-08-06 09:14:50,000 [WARN] AuthService - Deprecated API endpoint called by client
+2026-08-06 09:15:07,000 [INFO] AuthService - Scheduled job 'cleanup' completed in 110ms
+2026-08-06 09:15:30,000 [INFO] UserAPI - Cache refreshed for key 'session:3854'
+2026-08-06 09:15:34,000 [INFO] NotificationWorker - Order #881886 created
+2026-08-06 09:15:39,000 [DEBUG] CacheManager - SQL query executed: SELECT * FROM users WHERE id=2786
+2026-08-06 09:16:12,000 [INFO] UserAPI - Request processed successfully in 2140ms
+2026-08-06 09:16:54,000 [INFO] AuthService - Order #819425 created
+2026-08-06 09:17:01,000 [DEBUG] NotificationWorker - SQL query executed: SELECT * FROM users WHERE id=2323
+2026-08-06 09:17:40,000 [INFO] AuthService - User 9984 logged in
+2026-08-06 09:18:01,000 [DEBUG] UserAPI - Connection pool size: 1212
+2026-08-06 09:18:40,000 [DEBUG] AuthService - Connection pool size: 473
+2026-08-06 09:19:09,000 [INFO] CacheManager - Cache refreshed for key 'session:7532'
+2026-08-06 09:19:16,000 [INFO] CacheManager - Cache refreshed for key 'session:7132'
+2026-08-06 09:20:00,000 [DEBUG] AuthService - Entering method processRequest() with params id=552855
+2026-08-06 09:20:07,000 [ERROR] NotificationWorker - Database connection lost, retrying...
+2026-08-06 09:20:43,000 [WARN] OrderProcessor - Retrying connection to downstream service (attempt 1687)
+2026-08-06 09:21:11,000 [ERROR] AuthService - Database connection lost, retrying...
+2026-08-06 09:21:18,000 [WARN] UserAPI - Response time exceeded threshold: 638ms
+2026-08-06 09:21:25,000 [INFO] UserAPI - Cache refreshed for key 'session:5564'
+2026-08-06 09:21:40,000 [DEBUG] UserAPI - Connection pool size: 2285
+2026-08-06 09:22:23,000 [ERROR] OrderProcessor - Failed to process order #836833: connection timeout
+2026-08-06 09:22:43,000 [INFO] OrderProcessor - Request processed successfully in 748ms
+2026-08-06 09:23:26,000 [DEBUG] AuthService - Entering method processRequest() with params id=882354
+2026-08-06 09:24:00,000 [INFO] CacheManager - Order #265055 created
+2026-08-06 09:24:24,000 [INFO] NotificationWorker - Cache refreshed for key 'session:2391'
+2026-08-06 09:24:34,000 [INFO] UserAPI - Request processed successfully in 339ms
+2026-08-06 09:25:17,000 [DEBUG] CacheManager - Connection pool size: 1815
+2026-08-06 09:25:31,000 [WARN] AuthService - Deprecated API endpoint called by client
+2026-08-06 09:26:15,000 [ERROR] UserAPI - Payment authorization failed for order #147623: card declined
+2026-08-06 09:26:30,000 [DEBUG] UserAPI - Entering method processRequest() with params id=416061
+2026-08-06 09:26:44,000 [INFO] OrderProcessor - Cache refreshed for key 'session:2965'
+2026-08-06 09:27:16,000 [ERROR] CacheManager - NullPointerException in OrderProcessor.validate()
+2026-08-06 09:27:31,000 [WARN] UserAPI - Deprecated API endpoint called by client
+2026-08-06 09:27:34,000 [DEBUG] AuthService - SQL query executed: SELECT * FROM users WHERE id=6129
+2026-08-06 09:28:02,000 [WARN] CacheManager - Cache miss rate above 80% for key 'session:2887'
+2026-08-06 09:28:04,000 [INFO] PaymentGateway - Health check passed
+2026-08-06 09:28:32,000 [INFO] PaymentGateway - Order #649414 created
+2026-08-06 09:28:38,000 [DEBUG] OrderProcessor - Connection pool size: 1395
+2026-08-06 09:28:49,000 [INFO] UserAPI - Scheduled job 'cleanup' completed in 472ms
+2026-08-06 09:29:02,000 [INFO] OrderProcessor - Scheduled job 'cleanup' completed in 609ms
+2026-08-06 09:29:12,000 [INFO] PaymentGateway - User 3504 logged in
+2026-08-06 09:29:54,000 [INFO] PaymentGateway - Scheduled job 'cleanup' completed in 2028ms
+2026-08-06 09:30:31,000 [WARN] CacheManager - Deprecated API endpoint called by client
+2026-08-06 09:30:36,000 [DEBUG] CacheManager - Connection pool size: 1245
+2026-08-06 09:30:40,000 [INFO] UserAPI - Request processed successfully in 1276ms
+2026-08-06 09:30:43,000 [INFO] OrderProcessor - Cache refreshed for key 'session:2479'
+2026-08-06 09:31:22,000 [WARN] CacheManager - Cache miss rate above 80% for key 'session:1672'
+2026-08-06 09:31:59,000 [ERROR] PaymentGateway - Database connection lost, retrying...
+2026-08-06 09:32:09,000 [INFO] CacheManager - Request processed successfully in 1411ms
+2026-08-06 09:32:51,000 [INFO] AuthService - User 8199 logged in
+2026-08-06 09:33:25,000 [WARN] PaymentGateway - Deprecated API endpoint called by client
+2026-08-06 09:33:52,000 [INFO] NotificationWorker - Health check passed
+2026-08-06 09:34:14,000 [INFO] UserAPI - Scheduled job 'cleanup' completed in 1588ms
+2026-08-06 09:34:57,000 [WARN] PaymentGateway - Deprecated API endpoint called by client
+2026-08-06 09:35:17,000 [ERROR] NotificationWorker - Payment authorization failed for order #424620: card declined
+2026-08-06 09:35:53,000 [DEBUG] NotificationWorker - SQL query executed: SELECT * FROM users WHERE id=9624
+2026-08-06 09:36:35,000 [ERROR] CacheManager - Unhandled exception: java.lang.IllegalStateException
+2026-08-06 09:36:55,000 [INFO] PaymentGateway - Cache refreshed for key 'session:4145'
+2026-08-06 09:37:04,000 [INFO] AuthService - Cache refreshed for key 'session:9317'
+2026-08-06 09:37:39,000 [ERROR] UserAPI - Failed to process order #726258: connection timeout
+2026-08-06 09:38:04,000 [INFO] PaymentGateway - User 8170 logged in
+2026-08-06 09:38:31,000 [INFO] NotificationWorker - Scheduled job 'cleanup' completed in 977ms
+2026-08-06 09:38:50,000 [ERROR] CacheManager - NullPointerException in OrderProcessor.validate()
+2026-08-06 09:39:21,000 [INFO] OrderProcessor - Scheduled job 'cleanup' completed in 2341ms
+2026-08-06 09:39:40,000 [DEBUG] UserAPI - Connection pool size: 1719
+2026-08-06 09:39:53,000 [WARN] PaymentGateway - Deprecated API endpoint called by client
+2026-08-06 09:40:29,000 [INFO] NotificationWorker - Health check passed
+2026-08-06 09:40:40,000 [INFO] CacheManager - Health check passed
+2026-08-06 09:40:55,000 [DEBUG] OrderProcessor - Entering method processRequest() with params id=515712
+2026-08-06 09:41:28,000 [INFO] PaymentGateway - Order #335445 created
+2026-08-06 09:41:30,000 [INFO] AuthService - Scheduled job 'cleanup' completed in 1378ms
+2026-08-06 09:41:33,000 [INFO] CacheManager - Scheduled job 'cleanup' completed in 573ms
+2026-08-06 09:42:13,000 [INFO] AuthService - Request processed successfully in 1053ms
+2026-08-06 09:42:23,000 [WARN] NotificationWorker - Cache miss rate above 80% for key 'session:5720'
+2026-08-06 09:42:43,000 [INFO] AuthService - User 8489 logged in
+2026-08-06 09:42:51,000 [DEBUG] UserAPI - Connection pool size: 72
+2026-08-06 09:43:07,000 [ERROR] PaymentGateway - Database connection lost, retrying...
+2026-08-06 09:43:30,000 [INFO] UserAPI - Order #648913 created
+2026-08-06 09:43:54,000 [INFO] UserAPI - Health check passed
+2026-08-06 09:43:56,000 [DEBUG] CacheManager - Entering method processRequest() with params id=365971
+2026-08-06 09:43:58,000 [INFO] AuthService - Cache refreshed for key 'session:2698'
+2026-08-06 09:44:36,000 [ERROR] OrderProcessor - NullPointerException in OrderProcessor.validate()
+2026-08-06 09:44:58,000 [ERROR] PaymentGateway - Payment authorization failed for order #950916: card declined
+2026-08-06 09:45:07,000 [INFO] NotificationWorker - Order #311383 created
+2026-08-06 09:45:10,000 [INFO] AuthService - Cache refreshed for key 'session:9444'
+2026-08-06 09:45:45,000 [DEBUG] OrderProcessor - Entering method processRequest() with params id=474314
+2026-08-06 09:45:49,000 [ERROR] OrderProcessor - Database connection lost, retrying...
+2026-08-06 09:46:15,000 [ERROR] CacheManager - Payment authorization failed for order #620306: card declined
+2026-08-06 09:47:00,000 [DEBUG] OrderProcessor - Connection pool size: 1097
+2026-08-06 09:47:28,000 [INFO] CacheManager - Health check passed
+2026-08-06 09:47:49,000 [INFO] AuthService - Cache refreshed for key 'session:6021'
+2026-08-06 09:48:28,000 [ERROR] CacheManager - NullPointerException in OrderProcessor.validate()
+2026-08-06 09:48:31,000 [ERROR] OrderProcessor - Unhandled exception: java.lang.IllegalStateException
+2026-08-06 09:48:35,000 [INFO] NotificationWorker - Scheduled job 'cleanup' completed in 1668ms
+2026-08-06 09:49:19,000 [INFO] AuthService - User 8179 logged in
+2026-08-06 09:49:28,000 [INFO] PaymentGateway - Scheduled job 'cleanup' completed in 1505ms
+2026-08-06 09:50:05,000 [INFO] UserAPI - User 7077 logged in
+2026-08-06 09:50:34,000 [INFO] UserAPI - User 7012 logged in
+2026-08-06 09:50:55,000 [ERROR] OrderProcessor - NullPointerException in OrderProcessor.validate()
+2026-08-06 09:51:07,000 [DEBUG] UserAPI - SQL query executed: SELECT * FROM users WHERE id=2929
+2026-08-06 09:51:24,000 [ERROR] CacheManager - NullPointerException in OrderProcessor.validate()

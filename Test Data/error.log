@@ -1,0 +1,110 @@
+2026-08-06 08:01:22,000 [ERROR] PaymentGateway - com.example.PaymentException: Card declined - insufficient funds
+	at com.example.PaymentGateway.authorize(PaymentGateway.java:210)
+2026-08-06 08:02:19,000 [ERROR] AuthService - java.security.InvalidKeyException: JWT signature verification failed
+2026-08-06 08:04:07,000 [CRITICAL] CacheManager - redis.clients.jedis.exceptions.JedisConnectionException: Could not get a resource from the pool
+2026-08-06 08:08:14,000 [ERROR] OrderProcessor - java.lang.NullPointerException: Cannot invoke "Order.getId()" because "order" is null
+	at com.example.OrderProcessor.validate(OrderProcessor.java:142)
+	at com.example.OrderProcessor.process(OrderProcessor.java:88)
+2026-08-06 08:11:17,000 [CRITICAL] CacheManager - redis.clients.jedis.exceptions.JedisConnectionException: Could not get a resource from the pool
+2026-08-06 08:14:34,000 [CRITICAL] CacheManager - redis.clients.jedis.exceptions.JedisConnectionException: Could not get a resource from the pool
+2026-08-06 08:15:27,000 [ERROR] NotificationWorker - java.net.SocketTimeoutException: Read timed out after 30000ms
+	at com.example.smtp.MailClient.send(MailClient.java:55)
+2026-08-06 08:20:24,000 [FATAL] DatabasePool - java.sql.SQLException: Connection pool exhausted (max=50, active=50)
+	at com.example.db.ConnectionPool.getConnection(ConnectionPool.java:76)
+2026-08-06 08:23:17,000 [ERROR] PaymentGateway - com.example.PaymentException: Card declined - insufficient funds
+	at com.example.PaymentGateway.authorize(PaymentGateway.java:210)
+2026-08-06 08:25:06,000 [FATAL] DatabasePool - java.sql.SQLException: Connection pool exhausted (max=50, active=50)
+	at com.example.db.ConnectionPool.getConnection(ConnectionPool.java:76)
+2026-08-06 08:29:46,000 [ERROR] PaymentGateway - com.example.PaymentException: Card declined - insufficient funds
+	at com.example.PaymentGateway.authorize(PaymentGateway.java:210)
+2026-08-06 08:31:08,000 [ERROR] PaymentGateway - com.example.PaymentException: Card declined - insufficient funds
+	at com.example.PaymentGateway.authorize(PaymentGateway.java:210)
+2026-08-06 08:32:39,000 [ERROR] PaymentGateway - com.example.PaymentException: Card declined - insufficient funds
+	at com.example.PaymentGateway.authorize(PaymentGateway.java:210)
+2026-08-06 08:37:11,000 [ERROR] OrderProcessor - java.lang.NullPointerException: Cannot invoke "Order.getId()" because "order" is null
+	at com.example.OrderProcessor.validate(OrderProcessor.java:142)
+	at com.example.OrderProcessor.process(OrderProcessor.java:88)
+2026-08-06 08:40:35,000 [ERROR] NotificationWorker - java.net.SocketTimeoutException: Read timed out after 30000ms
+	at com.example.smtp.MailClient.send(MailClient.java:55)
+2026-08-06 08:44:03,000 [ERROR] AuthService - java.security.InvalidKeyException: JWT signature verification failed
+2026-08-06 08:45:29,000 [ERROR] NotificationWorker - java.net.SocketTimeoutException: Read timed out after 30000ms
+	at com.example.smtp.MailClient.send(MailClient.java:55)
+2026-08-06 08:46:33,000 [ERROR] OrderProcessor - java.lang.NullPointerException: Cannot invoke "Order.getId()" because "order" is null
+	at com.example.OrderProcessor.validate(OrderProcessor.java:142)
+	at com.example.OrderProcessor.process(OrderProcessor.java:88)
+2026-08-06 08:49:31,000 [ERROR] AuthService - java.security.InvalidKeyException: JWT signature verification failed
+2026-08-06 08:53:56,000 [ERROR] NotificationWorker - java.net.SocketTimeoutException: Read timed out after 30000ms
+	at com.example.smtp.MailClient.send(MailClient.java:55)
+2026-08-06 08:57:46,000 [ERROR] AuthService - java.security.InvalidKeyException: JWT signature verification failed
+2026-08-06 08:58:43,000 [ERROR] PaymentGateway - com.example.PaymentException: Card declined - insufficient funds
+	at com.example.PaymentGateway.authorize(PaymentGateway.java:210)
+2026-08-06 09:01:45,000 [CRITICAL] CacheManager - redis.clients.jedis.exceptions.JedisConnectionException: Could not get a resource from the pool
+2026-08-06 09:02:42,000 [ERROR] AuthService - java.security.InvalidKeyException: JWT signature verification failed
+2026-08-06 09:07:00,000 [CRITICAL] CacheManager - redis.clients.jedis.exceptions.JedisConnectionException: Could not get a resource from the pool
+2026-08-06 09:11:44,000 [FATAL] DatabasePool - java.sql.SQLException: Connection pool exhausted (max=50, active=50)
+	at com.example.db.ConnectionPool.getConnection(ConnectionPool.java:76)
+2026-08-06 09:13:09,000 [ERROR] NotificationWorker - java.net.SocketTimeoutException: Read timed out after 30000ms
+	at com.example.smtp.MailClient.send(MailClient.java:55)
+2026-08-06 09:15:02,000 [ERROR] PaymentGateway - com.example.PaymentException: Card declined - insufficient funds
+	at com.example.PaymentGateway.authorize(PaymentGateway.java:210)
+2026-08-06 09:19:03,000 [ERROR] NotificationWorker - java.net.SocketTimeoutException: Read timed out after 30000ms
+	at com.example.smtp.MailClient.send(MailClient.java:55)
+2026-08-06 09:19:51,000 [ERROR] OrderProcessor - java.lang.NullPointerException: Cannot invoke "Order.getId()" because "order" is null
+	at com.example.OrderProcessor.validate(OrderProcessor.java:142)
+	at com.example.OrderProcessor.process(OrderProcessor.java:88)
+2026-08-06 09:24:36,000 [ERROR] PaymentGateway - com.example.PaymentException: Card declined - insufficient funds
+	at com.example.PaymentGateway.authorize(PaymentGateway.java:210)
+2026-08-06 09:27:31,000 [ERROR] PaymentGateway - com.example.PaymentException: Card declined - insufficient funds
+	at com.example.PaymentGateway.authorize(PaymentGateway.java:210)
+2026-08-06 09:29:13,000 [FATAL] DatabasePool - java.sql.SQLException: Connection pool exhausted (max=50, active=50)
+	at com.example.db.ConnectionPool.getConnection(ConnectionPool.java:76)
+2026-08-06 09:31:28,000 [FATAL] DatabasePool - java.sql.SQLException: Connection pool exhausted (max=50, active=50)
+	at com.example.db.ConnectionPool.getConnection(ConnectionPool.java:76)
+2026-08-06 09:36:13,000 [FATAL] DatabasePool - java.sql.SQLException: Connection pool exhausted (max=50, active=50)
+	at com.example.db.ConnectionPool.getConnection(ConnectionPool.java:76)
+2026-08-06 09:37:13,000 [FATAL] DatabasePool - java.sql.SQLException: Connection pool exhausted (max=50, active=50)
+	at com.example.db.ConnectionPool.getConnection(ConnectionPool.java:76)
+2026-08-06 09:39:13,000 [CRITICAL] CacheManager - redis.clients.jedis.exceptions.JedisConnectionException: Could not get a resource from the pool
+2026-08-06 09:41:53,000 [ERROR] PaymentGateway - com.example.PaymentException: Card declined - insufficient funds
+	at com.example.PaymentGateway.authorize(PaymentGateway.java:210)
+2026-08-06 09:44:48,000 [ERROR] NotificationWorker - java.net.SocketTimeoutException: Read timed out after 30000ms
+	at com.example.smtp.MailClient.send(MailClient.java:55)
+2026-08-06 09:49:41,000 [ERROR] OrderProcessor - java.lang.NullPointerException: Cannot invoke "Order.getId()" because "order" is null
+	at com.example.OrderProcessor.validate(OrderProcessor.java:142)
+	at com.example.OrderProcessor.process(OrderProcessor.java:88)
+2026-08-06 09:54:18,000 [CRITICAL] CacheManager - redis.clients.jedis.exceptions.JedisConnectionException: Could not get a resource from the pool
+2026-08-06 09:56:04,000 [ERROR] NotificationWorker - java.net.SocketTimeoutException: Read timed out after 30000ms
+	at com.example.smtp.MailClient.send(MailClient.java:55)
+2026-08-06 09:57:42,000 [ERROR] PaymentGateway - com.example.PaymentException: Card declined - insufficient funds
+	at com.example.PaymentGateway.authorize(PaymentGateway.java:210)
+2026-08-06 10:00:54,000 [ERROR] NotificationWorker - java.net.SocketTimeoutException: Read timed out after 30000ms
+	at com.example.smtp.MailClient.send(MailClient.java:55)
+2026-08-06 10:01:35,000 [ERROR] OrderProcessor - java.lang.NullPointerException: Cannot invoke "Order.getId()" because "order" is null
+	at com.example.OrderProcessor.validate(OrderProcessor.java:142)
+	at com.example.OrderProcessor.process(OrderProcessor.java:88)
+2026-08-06 10:02:36,000 [ERROR] OrderProcessor - java.lang.NullPointerException: Cannot invoke "Order.getId()" because "order" is null
+	at com.example.OrderProcessor.validate(OrderProcessor.java:142)
+	at com.example.OrderProcessor.process(OrderProcessor.java:88)
+2026-08-06 10:05:11,000 [CRITICAL] CacheManager - redis.clients.jedis.exceptions.JedisConnectionException: Could not get a resource from the pool
+2026-08-06 10:07:18,000 [ERROR] NotificationWorker - java.net.SocketTimeoutException: Read timed out after 30000ms
+	at com.example.smtp.MailClient.send(MailClient.java:55)
+2026-08-06 10:11:11,000 [ERROR] NotificationWorker - java.net.SocketTimeoutException: Read timed out after 30000ms
+	at com.example.smtp.MailClient.send(MailClient.java:55)
+2026-08-06 10:11:46,000 [ERROR] AuthService - java.security.InvalidKeyException: JWT signature verification failed
+2026-08-06 10:16:45,000 [FATAL] DatabasePool - java.sql.SQLException: Connection pool exhausted (max=50, active=50)
+	at com.example.db.ConnectionPool.getConnection(ConnectionPool.java:76)
+2026-08-06 10:19:39,000 [ERROR] AuthService - java.security.InvalidKeyException: JWT signature verification failed
+2026-08-06 10:22:04,000 [CRITICAL] CacheManager - redis.clients.jedis.exceptions.JedisConnectionException: Could not get a resource from the pool
+2026-08-06 10:25:51,000 [FATAL] DatabasePool - java.sql.SQLException: Connection pool exhausted (max=50, active=50)
+	at com.example.db.ConnectionPool.getConnection(ConnectionPool.java:76)
+2026-08-06 10:30:03,000 [ERROR] OrderProcessor - java.lang.NullPointerException: Cannot invoke "Order.getId()" because "order" is null
+	at com.example.OrderProcessor.validate(OrderProcessor.java:142)
+	at com.example.OrderProcessor.process(OrderProcessor.java:88)
+2026-08-06 10:30:53,000 [ERROR] PaymentGateway - com.example.PaymentException: Card declined - insufficient funds
+	at com.example.PaymentGateway.authorize(PaymentGateway.java:210)
+2026-08-06 10:34:58,000 [ERROR] AuthService - java.security.InvalidKeyException: JWT signature verification failed
+2026-08-06 10:39:25,000 [ERROR] AuthService - java.security.InvalidKeyException: JWT signature verification failed
+2026-08-06 10:41:29,000 [FATAL] DatabasePool - java.sql.SQLException: Connection pool exhausted (max=50, active=50)
+	at com.example.db.ConnectionPool.getConnection(ConnectionPool.java:76)
+2026-08-06 10:43:02,000 [FATAL] DatabasePool - java.sql.SQLException: Connection pool exhausted (max=50, active=50)
+	at com.example.db.ConnectionPool.getConnection(ConnectionPool.java:76)
