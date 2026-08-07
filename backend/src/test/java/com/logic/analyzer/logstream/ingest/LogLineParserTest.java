@@ -17,6 +17,18 @@ class LogLineParserTest {
         assertThat(parsed).hasSize(1);
         assertThat(parsed.get(0).level()).isEqualTo(LogLevel.ERROR);
         assertThat(parsed.get(0).timestamp().toString()).startsWith("2026-08-06T08:00:41");
+        assertThat(parsed.get(0).message()).isEqualTo("AuthService - boom");
+    }
+
+    @Test
+    void stripsAppLogTimestampAndBracketedLevelFromTheMessage() {
+        List<LogLineParser.ParsedLine> parsed = LogLineParser.parse(List.of(
+                "2026-08-07 12:11:44,281 [INFO] PaymentGateway - Request processed successfully in 2015ms"));
+
+        assertThat(parsed).hasSize(1);
+        assertThat(parsed.get(0).level()).isEqualTo(LogLevel.INFO);
+        assertThat(parsed.get(0).message())
+                .isEqualTo("PaymentGateway - Request processed successfully in 2015ms");
     }
 
     @Test
@@ -28,6 +40,7 @@ class LogLineParserTest {
                 "2026-08-06 08:00:42,000 [INFO] AuthService - recovered"));
 
         assertThat(parsed).hasSize(2);
+        assertThat(parsed.get(0).message()).startsWith("AuthService - boom");
         assertThat(parsed.get(0).message()).contains("Foo.bar").contains("Foo.baz");
         assertThat(parsed.get(1).level()).isEqualTo(LogLevel.INFO);
     }
@@ -40,6 +53,8 @@ class LogLineParserTest {
         assertThat(parsed).hasSize(1);
         assertThat(parsed.get(0).level()).isEqualTo(LogLevel.ERROR);
         assertThat(parsed.get(0).timestamp().toString()).startsWith("2026-08-06T08:00:00");
+        assertThat(parsed.get(0).message())
+                .isEqualTo("203.0.113.1 - - \"GET /x HTTP/1.1\" 500 123 \"-\" \"curl\"");
     }
 
     @Test

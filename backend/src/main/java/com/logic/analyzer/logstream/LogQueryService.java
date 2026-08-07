@@ -35,6 +35,7 @@ public class LogQueryService {
                 .filter(entry -> !entry.timestamp().isBefore(cutoff))
                 .filter(entry -> params.levels() == null || params.levels().isEmpty() || params.levels().contains(entry.level()))
                 .filter(entry -> params.source() == null || params.source().isBlank() || params.source().equals(entry.source()))
+                .filter(entry -> params.file() == null || params.file().isBlank() || params.file().equals(entry.file()))
                 .filter(entry -> term.isEmpty() || matches(entry, term))
                 .toList();
 
@@ -57,8 +58,20 @@ public class LogQueryService {
         return new LogQueryResult(content, params.page(), size, totalElements, totalPages);
     }
 
+    /** Distinct, sorted file labels seen across ingested entries, optionally scoped to one source. */
+    public List<String> listFiles(String source) {
+        return ingestionService.collectEntries().stream()
+                .filter(entry -> source == null || source.isBlank() || source.equals(entry.source()))
+                .map(LogEntry::file)
+                .filter(file -> file != null && !file.isBlank())
+                .distinct()
+                .sorted(String.CASE_INSENSITIVE_ORDER)
+                .toList();
+    }
+
     private boolean matches(LogEntry entry, String term) {
-        String haystack = (entry.message() + " " + entry.source() + " " + entry.level())
+        String haystack = (entry.message() + " " + entry.source() + " " + entry.level()
+                + " " + (entry.file() == null ? "" : entry.file()))
                 .toLowerCase(Locale.ROOT);
         return haystack.contains(term);
     }
@@ -67,6 +80,7 @@ public class LogQueryService {
         return switch (sortBy == null ? "time" : sortBy) {
             case "level" -> Comparator.comparingInt(entry -> entry.level().ordinal());
             case "source" -> Comparator.comparing(LogEntry::source, String.CASE_INSENSITIVE_ORDER);
+            case "file" -> Comparator.comparing(entry -> entry.file() == null ? "" : entry.file(), String.CASE_INSENSITIVE_ORDER);
             default -> Comparator.comparing(LogEntry::timestamp);
         };
     }

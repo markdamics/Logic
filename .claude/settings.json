@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s \"http://localhost:8081/api/logs/files\")",
+      "Bash(curl -s \"http://localhost:8081/api/logs/files?source=test-data-dir\")",
+      "Bash(curl -s \"http://localhost:8081/api/logs?source=test-data-dir&file=error.log&page=0&size=2\")",
+      "Bash(pkill -f \"spring-boot.run.arguments=--server.port=8081\")",
+      "Bash(pkill -f \"vite.*5190\")",
+      "Bash(lsof -ti:8081 -sTCP:LISTEN)",
+      "Bash(lsof -ti:5190 -sTCP:LISTEN)"
+    ]
+  }
+}

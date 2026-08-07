@@ -38,6 +38,7 @@ export interface LogEntry {
   timestamp: string;
   level: LogLevel;
   source: string;
+  file: string | null;
   message: string;
 }
 
@@ -53,8 +54,9 @@ export interface LogQueryParams {
   search?: string;
   levels?: LogLevel[];
   source?: string;
+  file?: string;
   rangeMinutes?: number;
-  sortBy?: "time" | "level" | "source";
+  sortBy?: "time" | "level" | "source" | "file";
   sortDir?: "asc" | "desc";
   page?: number;
   size?: number;

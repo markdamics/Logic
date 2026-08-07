@@ -6,6 +6,7 @@ public record LogQueryParams(
         String search,
         Set<LogLevel> levels,
         String source,
+        String file,
         long rangeMinutes,
         String sortBy,
         String sortDir,

@@ -541,6 +541,12 @@ body,
   white-space: nowrap;
 }
 
+.log-file {
+  font-family: ui-monospace, Consolas, monospace;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
 .log-message {
   font-family: ui-monospace, Consolas, monospace;
   white-space: pre-line; /* preserve real line breaks in multi-line stack traces */

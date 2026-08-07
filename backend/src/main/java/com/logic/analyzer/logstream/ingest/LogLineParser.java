@@ -59,12 +59,46 @@ public final class LogLineParser {
             }
             timestamp = detectTimestamp(line);
             level = detectLevel(line);
-            message = new StringBuilder(line);
+            message = new StringBuilder(stripParsed(line));
         }
         if (message != null) {
             result.add(new ParsedLine(timestamp, level, message.toString()));
         }
         return result;
+    }
+
+    /**
+     * Removes whichever timestamp span (if any) and bracketed level tag (if
+     * any) were matched during detection, leaving whatever wasn't recognized -
+     * this becomes the entry's message. Only the bracketed level form is
+     * stripped (not the bare-word form), since removing a bare match risks
+     * mangling ordinary sentence text that happens to contain a level-like
+     * word.
+     */
+    private static String stripParsed(String line) {
+        String stripped = line;
+        if (APP_TS.matcher(line).find()) {
+            stripped = removeFirstMatch(stripped, APP_TS);
+        } else if (ACCESS_TS.matcher(line).find()) {
+            stripped = removeFirstMatch(stripped, ACCESS_TS);
+        } else if (ISO_TS.matcher(line).find()) {
+            stripped = removeFirstMatch(stripped, ISO_TS);
+        }
+        stripped = removeFirstMatch(stripped, BRACKET_LEVEL);
+        return stripped.strip().replaceAll(" {2,}", " ");
+    }
+
+    private static String removeFirstMatch(String text, Pattern pattern) {
+        Matcher m = pattern.matcher(text);
+        if (!m.find()) {
+            return text;
+        }
+        int start = m.start();
+        int end = m.end();
+        if (end < text.length() && text.charAt(end) == ' ') {
+            end++;
+        }
+        return text.substring(0, start) + text.substring(end);
     }
 
     private static LogLevel detectLevel(String line) {

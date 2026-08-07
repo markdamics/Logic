@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 import type { Screen } from "../screens";
 import { SCREEN_TITLES } from "../screens";
-import { AlertsIcon, DashboardIcon, LogsIcon, SourcesIcon, TerminalIcon } from "./icons";
+import { DashboardIcon, LogsIcon, SourcesIcon, TerminalIcon } from "./icons";
 
 type ThemeMode = "dark" | "light";
 
@@ -17,7 +17,6 @@ const NAV_ITEMS: { screen: Screen; icon: (props: { size?: number }) => ReactElem
   { screen: "dashboard", icon: DashboardIcon },
   { screen: "logs", icon: LogsIcon },
   { screen: "sources", icon: SourcesIcon },
-  { screen: "alerts", icon: AlertsIcon },
 ];
 
 export function Sidebar({ screen, onNavigate, collapsed, mode, onToggleMode }: SidebarProps) {

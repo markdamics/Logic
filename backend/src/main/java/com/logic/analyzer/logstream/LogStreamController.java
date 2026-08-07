@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.Set;
 
 @RestController
@@ -27,20 +28,27 @@ public class LogStreamController {
             @RequestParam(required = false) String search,
             @RequestParam(required = false) Set<LogLevel> level,
             @RequestParam(required = false) String source,
+            @RequestParam(required = false) String file,
             @RequestParam(defaultValue = "0") long rangeMinutes,
             @RequestParam(defaultValue = "time") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDir,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
-        log.info("GET /api/logs search='{}' level={} source='{}' rangeMinutes={} sortBy={} sortDir={} page={} size={}",
-                search, level, source, rangeMinutes, sortBy, sortDir, page, size);
+        log.info("GET /api/logs search='{}' level={} source='{}' file='{}' rangeMinutes={} sortBy={} sortDir={} page={} size={}",
+                search, level, source, file, rangeMinutes, sortBy, sortDir, page, size);
 
         Set<LogLevel> levels = level == null ? Set.of() : level;
         LogQueryResult result = queryService.query(
-                new LogQueryParams(search, levels, source, rangeMinutes, sortBy, sortDir, page, size));
+                new LogQueryParams(search, levels, source, file, rangeMinutes, sortBy, sortDir, page, size));
 
         log.debug("GET /api/logs -> {} of {} total", result.content().size(), result.totalElements());
         return result;
+    }
+
+    @GetMapping("/files")
+    public List<String> listFiles(@RequestParam(required = false) String source) {
+        log.info("GET /api/logs/files source='{}'", source);
+        return queryService.listFiles(source);
     }
 }

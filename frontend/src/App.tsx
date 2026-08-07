@@ -107,7 +107,7 @@ function App() {
 
           {screen === "logs" && <LogStream sources={sources} onCountChange={setLogCount} />}
 
-          {(screen === "dashboard" || screen === "alerts") && <ComingSoon title={SCREEN_TITLES[screen]} />}
+          {screen === "dashboard" && <ComingSoon title={SCREEN_TITLES[screen]} />}
         </div>
       </div>
 

@@ -49,6 +49,7 @@ class LogIngestionServiceTest {
         assertThat(entries.get(1).level()).isEqualTo(LogLevel.ERROR);
         assertThat(entries.get(1).message()).contains("AuthService.validate");
         assertThat(entries).allMatch(e -> e.source().equals("auth-file"));
+        assertThat(entries).allMatch(e -> e.file().equals("app.log"));
     }
 
     @Test
@@ -61,10 +62,10 @@ class LogIngestionServiceTest {
         List<LogEntry> entries = service().collectEntries();
 
         assertThat(entries).hasSize(2);
+        assertThat(entries).extracting(LogEntry::file)
+                .containsExactlyInAnyOrder("a.log", "b.log");
         assertThat(entries).extracting(LogEntry::message)
-                .anyMatch(m -> m.startsWith("[a.log]"));
-        assertThat(entries).extracting(LogEntry::message)
-                .anyMatch(m -> m.startsWith("[b.log]"));
+                .containsExactlyInAnyOrder("X - from A", "X - from B");
     }
 
     @Test
@@ -78,6 +79,7 @@ class LogIngestionServiceTest {
         assertThat(entries).hasSize(1);
         assertThat(entries.get(0).level()).isEqualTo(LogLevel.ERROR);
         assertThat(entries.get(0).message()).contains("Failed to read log source");
+        assertThat(entries.get(0).file()).isNull();
     }
 
     @Test
@@ -102,6 +104,7 @@ class LogIngestionServiceTest {
         List<LogEntry> second = service.collectEntries();
 
         assertThat(first.get(0).message()).contains("first version");
+        assertThat(first.get(0).file()).isEqualTo("app.log");
         assertThat(second.get(0).message()).contains("first version"); // still within the cache TTL
     }
 }

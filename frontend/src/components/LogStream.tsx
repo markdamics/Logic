@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { fetchLogs } from "../api/client";
+import { fetchLogs, listLogFiles } from "../api/client";
 import type { LogLevel, LogQueryResult, LogSource } from "../api/types";
 import { createLogger } from "../utils/logger";
 
 const logger = createLogger("LogStream");
 
-type SortColumn = "time" | "level" | "source";
+type SortColumn = "time" | "level" | "source" | "file";
 type SortDirection = "asc" | "desc";
 
 const LEVELS: LogLevel[] = ["ERROR", "WARN", "INFO", "DEBUG"];
@@ -42,6 +42,8 @@ export function LogStream({ sources, onCountChange }: LogStreamProps) {
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [sourceFilter, setSourceFilter] = useState("");
+  const [fileFilter, setFileFilter] = useState("");
+  const [fileOptions, setFileOptions] = useState<string[]>([]);
   const [timeRange, setTimeRange] = useState("24h");
   const [severities, setSeverities] = useState<Set<LogLevel>>(new Set());
   const [sortColumn, setSortColumn] = useState<SortColumn>("time");
@@ -54,6 +56,27 @@ export function LogStream({ sources, onCountChange }: LogStreamProps) {
 
   const sourceNames = useMemo(() => Array.from(new Set(sources.map((s) => s.name))).sort(), [sources]);
   const rangeMinutes = TIME_RANGES.find((r) => r.value === timeRange)?.minutes ?? 24 * 60;
+
+  // Refresh the file-filter dropdown whenever the source scope changes, and
+  // drop any file selection that's no longer valid for the new scope.
+  useEffect(() => {
+    if (sources.length === 0) {
+      setFileOptions([]);
+      return;
+    }
+    let cancelled = false;
+    listLogFiles(sourceFilter || undefined)
+      .then((files) => {
+        if (cancelled) return;
+        setFileOptions(files);
+      })
+      .catch((e) => {
+        logger.warn("Failed to load file filter options", e);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sources.length, sourceFilter]);
 
   // Debounce free-text search so we don't hit the backend on every keystroke.
   useEffect(() => {
@@ -78,6 +101,7 @@ export function LogStream({ sources, onCountChange }: LogStreamProps) {
       search: debouncedSearch || undefined,
       levels: severities.size > 0 ? Array.from(severities) : undefined,
       source: sourceFilter || undefined,
+      file: fileFilter || undefined,
       rangeMinutes,
       sortBy: sortColumn,
       sortDir: sortDirection,
@@ -103,7 +127,7 @@ export function LogStream({ sources, onCountChange }: LogStreamProps) {
     return () => {
       cancelled = true;
     };
-  }, [sources.length, debouncedSearch, severities, sourceFilter, rangeMinutes, sortColumn, sortDirection, page]);
+  }, [sources.length, debouncedSearch, severities, sourceFilter, fileFilter, rangeMinutes, sortColumn, sortDirection, page]);
 
   useEffect(() => {
     onCountChange?.(data?.totalElements ?? 0);
@@ -164,6 +188,7 @@ export function LogStream({ sources, onCountChange }: LogStreamProps) {
           value={sourceFilter}
           onChange={(e) => {
             setSourceFilter(e.target.value);
+            setFileFilter("");
             setPage(0);
           }}
         >
@@ -171,6 +196,21 @@ export function LogStream({ sources, onCountChange }: LogStreamProps) {
           {sourceNames.map((name) => (
             <option key={name} value={name}>
               {name}
+            </option>
+          ))}
+        </select>
+        <select
+          className="input"
+          value={fileFilter}
+          onChange={(e) => {
+            setFileFilter(e.target.value);
+            setPage(0);
+          }}
+        >
+          <option value="">All files</option>
+          {fileOptions.map((file) => (
+            <option key={file} value={file}>
+              {file}
             </option>
           ))}
         </select>
@@ -220,6 +260,7 @@ export function LogStream({ sources, onCountChange }: LogStreamProps) {
               <th onClick={() => toggleSort("time")}>Time {sortArrow("time")}</th>
               <th onClick={() => toggleSort("level")}>Level {sortArrow("level")}</th>
               <th onClick={() => toggleSort("source")}>Source {sortArrow("source")}</th>
+              <th onClick={() => toggleSort("file")}>File {sortArrow("file")}</th>
               <th>Message</th>
             </tr>
           </thead>
@@ -231,19 +272,20 @@ export function LogStream({ sources, onCountChange }: LogStreamProps) {
                   <span className={`level-chip level-${entry.level.toLowerCase()}`}>{entry.level}</span>
                 </td>
                 <td>{entry.source}</td>
+                <td className="log-file">{entry.file ?? "—"}</td>
                 <td className="log-message">{entry.message}</td>
               </tr>
             ))}
             {!loading && rows.length === 0 && (
               <tr>
-                <td colSpan={4} className="log-empty">
+                <td colSpan={5} className="log-empty">
                   No log entries match the current filters.
                 </td>
               </tr>
             )}
             {loading && (
               <tr>
-                <td colSpan={4} className="log-empty">
+                <td colSpan={5} className="log-empty">
                   Loading…
                 </td>
               </tr>

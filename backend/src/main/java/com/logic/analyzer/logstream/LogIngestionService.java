@@ -62,7 +62,7 @@ public class LogIngestionService {
         long id = 1;
         for (LogSource source : sources) {
             for (LogEntry entry : entriesFor(source)) {
-                all.add(new LogEntry(id++, entry.timestamp(), entry.level(), entry.source(), entry.message()));
+                all.add(new LogEntry(id++, entry.timestamp(), entry.level(), entry.source(), entry.file(), entry.message()));
             }
         }
         return all;
@@ -88,8 +88,8 @@ public class LogIngestionService {
             return switch (source.getType()) {
                 case LOCAL_FILE -> readLocalFile(Path.of(source.getPath()), source.getName());
                 case LOCAL_DIRECTORY -> readLocalDirectory(Path.of(source.getPath()), source.getName());
-                case SFTP -> readRemoteTail(sftpTailSource(source), source.getName());
-                case HTTP -> readRemoteTail(new HttpTailSource(URI.create(source.getPath())), source.getName());
+                case SFTP -> readRemoteTail(sftpTailSource(source), source.getName(), basenameOf(source.getPath()));
+                case HTTP -> readRemoteTail(new HttpTailSource(URI.create(source.getPath())), source.getName(), basenameOf(source.getPath()));
             };
         } catch (Exception e) {
             log.warn("Failed to read log source {} ('{}'): {}", source.getId(), source.getName(), e.getMessage());
@@ -107,7 +107,7 @@ public class LogIngestionService {
             return List.of(errorEntry(sourceName, "not a regular file: " + path));
         }
         List<String> lines = LogTailReader.readLastLines(new LocalTailSource(path), MAX_TAIL_BYTES, MAX_LINES_PER_FILE);
-        return toEntries(lines, sourceName, null);
+        return toEntries(lines, sourceName, path.getFileName().toString());
     }
 
     private List<LogEntry> readLocalDirectory(Path dir, String sourceName) throws IOException {
@@ -131,18 +131,27 @@ public class LogIngestionService {
         return entries;
     }
 
-    private List<LogEntry> readRemoteTail(TailSource tailSource, String sourceName) throws IOException {
+    private List<LogEntry> readRemoteTail(TailSource tailSource, String sourceName, String fileLabel) throws IOException {
         List<String> lines = LogTailReader.readLastLines(tailSource, MAX_TAIL_BYTES, MAX_LINES_PER_FILE);
-        return toEntries(lines, sourceName, null);
+        return toEntries(lines, sourceName, fileLabel);
     }
 
     private List<LogEntry> toEntries(List<String> lines, String sourceName, String fileLabel) {
         List<LogEntry> entries = new ArrayList<>();
         for (LogLineParser.ParsedLine parsed : LogLineParser.parse(lines)) {
-            String message = fileLabel == null ? parsed.message() : "[" + fileLabel + "] " + parsed.message();
-            entries.add(new LogEntry(0, parsed.timestamp(), parsed.level(), sourceName, message));
+            entries.add(new LogEntry(0, parsed.timestamp(), parsed.level(), sourceName, fileLabel, parsed.message()));
         }
         return entries;
+    }
+
+    /** Derives a display-friendly file label from a local path, remote path, or URL. */
+    private static String basenameOf(String rawPath) {
+        if (rawPath == null || rawPath.isBlank()) {
+            return null;
+        }
+        String trimmed = rawPath.replaceAll("[/\\\\]+$", "");
+        int idx = Math.max(trimmed.lastIndexOf('/'), trimmed.lastIndexOf('\\'));
+        return idx >= 0 ? trimmed.substring(idx + 1) : trimmed;
     }
 
     private Instant lastModifiedSafe(Path path) {
@@ -154,7 +163,7 @@ public class LogIngestionService {
     }
 
     private LogEntry errorEntry(String sourceName, String reason) {
-        return new LogEntry(0, Instant.now(), LogLevel.ERROR, sourceName, "Failed to read log source: " + reason);
+        return new LogEntry(0, Instant.now(), LogLevel.ERROR, sourceName, null, "Failed to read log source: " + reason);
     }
 
     private record CachedEntries(List<LogEntry> entries, Instant fetchedAt) {
