@@ -3,9 +3,12 @@ package com.logic.analyzer.logstream;
 import com.logic.analyzer.logstream.dto.LogQueryResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -50,5 +53,12 @@ public class LogStreamController {
     public List<String> listFiles(@RequestParam(required = false) String source) {
         log.info("GET /api/logs/files source='{}'", source);
         return queryService.listFiles(source);
+    }
+
+    @PostMapping("/reload")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void reload() {
+        log.info("POST /api/logs/reload");
+        queryService.reload();
     }
 }

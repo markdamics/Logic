@@ -5,6 +5,7 @@ import com.logic.analyzer.source.SourceStatus;
 import com.logic.analyzer.source.SourceType;
 
 import java.time.Instant;
+import java.util.List;
 
 /** Mirrors {@link LogSource} but intentionally omits the password field. */
 public record LogSourceResponse(
@@ -16,10 +17,18 @@ public record LogSourceResponse(
         Integer port,
         String username,
         SourceStatus status,
+        boolean enabled,
+        boolean live,
+        List<String> changedFiles,
         Instant createdAt,
         Instant lastCheckedAt
 ) {
     public static LogSourceResponse from(LogSource source) {
+        return from(source, List.of());
+    }
+
+    /** {@code changedFiles} names the file(s) of a non-live source that changed since it was last read. */
+    public static LogSourceResponse from(LogSource source, List<String> changedFiles) {
         return new LogSourceResponse(
                 source.getId(),
                 source.getName(),
@@ -29,6 +38,9 @@ public record LogSourceResponse(
                 source.getPort(),
                 source.getUsername(),
                 source.getStatus(),
+                source.isEnabled(),
+                source.isLive(),
+                changedFiles,
                 source.getCreatedAt(),
                 source.getLastCheckedAt()
         );

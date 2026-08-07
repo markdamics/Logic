@@ -1,15 +1,15 @@
 import { useEffect, useState } from "react";
-import { ComingSoon } from "./components/ComingSoon";
+import { Dashboard } from "./components/Dashboard";
 import { LogStream } from "./components/LogStream";
 import { Sidebar } from "./components/Sidebar";
 import { SourceDialog } from "./components/SourceDialog";
 import { SourceGrid } from "./components/SourceGrid";
 import { useSources } from "./hooks/useSources";
-import { ApiError } from "./api/client";
+import { ApiError, reloadLogs } from "./api/client";
 import type { LogSource } from "./api/types";
 import type { Screen } from "./screens";
 import { SCREEN_TITLES } from "./screens";
-import { CollapseIcon } from "./components/icons";
+import { CollapseIcon, TestIcon } from "./components/icons";
 import { createLogger } from "./utils/logger";
 
 const logger = createLogger("App");
@@ -32,7 +32,9 @@ function App() {
   const [logCount, setLogCount] = useState(0);
   const [dialogState, setDialogState] = useState<DialogState | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const { sources, loading, error, create, update, remove, check } = useSources();
+  const [reloadSignal, setReloadSignal] = useState(0);
+  const [reloading, setReloading] = useState(false);
+  const { sources, loading, error, create, update, remove, check, toggleEnabled, toggleLive } = useSources();
 
   useEffect(() => {
     document.documentElement.dataset.theme = mode;
@@ -63,6 +65,40 @@ function App() {
     }
   };
 
+  const handleToggleEnabled = async (id: number, enabled: boolean) => {
+    setActionError(null);
+    try {
+      await toggleEnabled(id, enabled);
+    } catch (e) {
+      logger.warn(`Failed to ${enabled ? "enable" : "disable"} source ${id}`, e);
+      setActionError(e instanceof ApiError ? e.message : `Failed to ${enabled ? "enable" : "disable"} source`);
+    }
+  };
+
+  const handleToggleLive = async (id: number, live: boolean) => {
+    setActionError(null);
+    try {
+      await toggleLive(id, live);
+    } catch (e) {
+      logger.warn(`Failed to mark source ${id} as ${live ? "live" : "not live"}`, e);
+      setActionError(e instanceof ApiError ? e.message : `Failed to mark source as ${live ? "live" : "not live"}`);
+    }
+  };
+
+  const handleReload = async () => {
+    setActionError(null);
+    setReloading(true);
+    try {
+      await reloadLogs();
+      setReloadSignal((n) => n + 1);
+    } catch (e) {
+      logger.warn("Failed to reload logs", e);
+      setActionError(e instanceof ApiError ? e.message : "Failed to reload");
+    } finally {
+      setReloading(false);
+    }
+  };
+
   return (
     <div className="shell">
       <Sidebar
@@ -84,12 +120,31 @@ function App() {
             <CollapseIcon />
           </button>
           <h3>{SCREEN_TITLES[screen]}</h3>
-          {screen === "sources" && (
-            <span className="text-muted">{sources.length} source{sources.length === 1 ? "" : "s"}</span>
-          )}
-          {screen === "logs" && (
-            <span className="text-muted">{logCount} result{logCount === 1 ? "" : "s"}</span>
-          )}
+          <div className="topbar-right">
+            {screen === "sources" && (
+              <span className="text-muted">{sources.length} source{sources.length === 1 ? "" : "s"}</span>
+            )}
+            {screen === "logs" && (
+              <span className="text-muted">{logCount} result{logCount === 1 ? "" : "s"}</span>
+            )}
+            {(screen === "logs" || screen === "dashboard") && (
+              <button
+                type="button"
+                className="btn btn-secondary btn-small reload-btn"
+                onClick={handleReload}
+                disabled={reloading}
+                title={
+                  sources.some((s) => s.changedFiles.length > 0)
+                    ? "New data available — click to refresh non-live sources"
+                    : "Refresh non-live sources now"
+                }
+              >
+                <TestIcon size={13} />
+                {reloading ? "Reloading…" : "Reload"}
+                {sources.some((s) => s.changedFiles.length > 0) && <span className="update-dot reload-btn-dot" />}
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="content">
@@ -101,13 +156,24 @@ function App() {
               onTest={handleTest}
               onEdit={(source) => setDialogState({ mode: "edit", source })}
               onDelete={handleDelete}
+              onToggleEnabled={handleToggleEnabled}
+              onToggleLive={handleToggleLive}
               onAdd={() => setDialogState({ mode: "add" })}
             />
           )}
 
-          {screen === "logs" && <LogStream sources={sources} onCountChange={setLogCount} />}
+          {screen === "logs" && (
+            <LogStream
+              sources={sources}
+              onCountChange={setLogCount}
+              reloadSignal={reloadSignal}
+              onReload={handleReload}
+            />
+          )}
 
-          {screen === "dashboard" && <ComingSoon title={SCREEN_TITLES[screen]} />}
+          {screen === "dashboard" && !loading && (
+            <Dashboard sources={sources} reloadSignal={reloadSignal} onReload={handleReload} />
+          )}
         </div>
       </div>
 

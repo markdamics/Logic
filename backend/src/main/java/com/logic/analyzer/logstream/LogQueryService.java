@@ -58,6 +58,11 @@ public class LogQueryService {
         return new LogQueryResult(content, params.page(), size, totalElements, totalPages);
     }
 
+    /** Forces the next query/summary to re-read every source, refreshing non-live sources on demand. */
+    public void reload() {
+        ingestionService.invalidateAll();
+    }
+
     /** Distinct, sorted file labels seen across ingested entries, optionally scoped to one source. */
     public List<String> listFiles(String source) {
         return ingestionService.collectEntries().stream()

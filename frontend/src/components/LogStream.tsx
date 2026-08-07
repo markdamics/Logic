@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { fetchLogs, listLogFiles } from "../api/client";
 import type { LogLevel, LogQueryResult, LogSource } from "../api/types";
 import { createLogger } from "../utils/logger";
+import { updateMessageFor } from "../utils/source";
 
 const logger = createLogger("LogStream");
 
@@ -11,6 +12,7 @@ type SortDirection = "asc" | "desc";
 const LEVELS: LogLevel[] = ["ERROR", "WARN", "INFO", "DEBUG"];
 const PAGE_SIZE = 10;
 const SEARCH_DEBOUNCE_MS = 300;
+const LIVE_POLL_INTERVAL_MS = 3000;
 
 const TIME_RANGES: { value: string; label: string; minutes: number }[] = [
   { value: "15m", label: "Last 15 min", minutes: 15 },
@@ -36,9 +38,11 @@ const PRESETS: Preset[] = [
 interface LogStreamProps {
   sources: LogSource[];
   onCountChange?: (count: number) => void;
+  reloadSignal?: number;
+  onReload?: () => void;
 }
 
-export function LogStream({ sources, onCountChange }: LogStreamProps) {
+export function LogStream({ sources, onCountChange, reloadSignal, onReload }: LogStreamProps) {
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [sourceFilter, setSourceFilter] = useState("");
@@ -49,6 +53,7 @@ export function LogStream({ sources, onCountChange }: LogStreamProps) {
   const [sortColumn, setSortColumn] = useState<SortColumn>("time");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [page, setPage] = useState(0);
+  const [liveTick, setLiveTick] = useState(0);
 
   const [data, setData] = useState<LogQueryResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -56,6 +61,17 @@ export function LogStream({ sources, onCountChange }: LogStreamProps) {
 
   const sourceNames = useMemo(() => Array.from(new Set(sources.map((s) => s.name))).sort(), [sources]);
   const rangeMinutes = TIME_RANGES.find((r) => r.value === timeRange)?.minutes ?? 24 * 60;
+  const hasLiveSource = sources.some((s) => s.enabled && s.live);
+  const sourcesWithUpdates = sources.filter((s) => s.changedFiles.length > 0);
+
+  // While any source is live, keep polling so the table updates on its own.
+  useEffect(() => {
+    if (!hasLiveSource) {
+      return;
+    }
+    const timer = setInterval(() => setLiveTick((t) => t + 1), LIVE_POLL_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [hasLiveSource]);
 
   // Refresh the file-filter dropdown whenever the source scope changes, and
   // drop any file selection that's no longer valid for the new scope.
@@ -127,7 +143,19 @@ export function LogStream({ sources, onCountChange }: LogStreamProps) {
     return () => {
       cancelled = true;
     };
-  }, [sources.length, debouncedSearch, severities, sourceFilter, fileFilter, rangeMinutes, sortColumn, sortDirection, page]);
+  }, [
+    sources.length,
+    debouncedSearch,
+    severities,
+    sourceFilter,
+    fileFilter,
+    rangeMinutes,
+    sortColumn,
+    sortDirection,
+    page,
+    liveTick,
+    reloadSignal,
+  ]);
 
   useEffect(() => {
     onCountChange?.(data?.totalElements ?? 0);
@@ -240,6 +268,12 @@ export function LogStream({ sources, onCountChange }: LogStreamProps) {
             </button>
           ))}
         </div>
+        {hasLiveSource && (
+          <span className="live-badge" title="Auto-refreshing while a live source is watched">
+            <span className="live-dot" />
+            LIVE
+          </span>
+        )}
       </div>
 
       <div className="log-presets">
@@ -253,13 +287,22 @@ export function LogStream({ sources, onCountChange }: LogStreamProps) {
 
       {error && <div className="error-banner">{error}</div>}
 
+      {sourcesWithUpdates.length > 0 && (
+        <button type="button" className="update-banner" onClick={onReload}>
+          <span className="update-dot" />
+          <span className="update-banner-text">
+            {sourcesWithUpdates.map(updateMessageFor).join("; ")}
+          </span>
+          <span className="update-banner-action">Reload to see the changes</span>
+        </button>
+      )}
+
       <div className="log-table-wrapper">
         <table className="log-table">
           <thead>
             <tr>
               <th onClick={() => toggleSort("time")}>Time {sortArrow("time")}</th>
               <th onClick={() => toggleSort("level")}>Level {sortArrow("level")}</th>
-              <th onClick={() => toggleSort("source")}>Source {sortArrow("source")}</th>
               <th onClick={() => toggleSort("file")}>File {sortArrow("file")}</th>
               <th>Message</th>
             </tr>
@@ -271,7 +314,6 @@ export function LogStream({ sources, onCountChange }: LogStreamProps) {
                 <td>
                   <span className={`level-chip level-${entry.level.toLowerCase()}`}>{entry.level}</span>
                 </td>
-                <td>{entry.source}</td>
                 <td className="log-file">{entry.file ?? "—"}</td>
                 <td className="log-message">{entry.message}</td>
               </tr>

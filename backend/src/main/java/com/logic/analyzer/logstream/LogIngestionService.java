@@ -20,6 +20,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,10 +29,17 @@ import java.util.stream.Stream;
 /**
  * Reads real content from each configured source - tailing the last portion of
  * large files/remote paths rather than loading them whole - and parses it into
- * LogEntry objects for LogQueryService to filter/sort/paginate. A short-lived
- * per-source cache absorbs the burst of requests a single UI interaction can
- * trigger (sort clicks, pagination, debounced search) without re-reading disk
- * or a remote host on every one of them.
+ * LogEntry objects for LogQueryService to filter/sort/paginate. A per-source
+ * cache absorbs the burst of requests a single UI interaction can trigger
+ * (sort clicks, pagination, debounced search) without re-reading disk or a
+ * remote host on every one of them.
+ *
+ * Sources marked "live" are re-read on a short TTL, so the Log Stream and
+ * Dashboard keep updating on their own as new lines arrive. Non-live sources
+ * are read once and then frozen indefinitely - the cached entries are
+ * returned forever - until something calls {@link #invalidateAll()} (wired
+ * to the frontend's Reload action), keeping them as fixed, deliberate
+ * snapshots instead of re-reading disk/network on every request.
  *
  * Known simplifications: directories are read non-recursively and capped to
  * the most recently modified files; there's no incremental/streaming tail
@@ -46,11 +54,13 @@ public class LogIngestionService {
     private static final int MAX_TAIL_BYTES = 512 * 1024;
     private static final int MAX_LINES_PER_FILE = 3000;
     private static final int MAX_FILES_PER_DIRECTORY = 20;
-    private static final Duration CACHE_TTL = Duration.ofSeconds(3);
+    private static final Duration LIVE_CACHE_TTL = Duration.ofSeconds(2);
+    private static final Duration PROBE_TTL = Duration.ofSeconds(5);
     private static final int DEFAULT_SFTP_PORT = 22;
 
     private final LogSourceRepository sourceRepository;
     private final Map<Long, CachedEntries> cache = new ConcurrentHashMap<>();
+    private final Map<Long, ProbeResult> probeCache = new ConcurrentHashMap<>();
 
     public LogIngestionService(LogSourceRepository sourceRepository) {
         this.sourceRepository = sourceRepository;
@@ -61,6 +71,9 @@ public class LogIngestionService {
         List<LogEntry> all = new ArrayList<>();
         long id = 1;
         for (LogSource source : sources) {
+            if (!source.isEnabled()) {
+                continue;
+            }
             for (LogEntry entry : entriesFor(source)) {
                 all.add(new LogEntry(id++, entry.timestamp(), entry.level(), entry.source(), entry.file(), entry.message()));
             }
@@ -75,12 +88,77 @@ public class LogIngestionService {
             return readSource(source);
         }
         CachedEntries cached = cache.get(id);
-        if (cached != null && Duration.between(cached.fetchedAt(), Instant.now()).compareTo(CACHE_TTL) < 0) {
-            return cached.entries();
+        if (cached != null) {
+            if (!source.isLive()) {
+                // Non-live sources are a fixed snapshot once read - only invalidateAll() refreshes them.
+                return cached.entries();
+            }
+            if (Duration.between(cached.fetchedAt(), Instant.now()).compareTo(LIVE_CACHE_TTL) < 0) {
+                return cached.entries();
+            }
         }
         List<LogEntry> entries = readSource(source);
-        cache.put(id, new CachedEntries(entries, Instant.now()));
+        cache.put(id, new CachedEntries(entries, Instant.now(), safeFingerprint(source)));
         return entries;
+    }
+
+    /** Drops all cached entries so the next read re-fetches every source, live or not. */
+    public void invalidateAll() {
+        cache.clear();
+        probeCache.clear();
+        log.info("Ingestion cache invalidated for all sources");
+    }
+
+    /**
+     * Which specific file(s) within a non-live source look like they've
+     * changed since the source was last read - the signal behind the "new
+     * data available" indicator, since non-live sources otherwise stay frozen
+     * until reloaded. Fingerprints are tracked per file (not aggregated per
+     * source) specifically so a LOCAL_DIRECTORY source can report exactly
+     * which file changed instead of just "the directory changed". Live
+     * sources always report empty here since they already refresh on their
+     * own. Probing (which can mean a real SFTP connection or HTTP HEAD
+     * request) is itself throttled by a short TTL so frequent polling from
+     * the UI doesn't hammer a remote source just to answer this question.
+     */
+    public List<String> changedFiles(LogSource source) {
+        if (!source.isEnabled() || source.isLive()) {
+            return List.of();
+        }
+        Long id = source.getId();
+        if (id == null) {
+            return List.of();
+        }
+        CachedEntries cached = cache.get(id);
+        if (cached == null || cached.fingerprints() == null) {
+            return List.of();
+        }
+
+        ProbeResult probed = probeCache.get(id);
+        if (probed != null && Duration.between(probed.checkedAt(), Instant.now()).compareTo(PROBE_TTL) < 0) {
+            return probed.changedFiles();
+        }
+
+        List<String> changed;
+        try {
+            changed = diffFingerprints(cached.fingerprints(), fingerprintOf(source));
+        } catch (Exception e) {
+            changed = List.of();
+        }
+        probeCache.put(id, new ProbeResult(changed, Instant.now()));
+        return changed;
+    }
+
+    private List<String> diffFingerprints(
+            Map<String, TailSource.Fingerprint> previous, Map<String, TailSource.Fingerprint> current) {
+        List<String> changed = new ArrayList<>();
+        for (Map.Entry<String, TailSource.Fingerprint> entry : current.entrySet()) {
+            TailSource.Fingerprint prior = previous.get(entry.getKey());
+            if (prior == null || !prior.equals(entry.getValue())) {
+                changed.add(entry.getKey());
+            }
+        }
+        return changed;
     }
 
     private List<LogEntry> readSource(LogSource source) {
@@ -115,20 +193,51 @@ public class LogIngestionService {
             return List.of(errorEntry(sourceName, "not a directory: " + dir));
         }
 
-        List<Path> files;
-        try (Stream<Path> stream = Files.list(dir)) {
-            files = stream.filter(Files::isRegularFile)
-                    .sorted(Comparator.comparing(this::lastModifiedSafe).reversed())
-                    .limit(MAX_FILES_PER_DIRECTORY)
-                    .toList();
-        }
-
         List<LogEntry> entries = new ArrayList<>();
-        for (Path file : files) {
+        for (Path file : selectDirectoryFiles(dir)) {
             List<String> lines = LogTailReader.readLastLines(new LocalTailSource(file), MAX_TAIL_BYTES, MAX_LINES_PER_FILE);
             entries.addAll(toEntries(lines, sourceName, file.getFileName().toString()));
         }
         return entries;
+    }
+
+    /** Same most-recently-modified selection used for both reading and probing, so the two stay in sync. */
+    private List<Path> selectDirectoryFiles(Path dir) throws IOException {
+        try (Stream<Path> stream = Files.list(dir)) {
+            return stream.filter(Files::isRegularFile)
+                    .sorted(Comparator.comparing(this::lastModifiedSafe).reversed())
+                    .limit(MAX_FILES_PER_DIRECTORY)
+                    .toList();
+        }
+    }
+
+    private Map<String, TailSource.Fingerprint> safeFingerprint(LogSource source) {
+        try {
+            return fingerprintOf(source);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** One fingerprint per file, keyed by the same file label toEntries() tags entries with. */
+    private Map<String, TailSource.Fingerprint> fingerprintOf(LogSource source) throws IOException {
+        return switch (source.getType()) {
+            case LOCAL_FILE -> {
+                Path path = Path.of(source.getPath());
+                yield Map.of(path.getFileName().toString(), new LocalTailSource(path).probe());
+            }
+            case LOCAL_DIRECTORY -> directoryFingerprints(Path.of(source.getPath()));
+            case SFTP -> Map.of(basenameOf(source.getPath()), sftpTailSource(source).probe());
+            case HTTP -> Map.of(basenameOf(source.getPath()), new HttpTailSource(URI.create(source.getPath())).probe());
+        };
+    }
+
+    private Map<String, TailSource.Fingerprint> directoryFingerprints(Path dir) throws IOException {
+        Map<String, TailSource.Fingerprint> fingerprints = new LinkedHashMap<>();
+        for (Path file : selectDirectoryFiles(dir)) {
+            fingerprints.put(file.getFileName().toString(), new LocalTailSource(file).probe());
+        }
+        return fingerprints;
     }
 
     private List<LogEntry> readRemoteTail(TailSource tailSource, String sourceName, String fileLabel) throws IOException {
@@ -166,6 +275,9 @@ public class LogIngestionService {
         return new LogEntry(0, Instant.now(), LogLevel.ERROR, sourceName, null, "Failed to read log source: " + reason);
     }
 
-    private record CachedEntries(List<LogEntry> entries, Instant fetchedAt) {
+    private record CachedEntries(List<LogEntry> entries, Instant fetchedAt, Map<String, TailSource.Fingerprint> fingerprints) {
+    }
+
+    private record ProbeResult(List<String> changedFiles, Instant checkedAt) {
     }
 }

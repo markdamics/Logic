@@ -9,6 +9,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.ColumnDefault;
 
 import java.time.Instant;
 
@@ -48,6 +49,16 @@ public class LogSource {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private SourceStatus status = SourceStatus.UNVERIFIED;
+
+    /** Disabled sources are skipped by ingestion (paused) but stay configured. */
+    @Column(nullable = false)
+    @ColumnDefault("true")
+    private boolean enabled = true;
+
+    /** Live sources are re-read continuously; non-live sources are read once and cached until reloaded. */
+    @Column(nullable = false)
+    @ColumnDefault("false")
+    private boolean live = false;
 
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
@@ -113,6 +124,22 @@ public class LogSource {
 
     public void setStatus(SourceStatus status) {
         this.status = status;
+    }
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
+
+    public boolean isLive() {
+        return live;
+    }
+
+    public void setLive(boolean live) {
+        this.live = live;
     }
 
     public Instant getCreatedAt() {

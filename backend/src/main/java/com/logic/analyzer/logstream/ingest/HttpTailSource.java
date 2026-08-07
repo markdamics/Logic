@@ -6,6 +6,9 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 
 public class HttpTailSource implements TailSource {
@@ -63,6 +66,36 @@ public class HttpTailSource implements TailSource {
             return Long.parseLong(range.trim()) == 0;
         } catch (RuntimeException e) {
             return false;
+        }
+    }
+
+    @Override
+    public Fingerprint probe() throws IOException {
+        HttpRequest request = HttpRequest.newBuilder(uri)
+                .method("HEAD", HttpRequest.BodyPublishers.noBody())
+                .timeout(TIMEOUT)
+                .build();
+        try {
+            HttpResponse<Void> response = CLIENT.send(request, HttpResponse.BodyHandlers.discarding());
+            if (response.statusCode() >= 400) {
+                throw new IOException("HEAD " + uri + " returned " + response.statusCode());
+            }
+            long size = response.headers().firstValueAsLong("Content-Length").orElse(-1);
+            Instant lastModified = response.headers().firstValue("Last-Modified")
+                    .map(HttpTailSource::parseHttpDate)
+                    .orElse(null);
+            return new Fingerprint(size, lastModified);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Interrupted while probing " + uri, e);
+        }
+    }
+
+    private static Instant parseHttpDate(String value) {
+        try {
+            return ZonedDateTime.parse(value, DateTimeFormatter.RFC_1123_DATE_TIME).toInstant();
+        } catch (RuntimeException e) {
+            return null;
         }
     }
 }

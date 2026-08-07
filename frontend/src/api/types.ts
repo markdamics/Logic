@@ -11,6 +11,9 @@ export interface LogSource {
   port: number | null;
   username: string | null;
   status: SourceStatus;
+  enabled: boolean;
+  live: boolean;
+  changedFiles: string[];
   createdAt: string;
   lastCheckedAt: string | null;
 }
@@ -60,4 +63,35 @@ export interface LogQueryParams {
   sortDir?: "asc" | "desc";
   page?: number;
   size?: number;
+}
+
+export interface SourceActivity {
+  source: string;
+  status: SourceStatus;
+  enabled: boolean;
+  live: boolean;
+  entriesLast24h: number;
+  errorsLast24h: number;
+}
+
+export interface FileActivity {
+  file: string;
+  source: string;
+  entriesLast24h: number;
+  errorsLast24h: number;
+}
+
+export interface DashboardSummary {
+  totalSources: number;
+  reachableSources: number;
+  unreachableSources: number;
+  unverifiedSources: number;
+  enabledSources: number;
+  disabledSources: number;
+  entriesLast24h: number;
+  errorsLast24h: number;
+  warningsLast24h: number;
+  recentIssues: LogEntry[];
+  sourceActivity: SourceActivity[];
+  fileActivity: FileActivity[];
 }

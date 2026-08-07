@@ -53,4 +53,24 @@ public class LogSourceController {
     public ConnectionTestResult testConnection(@PathVariable Long id) {
         return service.testConnection(id);
     }
+
+    @PostMapping("/{id}/enable")
+    public LogSourceResponse enable(@PathVariable Long id) {
+        return service.setEnabled(id, true);
+    }
+
+    @PostMapping("/{id}/disable")
+    public LogSourceResponse disable(@PathVariable Long id) {
+        return service.setEnabled(id, false);
+    }
+
+    @PostMapping("/{id}/enable-live")
+    public LogSourceResponse enableLive(@PathVariable Long id) {
+        return service.setLive(id, true);
+    }
+
+    @PostMapping("/{id}/disable-live")
+    public LogSourceResponse disableLive(@PathVariable Long id) {
+        return service.setLive(id, false);
+    }
 }

@@ -69,6 +69,19 @@ class LogIngestionServiceTest {
     }
 
     @Test
+    void skipsDisabledSourcesEntirely() throws IOException {
+        Path file = tempDir.resolve("app.log");
+        Files.writeString(file, "2026-08-06 08:00:00,000 [INFO] X - should not appear\n");
+        LogSource source = new LogSource("paused", SourceType.LOCAL_FILE, file.toString(), null, null, null, null);
+        source.setEnabled(false);
+        when(repository.findAll()).thenReturn(List.of(source));
+
+        List<LogEntry> entries = service().collectEntries();
+
+        assertThat(entries).isEmpty();
+    }
+
+    @Test
     void producesAnErrorEntryWhenThePathDoesNotExist() {
         LogSource source = new LogSource(
                 "missing", SourceType.LOCAL_FILE, tempDir.resolve("nope.log").toString(), null, null, null, null);
@@ -83,18 +96,20 @@ class LogIngestionServiceTest {
     }
 
     @Test
-    void cachesEntriesBrieflyInsteadOfRereadingOnEveryCall() throws IOException {
+    void nonLiveSourcesAreFrozenAfterTheFirstReadUntilExplicitlyReloaded() throws IOException {
         Path file = tempDir.resolve("app.log");
         Files.writeString(file, "2026-08-06 08:00:00,000 [INFO] X - first version\n");
 
         // The cache keys on source id, which only exists once a source is persisted -
         // mock it here rather than relying on the plain constructor (which leaves id
         // null) so this test actually exercises the cache instead of skipping it.
+        // isLive() defaults to false on a Mockito mock, matching a non-live source.
         LogSource source = mock(LogSource.class);
         when(source.getId()).thenReturn(1L);
         when(source.getName()).thenReturn("cached");
         when(source.getType()).thenReturn(SourceType.LOCAL_FILE);
         when(source.getPath()).thenReturn(file.toString());
+        when(source.isEnabled()).thenReturn(true);
         when(repository.findAll()).thenReturn(List.of(source));
 
         LogIngestionService service = service();
@@ -105,6 +120,150 @@ class LogIngestionServiceTest {
 
         assertThat(first.get(0).message()).contains("first version");
         assertThat(first.get(0).file()).isEqualTo("app.log");
-        assertThat(second.get(0).message()).contains("first version"); // still within the cache TTL
+        assertThat(second.get(0).message()).contains("first version"); // frozen, no automatic refresh
+
+        service.invalidateAll();
+        List<LogEntry> afterReload = service.collectEntries();
+
+        assertThat(afterReload.get(0).message()).contains("second version");
+    }
+
+    @Test
+    void liveSourcesReReadAfterTheShortCacheWindowExpires() throws IOException, InterruptedException {
+        Path file = tempDir.resolve("app.log");
+        Files.writeString(file, "2026-08-06 08:00:00,000 [INFO] X - first version\n");
+
+        LogSource source = mock(LogSource.class);
+        when(source.getId()).thenReturn(1L);
+        when(source.getName()).thenReturn("live-source");
+        when(source.getType()).thenReturn(SourceType.LOCAL_FILE);
+        when(source.getPath()).thenReturn(file.toString());
+        when(source.isEnabled()).thenReturn(true);
+        when(source.isLive()).thenReturn(true);
+        when(repository.findAll()).thenReturn(List.of(source));
+
+        LogIngestionService service = service();
+        List<LogEntry> first = service.collectEntries();
+        assertThat(first.get(0).message()).contains("first version");
+
+        Files.writeString(file, "2026-08-06 08:00:00,000 [INFO] X - second version\n");
+        Thread.sleep(2100); // longer than the 2s live cache TTL
+
+        List<LogEntry> second = service.collectEntries();
+        assertThat(second.get(0).message()).contains("second version");
+    }
+
+    @Test
+    void changedFilesIsEmptyBeforeTheSourceHasEverBeenRead() {
+        LogSource source = mock(LogSource.class);
+        when(source.getId()).thenReturn(1L);
+        when(source.isEnabled()).thenReturn(true);
+
+        assertThat(service().changedFiles(source)).isEmpty();
+    }
+
+    @Test
+    void changedFilesIsAlwaysEmptyForLiveSources() throws IOException {
+        Path file = tempDir.resolve("app.log");
+        Files.writeString(file, "2026-08-06 08:00:00,000 [INFO] X - v1\n");
+
+        LogSource source = mock(LogSource.class);
+        when(source.getId()).thenReturn(1L);
+        when(source.getName()).thenReturn("live-source");
+        when(source.getType()).thenReturn(SourceType.LOCAL_FILE);
+        when(source.getPath()).thenReturn(file.toString());
+        when(source.isEnabled()).thenReturn(true);
+        when(source.isLive()).thenReturn(true);
+        when(repository.findAll()).thenReturn(List.of(source));
+
+        LogIngestionService service = service();
+        service.collectEntries();
+        Files.writeString(file, "2026-08-06 08:00:00,000 [INFO] X - v2 with a lot more content\n");
+
+        assertThat(service.changedFiles(source)).isEmpty();
+    }
+
+    @Test
+    void changedFilesIsEmptyWhenNothingHasChangedSinceTheLastRead() throws IOException {
+        Path file = tempDir.resolve("app.log");
+        Files.writeString(file, "2026-08-06 08:00:00,000 [INFO] X - v1\n");
+
+        LogSource source = mock(LogSource.class);
+        when(source.getId()).thenReturn(1L);
+        when(source.getName()).thenReturn("watched");
+        when(source.getType()).thenReturn(SourceType.LOCAL_FILE);
+        when(source.getPath()).thenReturn(file.toString());
+        when(source.isEnabled()).thenReturn(true);
+        when(repository.findAll()).thenReturn(List.of(source));
+
+        LogIngestionService service = service();
+        service.collectEntries();
+
+        assertThat(service.changedFiles(source)).isEmpty();
+    }
+
+    @Test
+    void changedFilesNamesTheModifiedFileForALocalFileSource() throws IOException {
+        Path file = tempDir.resolve("app.log");
+        Files.writeString(file, "2026-08-06 08:00:00,000 [INFO] X - v1\n");
+
+        LogSource source = mock(LogSource.class);
+        when(source.getId()).thenReturn(1L);
+        when(source.getName()).thenReturn("watched");
+        when(source.getType()).thenReturn(SourceType.LOCAL_FILE);
+        when(source.getPath()).thenReturn(file.toString());
+        when(source.isEnabled()).thenReturn(true);
+        when(repository.findAll()).thenReturn(List.of(source));
+
+        LogIngestionService service = service();
+        service.collectEntries(); // freezes the source and records a fingerprint
+
+        Files.writeString(file, "2026-08-06 08:00:00,000 [INFO] X - v1\nsome appended content\n");
+
+        assertThat(service.changedFiles(source)).containsExactly("app.log");
+    }
+
+    @Test
+    void changedFilesNamesOnlyTheActuallyModifiedFileInADirectory() throws IOException {
+        Files.writeString(tempDir.resolve("a.log"), "2026-08-06 08:00:00,000 [INFO] X - from A\n");
+        Files.writeString(tempDir.resolve("b.log"), "2026-08-06 08:00:00,000 [INFO] X - from B\n");
+
+        LogSource source = mock(LogSource.class);
+        when(source.getId()).thenReturn(1L);
+        when(source.getName()).thenReturn("dir-source");
+        when(source.getType()).thenReturn(SourceType.LOCAL_DIRECTORY);
+        when(source.getPath()).thenReturn(tempDir.toString());
+        when(source.isEnabled()).thenReturn(true);
+        when(repository.findAll()).thenReturn(List.of(source));
+
+        LogIngestionService service = service();
+        service.collectEntries(); // freezes the source and records a fingerprint per file
+
+        Files.writeString(tempDir.resolve("b.log"), "2026-08-06 08:00:00,000 [INFO] X - from B\nmore content\n");
+
+        assertThat(service.changedFiles(source)).containsExactly("b.log");
+    }
+
+    @Test
+    void invalidateAllResetsTheChangedFilesSignalUntilTheNextRead() throws IOException {
+        Path file = tempDir.resolve("app.log");
+        Files.writeString(file, "2026-08-06 08:00:00,000 [INFO] X - v1\n");
+
+        LogSource source = mock(LogSource.class);
+        when(source.getId()).thenReturn(1L);
+        when(source.getName()).thenReturn("watched");
+        when(source.getType()).thenReturn(SourceType.LOCAL_FILE);
+        when(source.getPath()).thenReturn(file.toString());
+        when(source.isEnabled()).thenReturn(true);
+        when(repository.findAll()).thenReturn(List.of(source));
+
+        LogIngestionService service = service();
+        service.collectEntries();
+        Files.writeString(file, "2026-08-06 08:00:00,000 [INFO] X - v1\nsome appended content\n");
+        assertThat(service.changedFiles(source)).containsExactly("app.log");
+
+        service.invalidateAll();
+
+        assertThat(service.changedFiles(source)).isEmpty();
     }
 }

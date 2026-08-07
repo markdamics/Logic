@@ -1,6 +1,7 @@
 package com.logic.analyzer.source;
 
 import com.logic.analyzer.exception.SourceNotFoundException;
+import com.logic.analyzer.logstream.LogIngestionService;
 import com.logic.analyzer.source.connectivity.SourceConnectivityChecker;
 import com.logic.analyzer.source.dto.ConnectionTestResult;
 import com.logic.analyzer.source.dto.LogSourceCreateRequest;
@@ -19,10 +20,13 @@ public class LogSourceService {
     private static final Logger log = LoggerFactory.getLogger(LogSourceService.class);
 
     private final LogSourceRepository repository;
+    private final LogIngestionService ingestionService;
     private final Map<SourceType, SourceConnectivityChecker> checkersByType;
 
-    public LogSourceService(LogSourceRepository repository, List<SourceConnectivityChecker> checkers) {
+    public LogSourceService(LogSourceRepository repository, LogIngestionService ingestionService,
+                             List<SourceConnectivityChecker> checkers) {
         this.repository = repository;
+        this.ingestionService = ingestionService;
         this.checkersByType = new EnumMap<>(SourceType.class);
         for (SourceConnectivityChecker checker : checkers) {
             for (SourceType type : checker.supports()) {
@@ -32,7 +36,9 @@ public class LogSourceService {
     }
 
     public List<LogSourceResponse> listAll() {
-        return repository.findAll().stream().map(LogSourceResponse::from).toList();
+        return repository.findAll().stream()
+                .map(source -> LogSourceResponse.from(source, ingestionService.changedFiles(source)))
+                .toList();
     }
 
     public LogSourceResponse create(LogSourceCreateRequest request) {
@@ -67,6 +73,22 @@ public class LogSourceService {
         );
         LogSource saved = repository.save(source);
         log.info("Updated source {} -> '{}' ({})", id, saved.getName(), saved.getType());
+        return LogSourceResponse.from(saved);
+    }
+
+    public LogSourceResponse setEnabled(Long id, boolean enabled) {
+        LogSource source = repository.findById(id).orElseThrow(() -> new SourceNotFoundException(id));
+        source.setEnabled(enabled);
+        LogSource saved = repository.save(source);
+        log.info("{} source {} ('{}')", enabled ? "Enabled" : "Disabled", id, saved.getName());
+        return LogSourceResponse.from(saved);
+    }
+
+    public LogSourceResponse setLive(Long id, boolean live) {
+        LogSource source = repository.findById(id).orElseThrow(() -> new SourceNotFoundException(id));
+        source.setLive(live);
+        LogSource saved = repository.save(source);
+        log.info("Marked source {} ('{}') as {}", id, saved.getName(), live ? "live" : "not live");
         return LogSourceResponse.from(saved);
     }
 

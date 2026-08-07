@@ -1,5 +1,6 @@
 package com.logic.analyzer.source;
 
+import com.logic.analyzer.logstream.LogIngestionService;
 import com.logic.analyzer.source.dto.LogSourceCreateRequest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -11,6 +12,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
@@ -20,8 +22,11 @@ class LogSourceValidationTest {
     @Mock
     private LogSourceRepository repository;
 
+    @Mock
+    private LogIngestionService ingestionService;
+
     private LogSourceService service() {
-        return new LogSourceService(repository, List.of());
+        return new LogSourceService(repository, ingestionService, List.of());
     }
 
     @Test
@@ -94,5 +99,72 @@ class LogSourceValidationTest {
         assertThat(response.username()).isEqualTo("newuser");
         assertThat(response.status()).isEqualTo(SourceStatus.UNVERIFIED);
         assertThat(existing.getPassword()).isEqualTo("oldpass");
+    }
+
+    @Test
+    void newSourcesAreEnabledByDefault() {
+        when(repository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = service().create(new LogSourceCreateRequest(
+                "app-log", SourceType.LOCAL_FILE, "/var/log/app.log", null, null, null, null));
+
+        assertThat(response.enabled()).isTrue();
+    }
+
+    @Test
+    void setEnabledTogglesTheSourceAndPersists() {
+        LogSource existing = new LogSource(
+                "app-log", SourceType.LOCAL_FILE, "/var/log/app.log", null, null, null, null);
+        when(repository.findById(1L)).thenReturn(Optional.of(existing));
+        when(repository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var disabled = service().setEnabled(1L, false);
+        assertThat(disabled.enabled()).isFalse();
+        assertThat(existing.isEnabled()).isFalse();
+
+        var reenabled = service().setEnabled(1L, true);
+        assertThat(reenabled.enabled()).isTrue();
+    }
+
+    @Test
+    void newSourcesAreNotLiveByDefault() {
+        when(repository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = service().create(new LogSourceCreateRequest(
+                "app-log", SourceType.LOCAL_FILE, "/var/log/app.log", null, null, null, null));
+
+        assertThat(response.live()).isFalse();
+    }
+
+    @Test
+    void setLiveTogglesTheSourceAndPersists() {
+        LogSource existing = new LogSource(
+                "app-log", SourceType.LOCAL_FILE, "/var/log/app.log", null, null, null, null);
+        when(repository.findById(1L)).thenReturn(Optional.of(existing));
+        when(repository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var live = service().setLive(1L, true);
+        assertThat(live.live()).isTrue();
+        assertThat(existing.isLive()).isTrue();
+
+        var notLive = service().setLive(1L, false);
+        assertThat(notLive.live()).isFalse();
+    }
+
+    @Test
+    void listAllSurfacesChangedFilesPerSource() {
+        LogSource stale = new LogSource("stale-source", SourceType.LOCAL_FILE, "/var/log/stale.log", null, null, null, null);
+        LogSource fresh = new LogSource("fresh-source", SourceType.LOCAL_FILE, "/var/log/fresh.log", null, null, null, null);
+        when(repository.findAll()).thenReturn(List.of(stale, fresh));
+        when(ingestionService.changedFiles(stale)).thenReturn(List.of("stale.log"));
+        when(ingestionService.changedFiles(fresh)).thenReturn(List.of());
+
+        var responses = service().listAll();
+
+        assertThat(responses).extracting(r -> r.name(), r -> r.changedFiles())
+                .containsExactly(
+                        tuple("stale-source", List.of("stale.log")),
+                        tuple("fresh-source", List.of())
+                );
     }
 }

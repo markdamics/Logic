@@ -1,11 +1,13 @@
 package com.logic.analyzer.logstream.ingest;
 
 import net.schmizz.sshj.SSHClient;
+import net.schmizz.sshj.sftp.FileAttributes;
 import net.schmizz.sshj.sftp.RemoteFile;
 import net.schmizz.sshj.sftp.SFTPClient;
 import net.schmizz.sshj.transport.verification.PromiscuousVerifier;
 
 import java.io.IOException;
+import java.time.Instant;
 
 public class SftpTailSource implements TailSource {
 
@@ -52,6 +54,25 @@ public class SftpTailSource implements TailSource {
             throw e;
         } catch (Exception e) {
             throw new IOException("SFTP tail read failed: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public Fingerprint probe() throws IOException {
+        try (SSHClient ssh = new SSHClient()) {
+            ssh.addHostKeyVerifier(new PromiscuousVerifier());
+            ssh.setConnectTimeout(CONNECT_TIMEOUT_MS);
+            ssh.connect(host, port);
+            ssh.authPassword(username, password);
+
+            try (SFTPClient sftp = ssh.newSFTPClient()) {
+                FileAttributes attrs = sftp.stat(remotePath);
+                return new Fingerprint(attrs.getSize(), Instant.ofEpochSecond(attrs.getMtime()));
+            }
+        } catch (IOException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IOException("SFTP probe failed: " + e.getMessage(), e);
         }
     }
 }

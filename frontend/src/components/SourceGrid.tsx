@@ -23,10 +23,12 @@ interface SourceGridProps {
   onTest: (id: number) => Promise<unknown>;
   onEdit: (source: LogSource) => void;
   onDelete: (id: number) => Promise<unknown>;
+  onToggleEnabled: (id: number, enabled: boolean) => Promise<unknown>;
+  onToggleLive: (id: number, live: boolean) => Promise<unknown>;
   onAdd: () => void;
 }
 
-export function SourceGrid({ sources, onTest, onEdit, onDelete, onAdd }: SourceGridProps) {
+export function SourceGrid({ sources, onTest, onEdit, onDelete, onToggleEnabled, onToggleLive, onAdd }: SourceGridProps) {
   const [busyId, setBusyId] = useState<number | null>(null);
 
   const withBusy = async (id: number, action: () => Promise<unknown>) => {
@@ -41,7 +43,7 @@ export function SourceGrid({ sources, onTest, onEdit, onDelete, onAdd }: SourceG
   return (
     <div className="source-grid">
       {sources.map((source) => (
-        <div className="source-card" key={source.id}>
+        <div className={`source-card${source.enabled ? "" : " source-card-disabled"}`} key={source.id}>
           <div className="source-card-actions">
             <button
               type="button"
@@ -65,12 +67,64 @@ export function SourceGrid({ sources, onTest, onEdit, onDelete, onAdd }: SourceG
               <DeleteIcon />
             </button>
           </div>
-          <div className="source-card-kicker">{TYPE_LABELS[source.type]}</div>
+          <div className="source-card-kicker-row">
+            <div className="source-card-kicker">{TYPE_LABELS[source.type]}</div>
+            {source.live ? (
+              <span className="live-badge">
+                <span className="live-dot" />
+                LIVE
+              </span>
+            ) : (
+              source.changedFiles.length > 0 && (
+                <span
+                  className="update-badge"
+                  title={`${source.changedFiles.join(", ")} modified — click Reload to see it`}
+                >
+                  <span className="update-dot" />
+                  NEW DATA
+                </span>
+              )
+            )}
+          </div>
           <div className="source-card-title">{source.name}</div>
           <div className="source-card-location">{locationOf(source)}</div>
           <div className="source-card-meta">
             <StatusChip status={source.status} />
             <span>{formatRelativeTime(source.lastCheckedAt)}</span>
+          </div>
+          <div className="source-card-switches">
+            <label
+              className="switch-row"
+              title={source.enabled ? "Disable source" : "Enable source"}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <span className="switch">
+                <input
+                  type="checkbox"
+                  checked={source.enabled}
+                  disabled={busyId === source.id}
+                  onChange={() => withBusy(source.id, () => onToggleEnabled(source.id, !source.enabled))}
+                />
+                <span className="switch-slider" />
+              </span>
+              <span className="switch-row-label">Enabled</span>
+            </label>
+            <label
+              className="switch-row"
+              title={source.live ? "Stop watching live" : "Watch live — continuously refresh this source"}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <span className="switch switch-live">
+                <input
+                  type="checkbox"
+                  checked={source.live}
+                  disabled={busyId === source.id}
+                  onChange={() => withBusy(source.id, () => onToggleLive(source.id, !source.live))}
+                />
+                <span className="switch-slider" />
+              </span>
+              <span className="switch-row-label">Live</span>
+            </label>
           </div>
         </div>
       ))}

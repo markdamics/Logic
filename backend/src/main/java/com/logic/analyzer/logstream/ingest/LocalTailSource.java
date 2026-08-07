@@ -25,4 +25,9 @@ public class LocalTailSource implements TailSource {
         }
         return new TailBytes(buf, offset == 0);
     }
+
+    @Override
+    public Fingerprint probe() throws IOException {
+        return new Fingerprint(Files.size(path), Files.getLastModifiedTime(path).toInstant());
+    }
 }

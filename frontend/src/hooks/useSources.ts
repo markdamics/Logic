@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
-import { createSource, deleteSource, listSources, testConnection, updateSource } from "../api/client";
+import { createSource, deleteSource, listSources, setSourceEnabled, setSourceLive, testConnection, updateSource } from "../api/client";
 import type { CreateSourceRequest, LogSource } from "../api/types";
 import { createLogger } from "../utils/logger";
 
 const logger = createLogger("useSources");
+
+// How often to quietly re-poll the source list so the "new data available"
+// indicator (changedFiles) stays fresh for non-live sources without the user
+// having to navigate away and back.
+const UPDATE_POLL_INTERVAL_MS = 5000;
 
 export function useSources() {
   const [sources, setSources] = useState<LogSource[]>([]);
@@ -28,6 +33,21 @@ export function useSources() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  const hasNonLiveEnabledSource = sources.some((s) => s.enabled && !s.live);
+
+  // Quiet background poll (no loading flicker) so changedFiles badges stay current.
+  useEffect(() => {
+    if (!hasNonLiveEnabledSource) {
+      return;
+    }
+    const timer = setInterval(() => {
+      listSources()
+        .then((data) => setSources(data))
+        .catch((e) => logger.warn("Background source refresh failed", e));
+    }, UPDATE_POLL_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [hasNonLiveEnabledSource]);
 
   const create = useCallback(async (req: CreateSourceRequest) => {
     const created = await createSource(req);
@@ -58,5 +78,17 @@ export function useSources() {
     return result;
   }, []);
 
-  return { sources, loading, error, refresh, create, update, remove, check };
+  const toggleEnabled = useCallback(async (id: number, enabled: boolean) => {
+    const updated = await setSourceEnabled(id, enabled);
+    logger.info(`${enabled ? "Enabled" : "Disabled"} source ${id}`);
+    setSources((prev) => prev.map((s) => (s.id === id ? updated : s)));
+  }, []);
+
+  const toggleLive = useCallback(async (id: number, live: boolean) => {
+    const updated = await setSourceLive(id, live);
+    logger.info(`Marked source ${id} as ${live ? "live" : "not live"}`);
+    setSources((prev) => prev.map((s) => (s.id === id ? updated : s)));
+  }, []);
+
+  return { sources, loading, error, refresh, create, update, remove, check, toggleEnabled, toggleLive };
 }

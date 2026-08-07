@@ -1,4 +1,11 @@
-import type { ConnectionTestResult, CreateSourceRequest, LogQueryParams, LogQueryResult, LogSource } from "./types";
+import type {
+  ConnectionTestResult,
+  CreateSourceRequest,
+  DashboardSummary,
+  LogQueryParams,
+  LogQueryResult,
+  LogSource,
+} from "./types";
 import { createLogger } from "../utils/logger";
 
 const logger = createLogger("api");
@@ -67,6 +74,18 @@ export function testConnection(id: number): Promise<ConnectionTestResult> {
   });
 }
 
+export function setSourceEnabled(id: number, enabled: boolean): Promise<LogSource> {
+  return request<LogSource>(`/sources/${id}/${enabled ? "enable" : "disable"}`, {
+    method: "POST",
+  });
+}
+
+export function setSourceLive(id: number, live: boolean): Promise<LogSource> {
+  return request<LogSource>(`/sources/${id}/${live ? "enable-live" : "disable-live"}`, {
+    method: "POST",
+  });
+}
+
 export function fetchLogs(params: LogQueryParams): Promise<LogQueryResult> {
   const query = new URLSearchParams();
   if (params.search) query.set("search", params.search);
@@ -86,4 +105,12 @@ export function listLogFiles(source?: string): Promise<string[]> {
   const query = new URLSearchParams();
   if (source) query.set("source", source);
   return request<string[]>(`/logs/files?${query.toString()}`);
+}
+
+export function fetchDashboardSummary(): Promise<DashboardSummary> {
+  return request<DashboardSummary>("/dashboard/summary");
+}
+
+export function reloadLogs(): Promise<void> {
+  return request<void>("/logs/reload", { method: "POST" });
 }
