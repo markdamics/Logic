@@ -1,6 +1,17 @@
 server:
   port: 8080
 
+app:
+  auth:
+    # Set to false to disable HTTP Basic auth entirely (e.g. behind your own
+    # access control). Defaults to enabled - leave it on unless you know why not.
+    enabled: ${AUTH_ENABLED:false}
+  admin:
+    # Credentials for the single HTTP Basic admin account (see SecurityConfig).
+    # Override via ADMIN_USERNAME / ADMIN_PASSWORD env vars, or edit directly here.
+    username: ${ADMIN_USERNAME:admin}
+    password: ${ADMIN_PASSWORD:}
+
 spring:
   application:
     name: log-analyzer-backend
@@ -13,5 +24,7 @@ spring:
     open-in-view: false
   h2:
     console:
-      enabled: true
+      # Raw DB admin UI - stays behind auth when enabled, but off by default since
+      # it's only meant for local debugging. Opt in with H2_CONSOLE_ENABLED=true.
+      enabled: ${H2_CONSOLE_ENABLED:false}
       path: /h2-console

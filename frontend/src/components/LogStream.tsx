@@ -301,6 +301,7 @@ export function LogStream({ sources, onCountChange, reloadSignal, onReload }: Lo
         <table className="log-table">
           <thead>
             <tr>
+              <th onClick={() => toggleSort("time")}>Date {sortArrow("time")}</th>
               <th onClick={() => toggleSort("time")}>Time {sortArrow("time")}</th>
               <th onClick={() => toggleSort("level")}>Level {sortArrow("level")}</th>
               <th onClick={() => toggleSort("file")}>File {sortArrow("file")}</th>
@@ -310,6 +311,7 @@ export function LogStream({ sources, onCountChange, reloadSignal, onReload }: Lo
           <tbody>
             {rows.map((entry) => (
               <tr key={entry.id}>
+                <td className="log-date">{new Date(entry.timestamp).toLocaleDateString()}</td>
                 <td className="log-time">{new Date(entry.timestamp).toLocaleTimeString()}</td>
                 <td>
                   <span className={`level-chip level-${entry.level.toLowerCase()}`}>{entry.level}</span>

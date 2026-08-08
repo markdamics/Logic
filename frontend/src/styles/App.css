@@ -918,6 +918,7 @@ body,
   background: var(--color-surface-raised);
 }
 
+.log-date,
 .log-time {
   font-family: ui-monospace, Consolas, monospace;
   color: var(--color-text-muted);

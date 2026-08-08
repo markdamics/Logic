@@ -1,6 +1,8 @@
 package com.logic.analyzer.source;
 
+import com.logic.analyzer.crypto.EncryptedStringConverter;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -40,10 +42,8 @@ public class LogSource {
     /** SFTP only. */
     private String username;
 
-    /**
-     * SFTP only. Stored as plaintext for this initial phase - a known
-     * simplification to be hardened later (encryption at rest / key-based auth).
-     */
+    /** SFTP only. Encrypted at rest (AES-256-GCM) via {@link EncryptedStringConverter}. */
+    @Convert(converter = EncryptedStringConverter.class)
     private String password;
 
     @Enumerated(EnumType.STRING)

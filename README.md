@@ -1,4 +1,4 @@
-# Logic
+# <img src="frontend/public/terminal-svgrepo-com.svg" width="28" height="28" alt="" valign="middle" /> Logic
 
 Log Analyzer — a full-stack app for registering log sources and inspecting
 their content in real time.
@@ -8,6 +8,37 @@ filtering/sorting/pagination, a live-updating Log Stream, and a Dashboard
 overview. Alerting is planned for a later phase.
 
 ## Features
+
+### Log Stream
+
+- Real ingestion: tails the trailing window of each source (bounded reads —
+  512KB / 3,000 lines per file) rather than loading it whole, with basic
+  level/timestamp/stack-trace-continuation parsing.
+- Filtering by free-text search (debounced), source, file, severity
+  (ERROR/WARN/INFO/DEBUG), and time range, plus one-click presets
+  (all errors, errors & warnings, clear).
+- Sortable columns (time, level, source, file) and backend-side pagination.
+- Auto-refreshes on its own while any live source is in scope; shows a "●
+  LIVE" indicator when doing so.
+- A "new data available" banner (naming the exact file and source) appears
+  above the table when a non-live source has changed, with a one-click
+  Reload.
+
+  ![log stream light](/Screenshots/Screenshot_20260808_015244.png)
+  ![log stream dark](/Screenshots/Screenshot_20260808_091518.png)
+
+### Dashboard
+
+- Stat cards: total/enabled/disabled sources, reachable sources, log entries,
+  errors, and warnings (last 24h).
+- "Errors by file" bar chart (top files by error count, last 24h).
+- Source activity table (entries/errors per source, live/enabled/status
+  badges).
+- Recent issues feed (latest errors & warnings across all sources).
+- Same live auto-refresh and "new data available" banner as the Log Stream.
+
+  ![dashboard ligh](/Screenshots/Screenshot_20260808_015211.png)
+  ![dashboard dark](/Screenshots/Screenshot_20260808_091530.png)
 
 ### Source management (Sources screen)
 
@@ -26,30 +57,9 @@ overview. Alerting is planned for a later phase.
   inside a directory source), prompting a reload rather than silently going
   stale.
 
-### Log Stream
-
-- Real ingestion: tails the trailing window of each source (bounded reads —
-  512KB / 3,000 lines per file) rather than loading it whole, with basic
-  level/timestamp/stack-trace-continuation parsing.
-- Filtering by free-text search (debounced), source, file, severity
-  (ERROR/WARN/INFO/DEBUG), and time range, plus one-click presets
-  (all errors, errors & warnings, clear).
-- Sortable columns (time, level, source, file) and backend-side pagination.
-- Auto-refreshes on its own while any live source is in scope; shows a "●
-  LIVE" indicator when doing so.
-- A "new data available" banner (naming the exact file and source) appears
-  above the table when a non-live source has changed, with a one-click
-  Reload.
-
-### Dashboard
-
-- Stat cards: total/enabled/disabled sources, reachable sources, log entries,
-  errors, and warnings (last 24h).
-- "Errors by file" bar chart (top files by error count, last 24h).
-- Source activity table (entries/errors per source, live/enabled/status
-  badges).
-- Recent issues feed (latest errors & warnings across all sources).
-- Same live auto-refresh and "new data available" banner as the Log Stream.
+  ![log source light 2](/Screenshots/Screenshot_20260808_091334.png)
+  ![log source light 1](/Screenshots/Screenshot_20260808_015315.png)
+  ![log source dark 1](/Screenshots/Screenshot_20260808_091439.png)
 
 ### Shared Reload action
 
@@ -83,7 +93,36 @@ npm run dev
 
 The frontend dev server proxies `/api/*` requests to the backend, so no CORS
 configuration changes are needed for normal dev use. Open
-<http://localhost:5173> in a browser.
+<http://localhost:5173> in a browser — the browser will prompt for
+credentials (see [Authentication](#authentication) below; default in dev is
+`admin` / `admin`).
+
+## Authentication
+
+Every API request requires HTTP Basic auth by default; there's no separate
+login page, so the browser's native credential prompt covers the whole app.
+Credentials come from environment variables (or `app.admin.*` in
+`application.yml`):
+
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `ADMIN_USERNAME` | `admin` | |
+| `ADMIN_PASSWORD` | `admin` | A startup warning is logged whenever this is left at its default — always override it before exposing the instance beyond localhost. |
+
+Auth can be turned off entirely with `AUTH_ENABLED=false` (or
+`app.auth.enabled: false`) — e.g. if the instance already sits behind its own
+access control. With it off, every endpoint is open to anyone who can reach
+the instance, so only disable it on a network you trust.
+
+## Deployment-relevant configuration
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `AUTH_ENABLED` | `true` | Set to `false` to disable HTTP Basic auth entirely, see [Authentication](#authentication). |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | `admin` / `admin` | API credentials, see [Authentication](#authentication). |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | Comma-separated list of origins allowed to call the API. Set this to the frontend's real origin(s) when frontend and backend are deployed separately. |
+| `ENCRYPTION_KEY` | *(generated)* | Base64-encoded 32-byte AES key used to encrypt SFTP passwords at rest. If unset, a key is generated on first run and saved to `./data/encryption.key`; losing that file (without `ENCRYPTION_KEY` set) makes saved SFTP passwords unrecoverable. Set this explicitly in production so the key doesn't depend on that file surviving. |
+| `H2_CONSOLE_ENABLED` | `false` | Exposes the H2 database admin console at `/h2-console` (still behind auth). Leave off in production; only useful for local debugging. |
 
 ## API
 
@@ -115,7 +154,9 @@ configuration changes are needed for normal dev use. Open
 
 ## Known simplifications (first phase)
 
-- SFTP passwords are stored as plaintext in the local H2 database file.
+- Auth is a single shared admin account (HTTP Basic, see
+  [Authentication](#authentication)) — no per-user accounts, roles, or
+  audit log.
 - SFTP host key verification is disabled (accepts any host key) to simplify
   connecting to ad-hoc dev servers.
 - Directories are read non-recursively and capped to the 20 most recently
@@ -129,6 +170,6 @@ configuration changes are needed for normal dev use. Open
   content hash, and is itself throttled (~5s) so it doesn't hammer a remote
   source on every poll.
 
-These are flagged for hardening in a later phase (encryption at rest /
-key-based auth, known-hosts verification, recursive/streaming ingestion,
-etc.).
+These are flagged for hardening in a later phase (per-user auth,
+key-based SFTP auth, known-hosts verification, recursive/streaming
+ingestion, etc.).
