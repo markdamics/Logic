@@ -94,35 +94,28 @@ npm run dev
 The frontend dev server proxies `/api/*` requests to the backend, so no CORS
 configuration changes are needed for normal dev use. Open
 <http://localhost:5173> in a browser — the browser will prompt for
-credentials (see [Authentication](#authentication) below; default in dev is
+credentials (see [Security](#security) below; default in dev is
 `admin` / `admin`).
 
-## Authentication
+## Security
 
-Every API request requires HTTP Basic auth by default; there's no separate
+Every API request requires HTTP Basic auth by default — there's no separate
 login page, so the browser's native credential prompt covers the whole app.
-Credentials come from environment variables (or `app.admin.*` in
+This and the rest of the security-relevant behavior is controlled by
+environment variables (or the matching `app.*` / `spring.*` property in
 `application.yml`):
-
-| Variable | Default | Notes |
-| --- | --- | --- |
-| `ADMIN_USERNAME` | `admin` | |
-| `ADMIN_PASSWORD` | `admin` | A startup warning is logged whenever this is left at its default — always override it before exposing the instance beyond localhost. |
-
-Auth can be turned off entirely with `AUTH_ENABLED=false` (or
-`app.auth.enabled: false`) — e.g. if the instance already sits behind its own
-access control. With it off, every endpoint is open to anyone who can reach
-the instance, so only disable it on a network you trust.
-
-## Deployment-relevant configuration
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `AUTH_ENABLED` | `true` | Set to `false` to disable HTTP Basic auth entirely, see [Authentication](#authentication). |
-| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | `admin` / `admin` | API credentials, see [Authentication](#authentication). |
+| `AUTH_ENABLED` | `true` | Set to `false` to disable HTTP Basic auth entirely — e.g. if the instance already sits behind its own access control. With it off, every endpoint is open to anyone who can reach the instance, so only disable it on a network you trust. |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | `admin` / `admin` | The single admin account's API credentials. A startup warning is logged whenever the password is left at its default — always override it before exposing the instance beyond localhost. |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | Comma-separated list of origins allowed to call the API. Set this to the frontend's real origin(s) when frontend and backend are deployed separately. |
 | `ENCRYPTION_KEY` | *(generated)* | Base64-encoded 32-byte AES key used to encrypt SFTP passwords at rest. If unset, a key is generated on first run and saved to `./data/encryption.key`; losing that file (without `ENCRYPTION_KEY` set) makes saved SFTP passwords unrecoverable. Set this explicitly in production so the key doesn't depend on that file surviving. |
 | `H2_CONSOLE_ENABLED` | `false` | Exposes the H2 database admin console at `/h2-console` (still behind auth). Leave off in production; only useful for local debugging. |
+
+See [Known simplifications](#known-simplifications-first-phase) below for
+what's deliberately still missing (per-user accounts, key-based SFTP auth,
+host key verification, etc.).
 
 ## API
 
@@ -155,8 +148,7 @@ the instance, so only disable it on a network you trust.
 ## Known simplifications (first phase)
 
 - Auth is a single shared admin account (HTTP Basic, see
-  [Authentication](#authentication)) — no per-user accounts, roles, or
-  audit log.
+  [Security](#security)) — no per-user accounts, roles, or audit log.
 - SFTP host key verification is disabled (accepts any host key) to simplify
   connecting to ad-hoc dev servers.
 - Directories are read non-recursively and capped to the 20 most recently
