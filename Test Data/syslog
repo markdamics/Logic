@@ -1,0 +1,250 @@
+Aug  6 08:00:11 cache01 systemd[5032]: Started Session 600 of user admin.
+Aug  6 08:00:12 web01 sudo[26071]: admin : TTY=pts/0 ; PWD=/home/admin ; USER=root ; COMMAND=/usr/bin/systemctl restart app
+Aug  6 08:00:34 lb01 dhclient[29509]: DHCPACK from 10.0.0.1
+Aug  6 08:00:48 db01 nginx[29355]: worker process 29355 exited on signal 11
+Aug  6 08:01:18 lb01 postfix/smtpd[30662]: connect from unknown[203.0.113.195]
+Aug  6 08:01:29 cache01 systemd[23989]: Stopping User Manager for UID 1145...
+Aug  6 08:02:08 cache01 sshd[23428]: Failed password for invalid user deploy from 198.51.100.205 port 59299 ssh2
+Aug  6 08:02:59 app03 systemd[21271]: Stopping User Manager for UID 1821...
+Aug  6 08:03:29 web01 nginx[8379]: worker process 8379 exited on signal 11
+Aug  6 08:04:28 cache01 CRON[1854]: (root) CMD (/usr/local/bin/backup.sh >/dev/null 2>&1)
+Aug  6 08:05:25 app03 sshd[6625]: Failed password for invalid user deploy from 198.51.100.207 port 11694 ssh2
+Aug  6 08:05:58 cache01 sshd[2863]: Accepted publickey for admin from 10.0.143.166 port 54852 ssh2
+Aug  6 08:06:38 lb01 dhclient[3043]: DHCPACK from 10.0.0.1
+Aug  6 08:06:39 lb01 systemd[1288]: Stopping User Manager for UID 1468...
+Aug  6 08:07:25 app03 systemd[22511]: Stopping User Manager for UID 1559...
+Aug  6 08:08:09 web01 sshd[24426]: Failed password for invalid user deploy from 198.51.100.218 port 56619 ssh2
+Aug  6 08:08:29 db01 CRON[5343]: (root) CMD (/usr/local/bin/backup.sh >/dev/null 2>&1)
+Aug  6 08:08:34 web01 sshd[22876]: Failed password for invalid user www-data from 198.51.100.55 port 26279 ssh2
+Aug  6 08:09:16 web02 sshd[30412]: Failed password for invalid user admin from 198.51.100.215 port 47991 ssh2
+Aug  6 08:09:25 cache01 sshd[6392]: Accepted publickey for www-data from 10.0.242.76 port 29973 ssh2
+Aug  6 08:10:16 db01 kernel[1429]: [95723.787754] TCP: request_sock_TCP: Possible SYN flooding on port 443.
+Aug  6 08:11:16 cache01 postfix/smtpd[27921]: connect from unknown[203.0.113.71]
+Aug  6 08:11:38 web02 dhclient[29541]: DHCPACK from 10.0.0.1
+Aug  6 08:12:29 web01 dhclient[5785]: DHCPACK from 10.0.0.1
+Aug  6 08:12:53 web01 dhclient[4493]: DHCPACK from 10.0.0.1
+Aug  6 08:13:09 cache01 dhclient[23103]: DHCPACK from 10.0.0.1
+Aug  6 08:13:26 cache01 sshd[31553]: Failed password for invalid user deploy from 198.51.100.157 port 41280 ssh2
+Aug  6 08:13:52 web02 kernel[8925]: [44015.748315] TCP: request_sock_TCP: Possible SYN flooding on port 443.
+Aug  6 08:14:34 app03 postfix/smtpd[5153]: connect from unknown[203.0.113.154]
+Aug  6 08:15:21 web01 dhclient[976]: DHCPACK from 10.0.0.1
+Aug  6 08:15:54 app03 CRON[30669]: (root) CMD (/usr/local/bin/backup.sh >/dev/null 2>&1)
+Aug  6 08:16:39 app03 systemd[15079]: Started Session 351 of user admin.
+Aug  6 08:17:04 web02 sshd[28517]: Failed password for invalid user deploy from 198.51.100.206 port 44980 ssh2
+Aug  6 08:17:59 web02 sshd[30151]: Failed password for invalid user admin from 198.51.100.41 port 44228 ssh2
+Aug  6 08:18:16 web02 sshd[5207]: Accepted publickey for root from 10.0.25.215 port 4775 ssh2
+Aug  6 08:18:53 lb01 systemd[2533]: Stopping User Manager for UID 1953...
+Aug  6 08:19:17 lb01 systemd[5033]: Started Session 380 of user jsmith.
+Aug  6 08:20:00 web01 systemd[30293]: Stopping User Manager for UID 1783...
+Aug  6 08:20:42 web02 systemd[25490]: Stopping User Manager for UID 1914...
+Aug  6 08:21:38 web01 sshd[3763]: Accepted publickey for root from 10.0.215.95 port 16412 ssh2
+Aug  6 08:22:10 web01 sshd[15571]: Failed password for invalid user www-data from 198.51.100.183 port 7166 ssh2
+Aug  6 08:23:10 web02 systemd[14453]: Stopping User Manager for UID 1272...
+Aug  6 08:23:41 web02 kernel[18679]: [38294.690213] TCP: request_sock_TCP: Possible SYN flooding on port 443.
+Aug  6 08:24:21 cache01 sshd[2462]: Failed password for invalid user root from 198.51.100.135 port 16735 ssh2
+Aug  6 08:24:35 web01 sshd[16141]: Failed password for invalid user jsmith from 198.51.100.120 port 63033 ssh2
+Aug  6 08:25:27 cache01 kernel[3709]: [25690.837645] TCP: request_sock_TCP: Possible SYN flooding on port 443.
+Aug  6 08:25:58 cache01 CRON[6397]: (root) CMD (/usr/local/bin/backup.sh >/dev/null 2>&1)
+Aug  6 08:26:29 app03 sshd[18100]: Accepted publickey for deploy from 10.0.198.128 port 44569 ssh2
+Aug  6 08:26:39 cache01 kernel[24760]: [95304.290555] TCP: request_sock_TCP: Possible SYN flooding on port 443.
+Aug  6 08:27:24 web02 sshd[20093]: Accepted publickey for root from 10.0.231.186 port 6395 ssh2
+Aug  6 08:27:53 web02 systemd[10476]: Stopping User Manager for UID 1411...
+Aug  6 08:28:04 web01 kernel[31577]: [74500.805263] TCP: request_sock_TCP: Possible SYN flooding on port 443.
+Aug  6 08:28:18 lb01 systemd[6804]: Stopping User Manager for UID 1277...
+Aug  6 08:28:39 web01 nginx[6316]: worker process 6316 exited on signal 11
+Aug  6 08:28:50 web02 sshd[5572]: Accepted publickey for www-data from 10.0.208.67 port 40781 ssh2
+Aug  6 08:29:36 cache01 systemd[9054]: Started Session 984 of user deploy.
+Aug  6 08:30:10 web02 postfix/smtpd[11025]: connect from unknown[203.0.113.43]
+Aug  6 08:30:39 cache01 CRON[29610]: (root) CMD (/usr/local/bin/backup.sh >/dev/null 2>&1)
+Aug  6 08:31:06 web01 sshd[14773]: Accepted publickey for admin from 10.0.248.5 port 60266 ssh2
+Aug  6 08:31:18 web02 nginx[2903]: worker process 2903 exited on signal 11
+Aug  6 08:31:51 lb01 sshd[15123]: Failed password for invalid user deploy from 198.51.100.128 port 35785 ssh2
+Aug  6 08:32:27 web02 nginx[2991]: worker process 2991 exited on signal 11
+Aug  6 08:32:43 cache01 kernel[31836]: [17481.754574] TCP: request_sock_TCP: Possible SYN flooding on port 443.
+Aug  6 08:33:27 cache01 systemd[22523]: Stopping User Manager for UID 1486...
+Aug  6 08:34:16 app03 systemd[15753]: Started Session 441 of user jsmith.
+Aug  6 08:34:43 cache01 systemd[29994]: Started Session 369 of user deploy.
+Aug  6 08:35:33 db01 systemd[7793]: Started Session 37 of user deploy.
+Aug  6 08:36:13 cache01 sshd[15886]: Failed password for invalid user www-data from 198.51.100.117 port 22784 ssh2
+Aug  6 08:36:59 cache01 kernel[6248]: [31094.513169] TCP: request_sock_TCP: Possible SYN flooding on port 443.
+Aug  6 08:37:23 web01 CRON[27878]: (root) CMD (/usr/local/bin/backup.sh >/dev/null 2>&1)
+Aug  6 08:37:36 db01 CRON[21757]: (root) CMD (/usr/local/bin/backup.sh >/dev/null 2>&1)
+Aug  6 08:38:14 web01 systemd[29895]: Stopping User Manager for UID 1574...
+Aug  6 08:38:19 web01 systemd[3310]: Started Session 179 of user deploy.
+Aug  6 08:38:21 web01 sshd[31125]: Failed password for invalid user admin from 198.51.100.249 port 10763 ssh2
+Aug  6 08:38:44 db01 CRON[14176]: (root) CMD (/usr/local/bin/backup.sh >/dev/null 2>&1)
+Aug  6 08:38:55 db01 sshd[2577]: Failed password for invalid user www-data from 198.51.100.14 port 64827 ssh2
+Aug  6 08:39:28 cache01 systemd[6673]: Started Session 825 of user www-data.
+Aug  6 08:40:13 cache01 nginx[10171]: worker process 10171 exited on signal 11
+Aug  6 08:40:18 lb01 systemd[6768]: Started Session 835 of user root.
+Aug  6 08:41:11 app03 sudo[19014]: root : TTY=pts/0 ; PWD=/home/root ; USER=root ; COMMAND=/usr/bin/systemctl restart app
+Aug  6 08:42:05 app03 sudo[8394]: jsmith : TTY=pts/0 ; PWD=/home/jsmith ; USER=root ; COMMAND=/usr/bin/systemctl restart app
+Aug  6 08:42:20 app03 sshd[7741]: Accepted publickey for www-data from 10.0.75.55 port 42953 ssh2
+Aug  6 08:42:33 web02 systemd[10695]: Stopping User Manager for UID 1474...
+Aug  6 08:43:19 app03 CRON[13493]: (root) CMD (/usr/local/bin/backup.sh >/dev/null 2>&1)
+Aug  6 08:43:25 db01 sshd[11150]: Accepted publickey for www-data from 10.0.61.39 port 12511 ssh2
+Aug  6 08:43:27 web02 kernel[4418]: [72450.654971] TCP: request_sock_TCP: Possible SYN flooding on port 443.
+Aug  6 08:43:47 web01 sshd[22092]: Failed password for invalid user admin from 198.51.100.160 port 29682 ssh2
+Aug  6 08:44:30 lb01 systemd[15233]: Stopping User Manager for UID 1428...
+Aug  6 08:44:59 app03 kernel[20775]: [46515.239513] TCP: request_sock_TCP: Possible SYN flooding on port 443.
+Aug  6 08:45:02 lb01 systemd[2570]: Started Session 308 of user root.
+Aug  6 08:45:51 app03 kernel[14831]: [16714.133436] TCP: request_sock_TCP: Possible SYN flooding on port 443.
+Aug  6 08:46:10 app03 systemd[17867]: Started Session 168 of user admin.
+Aug  6 08:47:04 cache01 systemd[8353]: Started Session 437 of user deploy.
+Aug  6 08:47:12 web02 sudo[18585]: admin : TTY=pts/0 ; PWD=/home/admin ; USER=root ; COMMAND=/usr/bin/systemctl restart app
+Aug  6 08:47:27 web02 postfix/smtpd[27070]: connect from unknown[203.0.113.195]
+Aug  6 08:47:40 cache01 sshd[28923]: Failed password for invalid user www-data from 198.51.100.87 port 17271 ssh2
+Aug  6 08:48:33 app03 systemd[28501]: Started Session 747 of user www-data.
+Aug  6 08:48:46 app03 nginx[2347]: worker process 2347 exited on signal 11
+Aug  6 08:48:49 web01 kernel[7968]: [49527.492848] TCP: request_sock_TCP: Possible SYN flooding on port 443.
+Aug  6 08:49:29 db01 nginx[12894]: worker process 12894 exited on signal 11
+Aug  6 08:50:18 app03 postfix/smtpd[25259]: connect from unknown[203.0.113.210]
+Aug  6 08:50:28 db01 CRON[17033]: (root) CMD (/usr/local/bin/backup.sh >/dev/null 2>&1)
+Aug  6 08:51:14 db01 sshd[11814]: Accepted publickey for deploy from 10.0.218.82 port 58619 ssh2
+Aug  6 08:51:56 web01 dhclient[15432]: DHCPACK from 10.0.0.1
+Aug  6 08:52:18 db01 systemd[2597]: Stopping User Manager for UID 1924...
+Aug  6 08:52:42 web01 postfix/smtpd[2717]: connect from unknown[203.0.113.190]
+Aug  6 08:53:02 cache01 nginx[10654]: worker process 10654 exited on signal 11
+Aug  6 08:53:58 db01 postfix/smtpd[30467]: connect from unknown[203.0.113.154]
+Aug  6 08:54:27 cache01 sshd[29350]: Accepted publickey for deploy from 10.0.54.54 port 24771 ssh2
+Aug  6 08:55:23 web01 postfix/smtpd[1643]: connect from unknown[203.0.113.152]
+Aug  6 08:55:29 web02 dhclient[10035]: DHCPACK from 10.0.0.1
+Aug  6 08:55:33 web02 kernel[29437]: [64632.311522] TCP: request_sock_TCP: Possible SYN flooding on port 443.
+Aug  6 08:55:54 db01 kernel[17393]: [97614.250213] TCP: request_sock_TCP: Possible SYN flooding on port 443.
+Aug  6 08:56:33 cache01 dhclient[29991]: DHCPACK from 10.0.0.1
+Aug  6 08:56:57 web01 sshd[7295]: Accepted publickey for www-data from 10.0.6.231 port 33949 ssh2
+Aug  6 08:57:27 web02 dhclient[7492]: DHCPACK from 10.0.0.1
+Aug  6 08:58:06 app03 CRON[20296]: (root) CMD (/usr/local/bin/backup.sh >/dev/null 2>&1)
+Aug  6 08:58:12 web01 kernel[30097]: [40419.641778] TCP: request_sock_TCP: Possible SYN flooding on port 443.
+Aug  6 08:59:05 web02 systemd[20256]: Stopping User Manager for UID 1738...
+Aug  6 08:59:35 app03 postfix/smtpd[23784]: connect from unknown[203.0.113.70]
+Aug  6 09:00:07 web01 sudo[28983]: admin : TTY=pts/0 ; PWD=/home/admin ; USER=root ; COMMAND=/usr/bin/systemctl restart app
+Aug  6 09:00:17 db01 sudo[6122]: deploy : TTY=pts/0 ; PWD=/home/deploy ; USER=root ; COMMAND=/usr/bin/systemctl restart app
+Aug  6 09:00:32 web02 nginx[12183]: worker process 12183 exited on signal 11
+Aug  6 09:00:38 web02 systemd[19824]: Stopping User Manager for UID 1427...
+Aug  6 09:01:07 lb01 sudo[16001]: jsmith : TTY=pts/0 ; PWD=/home/jsmith ; USER=root ; COMMAND=/usr/bin/systemctl restart app
+Aug  6 09:01:40 web02 systemd[2901]: Stopping User Manager for UID 1413...
+Aug  6 09:02:27 cache01 kernel[12034]: [85048.674527] TCP: request_sock_TCP: Possible SYN flooding on port 443.
+Aug  6 09:02:28 web01 sudo[12115]: www-data : TTY=pts/0 ; PWD=/home/www-data ; USER=root ; COMMAND=/usr/bin/systemctl restart app
+Aug  6 09:02:48 web02 dhclient[21877]: DHCPACK from 10.0.0.1
+Aug  6 09:03:14 db01 postfix/smtpd[19224]: connect from unknown[203.0.113.88]
+Aug  6 09:03:56 web02 CRON[4282]: (root) CMD (/usr/local/bin/backup.sh >/dev/null 2>&1)
+Aug  6 09:04:48 cache01 sudo[16743]: jsmith : TTY=pts/0 ; PWD=/home/jsmith ; USER=root ; COMMAND=/usr/bin/systemctl restart app
+Aug  6 09:05:39 db01 sudo[4309]: jsmith : TTY=pts/0 ; PWD=/home/jsmith ; USER=root ; COMMAND=/usr/bin/systemctl restart app
+Aug  6 09:06:03 cache01 sshd[12390]: Failed password for invalid user www-data from 198.51.100.4 port 59434 ssh2
+Aug  6 09:06:48 cache01 sshd[2981]: Accepted publickey for deploy from 10.0.54.16 port 49305 ssh2
+Aug  6 09:07:03 web02 sshd[14807]: Accepted publickey for jsmith from 10.0.32.188 port 64672 ssh2
+Aug  6 09:07:39 lb01 sshd[25826]: Failed password for invalid user deploy from 198.51.100.112 port 13668 ssh2
+Aug  6 09:08:04 cache01 sshd[21129]: Failed password for invalid user deploy from 198.51.100.153 port 20795 ssh2
+Aug  6 09:08:12 web01 sshd[11241]: Accepted publickey for deploy from 10.0.29.119 port 11642 ssh2
+Aug  6 09:08:35 app03 systemd[12317]: Stopping User Manager for UID 1400...
+Aug  6 09:09:04 web02 sudo[1301]: deploy : TTY=pts/0 ; PWD=/home/deploy ; USER=root ; COMMAND=/usr/bin/systemctl restart app
+Aug  6 09:09:52 app03 sshd[15099]: Accepted publickey for www-data from 10.0.160.175 port 60363 ssh2
+Aug  6 09:10:43 lb01 sshd[15297]: Accepted publickey for root from 10.0.226.6 port 40411 ssh2
+Aug  6 09:11:16 web02 sshd[30477]: Accepted publickey for www-data from 10.0.133.37 port 33579 ssh2
+Aug  6 09:12:01 app03 sshd[16894]: Accepted publickey for www-data from 10.0.241.2 port 56366 ssh2
+Aug  6 09:12:44 web02 postfix/smtpd[12969]: connect from unknown[203.0.113.86]
+Aug  6 09:13:05 cache01 systemd[9312]: Stopping User Manager for UID 1840...
+Aug  6 09:13:50 db01 kernel[21553]: [85184.999333] TCP: request_sock_TCP: Possible SYN flooding on port 443.
+Aug  6 09:14:25 cache01 CRON[28629]: (root) CMD (/usr/local/bin/backup.sh >/dev/null 2>&1)
+Aug  6 09:15:14 web01 postfix/smtpd[14077]: connect from unknown[203.0.113.151]
+Aug  6 09:15:52 web02 sshd[12835]: Failed password for invalid user jsmith from 198.51.100.225 port 40748 ssh2
+Aug  6 09:16:44 db01 sshd[24431]: Failed password for invalid user root from 198.51.100.167 port 7418 ssh2
+Aug  6 09:16:49 app03 CRON[9606]: (root) CMD (/usr/local/bin/backup.sh >/dev/null 2>&1)
+Aug  6 09:17:39 lb01 CRON[15449]: (root) CMD (/usr/local/bin/backup.sh >/dev/null 2>&1)
+Aug  6 09:18:27 web02 CRON[2253]: (root) CMD (/usr/local/bin/backup.sh >/dev/null 2>&1)
+Aug  6 09:19:08 cache01 systemd[9010]: Stopping User Manager for UID 1088...
+Aug  6 09:19:59 web01 systemd[15722]: Stopping User Manager for UID 1746...
+Aug  6 09:20:53 lb01 systemd[31851]: Started Session 123 of user deploy.
+Aug  6 09:21:26 db01 kernel[5881]: [39338.362338] TCP: request_sock_TCP: Possible SYN flooding on port 443.
+Aug  6 09:21:43 web01 systemd[5778]: Stopping User Manager for UID 1645...
+Aug  6 09:22:23 cache01 systemd[3722]: Stopping User Manager for UID 1698...
+Aug  6 09:22:48 web02 sudo[16257]: www-data : TTY=pts/0 ; PWD=/home/www-data ; USER=root ; COMMAND=/usr/bin/systemctl restart app
+Aug  6 09:22:56 lb01 kernel[13775]: [74639.380856] TCP: request_sock_TCP: Possible SYN flooding on port 443.
+Aug  6 09:23:33 db01 sshd[18654]: Failed password for invalid user root from 198.51.100.196 port 39649 ssh2
+Aug  6 09:23:57 cache01 sshd[5098]: Failed password for invalid user root from 198.51.100.150 port 64385 ssh2
+Aug  6 09:24:09 db01 sshd[10914]: Accepted publickey for deploy from 10.0.118.32 port 63726 ssh2
+Aug  6 09:24:46 app03 kernel[16251]: [32922.477849] TCP: request_sock_TCP: Possible SYN flooding on port 443.
+Aug  6 09:24:59 lb01 systemd[10339]: Stopping User Manager for UID 1996...
+Aug  6 09:25:26 web01 systemd[18625]: Stopping User Manager for UID 1120...
+Aug  6 09:25:34 app03 CRON[30865]: (root) CMD (/usr/local/bin/backup.sh >/dev/null 2>&1)
+Aug  6 09:25:52 web01 nginx[3368]: worker process 3368 exited on signal 11
+Aug  6 09:26:15 app03 postfix/smtpd[17957]: connect from unknown[203.0.113.4]
+Aug  6 09:26:29 web01 CRON[19684]: (root) CMD (/usr/local/bin/backup.sh >/dev/null 2>&1)
+Aug  6 09:26:31 web01 postfix/smtpd[27710]: connect from unknown[203.0.113.29]
+Aug  6 09:26:59 db01 sshd[31746]: Accepted publickey for admin from 10.0.14.110 port 41871 ssh2
+Aug  6 09:27:23 app03 kernel[18563]: [81240.248545] TCP: request_sock_TCP: Possible SYN flooding on port 443.
+Aug  6 09:27:34 web02 systemd[5394]: Started Session 128 of user admin.
+Aug  6 09:28:11 lb01 sshd[18865]: Failed password for invalid user root from 198.51.100.106 port 36648 ssh2
+Aug  6 09:28:39 web02 systemd[30834]: Stopping User Manager for UID 1247...
+Aug  6 09:29:10 lb01 nginx[14569]: worker process 14569 exited on signal 11
+Aug  6 09:29:14 cache01 dhclient[8326]: DHCPACK from 10.0.0.1
+Aug  6 09:30:04 db01 sshd[11602]: Failed password for invalid user admin from 198.51.100.109 port 21243 ssh2
+Aug  6 09:30:48 web02 systemd[10505]: Started Session 109 of user root.
+Aug  6 09:31:48 web02 postfix/smtpd[1988]: connect from unknown[203.0.113.32]
+Aug  6 09:32:29 web01 CRON[17109]: (root) CMD (/usr/local/bin/backup.sh >/dev/null 2>&1)
+Aug  6 09:32:55 web02 systemd[22441]: Stopping User Manager for UID 1093...
+Aug  6 09:32:56 app03 systemd[22187]: Stopping User Manager for UID 1549...
+Aug  6 09:33:18 web02 CRON[22173]: (root) CMD (/usr/local/bin/backup.sh >/dev/null 2>&1)
+Aug  6 09:33:28 web01 sshd[2362]: Failed password for invalid user www-data from 198.51.100.50 port 18268 ssh2
+Aug  6 09:34:01 app03 sudo[8790]: deploy : TTY=pts/0 ; PWD=/home/deploy ; USER=root ; COMMAND=/usr/bin/systemctl restart app
+Aug  6 09:34:06 lb01 sudo[4658]: deploy : TTY=pts/0 ; PWD=/home/deploy ; USER=root ; COMMAND=/usr/bin/systemctl restart app
+Aug  6 09:34:51 web02 postfix/smtpd[24076]: connect from unknown[203.0.113.203]
+Aug  6 09:35:12 web02 sshd[7741]: Accepted publickey for www-data from 10.0.243.186 port 18604 ssh2
+Aug  6 09:35:58 db01 systemd[14845]: Started Session 94 of user root.
+Aug  6 09:36:39 web02 CRON[23989]: (root) CMD (/usr/local/bin/backup.sh >/dev/null 2>&1)
+Aug  6 09:36:49 web01 kernel[3259]: [83274.716800] TCP: request_sock_TCP: Possible SYN flooding on port 443.
+Aug  6 09:37:18 app03 postfix/smtpd[17971]: connect from unknown[203.0.113.80]
+Aug  6 09:37:42 db01 dhclient[18820]: DHCPACK from 10.0.0.1
+Aug  6 09:38:15 web01 nginx[14581]: worker process 14581 exited on signal 11
+Aug  6 09:38:56 app03 sudo[26092]: jsmith : TTY=pts/0 ; PWD=/home/jsmith ; USER=root ; COMMAND=/usr/bin/systemctl restart app
+Aug  6 09:39:21 lb01 CRON[10103]: (root) CMD (/usr/local/bin/backup.sh >/dev/null 2>&1)
+Aug  6 09:40:08 app03 systemd[24396]: Stopping User Manager for UID 1465...
+Aug  6 09:40:57 db01 systemd[27567]: Stopping User Manager for UID 1752...
+Aug  6 09:41:38 db01 sshd[9438]: Accepted publickey for www-data from 10.0.16.88 port 24657 ssh2
+Aug  6 09:42:12 app03 CRON[26858]: (root) CMD (/usr/local/bin/backup.sh >/dev/null 2>&1)
+Aug  6 09:42:19 db01 systemd[9342]: Stopping User Manager for UID 1347...
+Aug  6 09:42:38 cache01 systemd[10790]: Started Session 730 of user deploy.
+Aug  6 09:42:42 app03 systemd[11362]: Stopping User Manager for UID 1437...
+Aug  6 09:42:52 db01 dhclient[4410]: DHCPACK from 10.0.0.1
+Aug  6 09:42:54 cache01 nginx[6589]: worker process 6589 exited on signal 11
+Aug  6 09:43:03 app03 sshd[20965]: Accepted publickey for deploy from 10.0.53.6 port 38996 ssh2
+Aug  6 09:43:22 web01 systemd[23704]: Stopping User Manager for UID 1588...
+Aug  6 09:43:25 lb01 kernel[17409]: [37893.561906] TCP: request_sock_TCP: Possible SYN flooding on port 443.
+Aug  6 09:43:45 cache01 kernel[1004]: [65362.355404] TCP: request_sock_TCP: Possible SYN flooding on port 443.
+Aug  6 09:44:07 lb01 systemd[12860]: Stopping User Manager for UID 1311...
+Aug  6 09:44:57 app03 sudo[15828]: admin : TTY=pts/0 ; PWD=/home/admin ; USER=root ; COMMAND=/usr/bin/systemctl restart app
+Aug  6 09:45:09 lb01 sudo[18468]: root : TTY=pts/0 ; PWD=/home/root ; USER=root ; COMMAND=/usr/bin/systemctl restart app
+Aug  6 09:45:29 cache01 systemd[23213]: Stopping User Manager for UID 1188...
+Aug  6 09:45:57 cache01 dhclient[15427]: DHCPACK from 10.0.0.1
+Aug  6 09:46:30 lb01 sudo[4235]: jsmith : TTY=pts/0 ; PWD=/home/jsmith ; USER=root ; COMMAND=/usr/bin/systemctl restart app
+Aug  6 09:47:25 db01 postfix/smtpd[20646]: connect from unknown[203.0.113.145]
+Aug  6 09:47:49 web01 kernel[22012]: [24933.455069] TCP: request_sock_TCP: Possible SYN flooding on port 443.
+Aug  6 09:48:00 cache01 sshd[31855]: Accepted publickey for jsmith from 10.0.57.103 port 1264 ssh2
+Aug  6 09:48:35 cache01 kernel[13800]: [31573.972322] TCP: request_sock_TCP: Possible SYN flooding on port 443.
+Aug  6 09:49:34 db01 sshd[1442]: Accepted publickey for root from 10.0.57.228 port 63977 ssh2
+Aug  6 09:49:37 cache01 dhclient[15977]: DHCPACK from 10.0.0.1
+Aug  6 09:50:29 app03 dhclient[4961]: DHCPACK from 10.0.0.1
+Aug  6 09:51:05 lb01 systemd[23979]: Started Session 138 of user root.
+Aug  6 09:51:49 web02 dhclient[20708]: DHCPACK from 10.0.0.1
+Aug  6 09:51:58 db01 sudo[15195]: www-data : TTY=pts/0 ; PWD=/home/www-data ; USER=root ; COMMAND=/usr/bin/systemctl restart app
+Aug  6 09:52:38 lb01 sshd[19896]: Accepted publickey for www-data from 10.0.187.38 port 18559 ssh2
+Aug  6 09:53:36 lb01 sshd[1016]: Accepted publickey for www-data from 10.0.228.59 port 29861 ssh2
+Aug  6 09:53:52 web02 systemd[10790]: Stopping User Manager for UID 1381...
+Aug  6 09:53:54 lb01 sshd[2157]: Failed password for invalid user deploy from 198.51.100.180 port 45036 ssh2
+Aug  6 09:54:23 lb01 CRON[18622]: (root) CMD (/usr/local/bin/backup.sh >/dev/null 2>&1)
+Aug  6 09:55:23 app03 dhclient[16360]: DHCPACK from 10.0.0.1
+Aug  6 09:55:48 cache01 systemd[31282]: Stopping User Manager for UID 1851...
+Aug  6 09:55:57 app03 CRON[13479]: (root) CMD (/usr/local/bin/backup.sh >/dev/null 2>&1)
+Aug  6 09:56:30 db01 dhclient[16383]: DHCPACK from 10.0.0.1
+Aug  6 09:56:44 web02 kernel[16760]: [34191.594755] TCP: request_sock_TCP: Possible SYN flooding on port 443.
+Aug  6 09:57:17 web02 systemd[21919]: Stopping User Manager for UID 1096...
+Aug  6 09:57:40 app03 sshd[16307]: Failed password for invalid user jsmith from 198.51.100.97 port 38946 ssh2
+Aug  6 09:58:32 web01 CRON[8820]: (root) CMD (/usr/local/bin/backup.sh >/dev/null 2>&1)
+Aug  6 09:59:22 web02 CRON[22527]: (root) CMD (/usr/local/bin/backup.sh >/dev/null 2>&1)
+Aug  6 10:00:16 app03 nginx[6696]: worker process 6696 exited on signal 11
+Aug  6 10:00:31 app03 nginx[13213]: worker process 13213 exited on signal 11
+Aug  6 10:01:02 lb01 dhclient[6828]: DHCPACK from 10.0.0.1
+Aug  6 10:01:31 web01 postfix/smtpd[3839]: connect from unknown[203.0.113.112]
+Aug  6 10:02:10 web02 postfix/smtpd[6134]: connect from unknown[203.0.113.96]
+Aug  6 10:02:55 db01 systemd[8772]: Started Session 104 of user www-data.

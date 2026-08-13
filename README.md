@@ -12,12 +12,23 @@ overview. Alerting is planned for a later phase.
 ### Log Stream
 
 - Real ingestion: tails the trailing window of each source (bounded reads —
-  512KB / 3,000 lines per file) rather than loading it whole, with basic
-  level/timestamp/stack-trace-continuation parsing.
+  512KB / 3,000 lines per file) rather than loading it whole, with
+  level/timestamp/stack-trace-continuation parsing that recognizes this
+  app's own log format, ISO-8601, Apache/Combined access logs, and
+  BSD/RFC-3164 syslog (falling back to keyword-based severity — "failed",
+  "denied", "exited on signal", etc. — when a line carries no explicit
+  level tag, as bare syslog lines don't).
+- Structured/unstructured message parsing: click a row to expand it and see
+  the full message (not just the truncated single line) alongside its
+  auto-detected format — JSON, syslog, Apache/Nginx access log, or
+  logfmt/key=value — broken out into its individual fields. Multiple rows
+  can be expanded at once; anything that doesn't match a known shape shows
+  as plain unstructured text.
 - Filtering by free-text search (debounced), source, file, severity
   (ERROR/WARN/INFO/DEBUG), and time range, plus one-click presets
   (all errors, errors & warnings, clear).
-- Sortable columns (time, level, source, file) and backend-side pagination.
+- Sortable columns (time, level, source, file), configurable rows per page
+  (10/25/50/100), and backend-side pagination.
 - Auto-refreshes on its own while any live source is in scope; shows a "●
   LIVE" indicator when doing so.
 - A "new data available" banner (naming the exact file and source) appears
@@ -72,7 +83,8 @@ sources, which never need it.
 - **Backend**: Java 25, Spring Boot 4, Maven, Spring Data JPA, H2 (embedded,
   file-based), sshj (SFTP)
 - **Frontend**: TypeScript, React, Vite, plain CSS (dark mode by default,
-  primary color `#447caa`)
+  primary color `#447caa`, design tokens for spacing/radius/shadow in
+  `theme.css`, self-hosted Barlow / Barlow Condensed type)
 
 ## Running in dev
 
@@ -155,8 +167,12 @@ host key verification, etc.).
   modified files; there's no incremental/streaming tail (each read re-fetches
   the trailing window), and SFTP opens a fresh connection per read rather
   than pooling one.
-- Log line parsing is heuristic (common timestamp formats, bracketed levels,
-  Apache/Combined access-log style) — it won't recognize every format.
+- Log line parsing is heuristic on both ends: the backend's
+  timestamp/level extraction (common timestamp formats, bracketed levels,
+  Apache/Combined access-log style, BSD/RFC-3164 syslog) and the frontend's
+  structured-format detection for the expanded row view (JSON, syslog,
+  access log, logfmt) are both pattern-based, not a full grok/schema engine
+  — neither recognizes every possible format, and CSV is not auto-detected.
 - Change detection for the "new data available" indicator relies on file
   size/mtime (or an HTTP HEAD's `Content-Length`/`Last-Modified`), not a
   content hash, and is itself throttled (~5s) so it doesn't hammer a remote

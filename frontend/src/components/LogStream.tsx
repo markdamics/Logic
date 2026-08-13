@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { fetchLogs, listLogFiles } from "../api/client";
-import type { LogLevel, LogQueryResult, LogSource } from "../api/types";
+import type { LogEntry, LogLevel, LogQueryResult, LogSource } from "../api/types";
 import { createLogger } from "../utils/logger";
+import { parseMessage } from "../utils/messageParser";
 import { updateMessageFor } from "../utils/source";
 
 const logger = createLogger("LogStream");
@@ -10,7 +11,8 @@ type SortColumn = "time" | "level" | "source" | "file";
 type SortDirection = "asc" | "desc";
 
 const LEVELS: LogLevel[] = ["ERROR", "WARN", "INFO", "DEBUG"];
-const PAGE_SIZE = 10;
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
+const DEFAULT_PAGE_SIZE = PAGE_SIZE_OPTIONS[0];
 const SEARCH_DEBOUNCE_MS = 300;
 const LIVE_POLL_INTERVAL_MS = 3000;
 
@@ -53,7 +55,9 @@ export function LogStream({ sources, onCountChange, reloadSignal, onReload }: Lo
   const [sortColumn, setSortColumn] = useState<SortColumn>("time");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [liveTick, setLiveTick] = useState(0);
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
 
   const [data, setData] = useState<LogQueryResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -122,7 +126,7 @@ export function LogStream({ sources, onCountChange, reloadSignal, onReload }: Lo
       sortBy: sortColumn,
       sortDir: sortDirection,
       page,
-      size: PAGE_SIZE,
+      size: pageSize,
     };
     logger.debug("Querying logs", params);
 
@@ -153,6 +157,7 @@ export function LogStream({ sources, onCountChange, reloadSignal, onReload }: Lo
     sortColumn,
     sortDirection,
     page,
+    pageSize,
     liveTick,
     reloadSignal,
   ]);
@@ -160,6 +165,12 @@ export function LogStream({ sources, onCountChange, reloadSignal, onReload }: Lo
   useEffect(() => {
     onCountChange?.(data?.totalElements ?? 0);
   }, [data, onCountChange]);
+
+  // Collapse expanded rows whenever the filtered/sorted row set changes
+  // underneath them (but not on a live-poll refresh of the same page).
+  useEffect(() => {
+    setExpandedIds(new Set());
+  }, [debouncedSearch, severities, sourceFilter, fileFilter, rangeMinutes, sortColumn, sortDirection, page, pageSize]);
 
   const toggleSeverity = (level: LogLevel) => {
     setSeverities((prev) => {
@@ -189,6 +200,23 @@ export function LogStream({ sources, onCountChange, reloadSignal, onReload }: Lo
 
   const sortArrow = (column: SortColumn) =>
     sortColumn === column ? (sortDirection === "asc" ? "▲" : "▼") : "";
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setPage(0);
+  };
+
+  const toggleExpand = (id: number) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
 
   if (sources.length === 0) {
     return (
@@ -298,7 +326,14 @@ export function LogStream({ sources, onCountChange, reloadSignal, onReload }: Lo
       )}
 
       <div className="log-table-wrapper">
-        <table className="log-table">
+        <table className="log-table entries-table">
+          <colgroup>
+            <col style={{ width: "110px" }} />
+            <col style={{ width: "110px" }} />
+            <col style={{ width: "90px" }} />
+            <col style={{ width: "160px" }} />
+            <col style={{ width: "auto" }} />
+          </colgroup>
           <thead>
             <tr>
               <th onClick={() => toggleSort("time")}>Date {sortArrow("time")}</th>
@@ -309,17 +344,12 @@ export function LogStream({ sources, onCountChange, reloadSignal, onReload }: Lo
             </tr>
           </thead>
           <tbody>
-            {rows.map((entry) => (
-              <tr key={entry.id}>
-                <td className="log-date">{new Date(entry.timestamp).toLocaleDateString()}</td>
-                <td className="log-time">{new Date(entry.timestamp).toLocaleTimeString()}</td>
-                <td>
-                  <span className={`level-chip level-${entry.level.toLowerCase()}`}>{entry.level}</span>
-                </td>
-                <td className="log-file">{entry.file ?? "—"}</td>
-                <td className="log-message">{entry.message}</td>
-              </tr>
-            ))}
+            {rows.map((entry) => {
+              const isExpanded = expandedIds.has(entry.id);
+              return (
+                <LogRow key={entry.id} entry={entry} isExpanded={isExpanded} onToggle={toggleExpand} />
+              );
+            })}
             {!loading && rows.length === 0 && (
               <tr>
                 <td colSpan={5} className="log-empty">
@@ -339,25 +369,102 @@ export function LogStream({ sources, onCountChange, reloadSignal, onReload }: Lo
       </div>
 
       <div className="log-pagination">
-        <button
-          type="button"
-          className="btn btn-secondary btn-small"
-          disabled={currentPage <= 0}
-          onClick={() => setPage((p) => Math.max(0, p - 1))}
-        >
-          Prev
-        </button>
-        <span className="text-muted">
-          Page {currentPage + 1} of {totalPages}
-        </span>
-        <button
-          type="button"
-          className="btn btn-secondary btn-small"
-          disabled={currentPage + 1 >= totalPages}
-          onClick={() => setPage((p) => p + 1)}
-        >
-          Next
-        </button>
+        <label className="log-page-size">
+          <span className="text-muted">Rows per page</span>
+          <select
+            className="input"
+            value={pageSize}
+            onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+          >
+            {PAGE_SIZE_OPTIONS.map((size) => (
+              <option key={size} value={size}>
+                {size}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="log-pagination-nav">
+          <button
+            type="button"
+            className="btn btn-secondary btn-small"
+            disabled={currentPage <= 0}
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+          >
+            Prev
+          </button>
+          <span className="text-muted">
+            Page {currentPage + 1} of {totalPages}
+          </span>
+          <button
+            type="button"
+            className="btn btn-secondary btn-small"
+            disabled={currentPage + 1 >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            Next
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface LogRowProps {
+  entry: LogEntry;
+  isExpanded: boolean;
+  onToggle: (id: number) => void;
+}
+
+function LogRow({ entry, isExpanded, onToggle }: LogRowProps) {
+  return (
+    <>
+      <tr
+        className={`log-row${isExpanded ? " expanded" : ""}`}
+        onClick={() => onToggle(entry.id)}
+        aria-expanded={isExpanded}
+      >
+        <td className="log-date">{new Date(entry.timestamp).toLocaleDateString()}</td>
+        <td className="log-time">{new Date(entry.timestamp).toLocaleTimeString()}</td>
+        <td>
+          <span className={`level-chip level-${entry.level.toLowerCase()}`}>{entry.level}</span>
+        </td>
+        <td className="log-file">{entry.file ?? "—"}</td>
+        <td className="log-message log-message-truncated">
+          <span className="log-expand-chevron">▸</span>
+          {entry.message}
+        </td>
+      </tr>
+      {isExpanded && (
+        <tr className="log-detail-row">
+          <td colSpan={5}>
+            <LogEntryDetail message={entry.message} />
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+function LogEntryDetail({ message }: { message: string }) {
+  const parsed = useMemo(() => parseMessage(message), [message]);
+  return (
+    <div className="log-detail-panel">
+      <div className="log-detail-header">
+        <span className={`format-badge format-${parsed.format}`}>{parsed.label}</span>
+      </div>
+      {parsed.fields.length > 0 && (
+        <div className="log-detail-fields">
+          {parsed.fields.map((field, i) => (
+            <div className="log-detail-field" key={`${field.key}-${i}`}>
+              <span className="log-detail-field-key">{field.key}</span>
+              <span className="log-detail-field-value">{field.value}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      <div>
+        <div className="log-detail-message-label">Full message</div>
+        <pre className="log-detail-message">{message}</pre>
       </div>
     </div>
   );

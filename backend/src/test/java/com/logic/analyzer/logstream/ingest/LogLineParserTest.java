@@ -3,6 +3,8 @@ package com.logic.analyzer.logstream.ingest;
 import com.logic.analyzer.logstream.LogLevel;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -70,6 +72,41 @@ class LogLineParserTest {
         List<LogLineParser.ParsedLine> parsed = LogLineParser.parse(List.of("just some unstructured text"));
 
         assertThat(parsed).hasSize(1);
+        assertThat(parsed.get(0).level()).isEqualTo(LogLevel.INFO);
+    }
+
+    @Test
+    void detectsBsdSyslogTimestampsAssumingTheCurrentYear() {
+        List<LogLineParser.ParsedLine> parsed = LogLineParser.parse(List.of(
+                "Aug  6 08:00:11 cache01 systemd[5032]: Started Session 600 of user admin."));
+
+        int expectedYear = LocalDate.now(ZoneOffset.UTC).getYear();
+        assertThat(parsed).hasSize(1);
+        assertThat(parsed.get(0).timestamp().toString()).startsWith(expectedYear + "-08-06T08:00:11");
+        assertThat(parsed.get(0).message()).isEqualTo("cache01 systemd[5032]: Started Session 600 of user admin.");
+    }
+
+    @Test
+    void infersWarnSeverityFromSyslogKeywordsWhenNoExplicitLevelIsPresent() {
+        List<LogLineParser.ParsedLine> parsed = LogLineParser.parse(List.of(
+                "Aug  6 08:02:08 cache01 sshd[23428]: Failed password for invalid user deploy from 198.51.100.205 port 59299 ssh2"));
+
+        assertThat(parsed.get(0).level()).isEqualTo(LogLevel.WARN);
+    }
+
+    @Test
+    void infersErrorSeverityFromSyslogKeywordsWhenNoExplicitLevelIsPresent() {
+        List<LogLineParser.ParsedLine> parsed = LogLineParser.parse(List.of(
+                "Aug  6 08:00:48 db01 nginx[29355]: worker process 29355 exited on signal 11"));
+
+        assertThat(parsed.get(0).level()).isEqualTo(LogLevel.ERROR);
+    }
+
+    @Test
+    void defaultsBareSyslogLinesWithNoSeverityKeywordsToInfo() {
+        List<LogLineParser.ParsedLine> parsed = LogLineParser.parse(List.of(
+                "Aug  6 08:05:58 cache01 sshd[2863]: Accepted publickey for admin from 10.0.143.166 port 54852 ssh2"));
+
         assertThat(parsed.get(0).level()).isEqualTo(LogLevel.INFO);
     }
 }

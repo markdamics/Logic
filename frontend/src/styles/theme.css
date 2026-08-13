@@ -18,7 +18,23 @@
   --color-warning-bg: rgba(217, 164, 65, 0.15);
 
   --shadow-modal: rgba(0, 0, 0, 0.45) 0 20px 40px -10px;
-  --font-sans: system-ui, "Segoe UI", Roboto, sans-serif;
+  --shadow-sm: rgba(0, 0, 0, 0.3) 0 1px 2px;
+  --shadow-md: rgba(0, 0, 0, 0.32) 0 3px 10px;
+  --font-sans: "Barlow", system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-heading: "Barlow Condensed", "Segoe UI", system-ui, sans-serif;
+  --font-heading-weight: 600;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 7px;
+  --radius-tag: 3px;
 
   color-scheme: dark;
 }
@@ -39,8 +55,26 @@
   --color-warning-bg: rgba(160, 107, 18, 0.12);
 
   --shadow-modal: rgba(0, 0, 0, 0.15) 0 20px 40px -10px;
+  --shadow-sm: rgba(29, 31, 32, 0.14) 0 1px 2px;
+  --shadow-md: rgba(29, 31, 32, 0.16) 0 3px 10px;
 
   color-scheme: light;
+}
+
+@font-face {
+  font-family: "Barlow";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/barlow-400.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Barlow Condensed";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/barlow-condensed-600.woff2") format("woff2");
 }
 
 * {
@@ -66,4 +100,11 @@ body {
 
 button {
   font-family: inherit;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  letter-spacing: -0.01em;
+  margin: 0;
 }

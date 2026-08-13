@@ -44,6 +44,10 @@ export function SourceGrid({ sources, onTest, onEdit, onDelete, onToggleEnabled,
     <div className="source-grid">
       {sources.map((source) => (
         <div className={`source-card${source.enabled ? "" : " source-card-disabled"}`} key={source.id}>
+          <span className="source-card-corner tl" aria-hidden="true" />
+          <span className="source-card-corner tr" aria-hidden="true" />
+          <span className="source-card-corner bl" aria-hidden="true" />
+          <span className="source-card-corner br" aria-hidden="true" />
           <div className="source-card-actions">
             <button
               type="button"

@@ -2,7 +2,9 @@ package com.logic.analyzer.logstream.ingest;
 
 import com.logic.analyzer.logstream.LogLevel;
 
+import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -18,23 +20,35 @@ import java.util.regex.Pattern;
 /**
  * Best-effort parser for arbitrary log line formats: detects a level and a
  * timestamp using a handful of common patterns (bracketed level tags, this
- * project's own app-log timestamp format, ISO-8601, and Apache/Combined
- * access-log style), falling back to INFO / "now" when nothing matches. Lines
- * that start with whitespace are treated as continuations (e.g. stack trace
- * frames) of the previous entry rather than new ones.
+ * project's own app-log timestamp format, ISO-8601, Apache/Combined
+ * access-log style, and BSD/RFC-3164 syslog style), falling back to INFO /
+ * "now" when nothing matches. Lines that start with whitespace are treated as
+ * continuations (e.g. stack trace frames) of the previous entry rather than
+ * new ones.
  */
 public final class LogLineParser {
 
     private static final Pattern BRACKET_LEVEL = Pattern.compile("(?i)\\[(ERROR|WARN|WARNING|INFO|DEBUG|TRACE)]");
     private static final Pattern BARE_LEVEL = Pattern.compile("(?i)\\b(ERROR|WARN|WARNING|INFO|DEBUG|TRACE)\\b");
     private static final Pattern HTTP_STATUS = Pattern.compile("\"\\s+(\\d{3})\\s");
+    // Last-resort severity signal for formats (like bare syslog) that carry no
+    // explicit level tag at all - e.g. sshd's "Failed password for ..." or
+    // nginx's "worker process ... exited on signal 11".
+    private static final Pattern ERROR_KEYWORDS = Pattern.compile(
+            "(?i)\\b(exception|panic|fatal|critical|segfault|denied|exited on signal|out of memory)\\b");
+    private static final Pattern WARN_KEYWORDS = Pattern.compile(
+            "(?i)\\b(fail(?:ed|ure)?|invalid|timeout|unauthorized|refused|retry(?:ing)?|degraded)\\b");
 
     private static final Pattern APP_TS = Pattern.compile("^(\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2},\\d{3})");
     private static final Pattern ACCESS_TS = Pattern.compile("\\[(\\d{2}/[A-Za-z]{3}/\\d{4}:\\d{2}:\\d{2}:\\d{2} [+-]\\d{4})]");
     private static final Pattern ISO_TS = Pattern.compile("^(\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?)(Z|[+-]\\d{2}:?\\d{2})?");
+    // BSD/RFC-3164 syslog: "Aug  6 08:05:58 ..." - no year, and the day is
+    // space-padded rather than zero-padded (so a single space or two).
+    private static final Pattern SYSLOG_TS = Pattern.compile("^([A-Za-z]{3}\\s+\\d{1,2}\\s+\\d{2}:\\d{2}:\\d{2})");
 
     private static final DateTimeFormatter APP_LOG_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss,SSS");
     private static final DateTimeFormatter ACCESS_LOG_FORMAT = DateTimeFormatter.ofPattern("dd/MMM/yyyy:HH:mm:ss Z", Locale.ENGLISH);
+    private static final DateTimeFormatter SYSLOG_LOG_FORMAT = DateTimeFormatter.ofPattern("yyyy MMM d HH:mm:ss", Locale.ENGLISH);
 
     private LogLineParser() {
     }
@@ -83,6 +97,8 @@ public final class LogLineParser {
             stripped = removeFirstMatch(stripped, ACCESS_TS);
         } else if (ISO_TS.matcher(line).find()) {
             stripped = removeFirstMatch(stripped, ISO_TS);
+        } else if (SYSLOG_TS.matcher(line).find()) {
+            stripped = removeFirstMatch(stripped, SYSLOG_TS);
         }
         stripped = removeFirstMatch(stripped, BRACKET_LEVEL);
         return stripped.strip().replaceAll(" {2,}", " ");
@@ -117,6 +133,12 @@ public final class LogLineParser {
             if (status >= 500) return LogLevel.ERROR;
             if (status >= 400) return LogLevel.WARN;
             return LogLevel.INFO;
+        }
+        if (ERROR_KEYWORDS.matcher(line).find()) {
+            return LogLevel.ERROR;
+        }
+        if (WARN_KEYWORDS.matcher(line).find()) {
+            return LogLevel.WARN;
         }
         return LogLevel.INFO;
     }
@@ -153,10 +175,35 @@ public final class LogLineParser {
                 String offset = m.group(2) == null ? "Z" : m.group(2);
                 return OffsetDateTime.parse(m.group(1) + offset, DateTimeFormatter.ISO_DATE_TIME).toInstant();
             } catch (DateTimeParseException ignored) {
+                // fall through to the next pattern
+            }
+        }
+        m = SYSLOG_TS.matcher(line);
+        if (m.find()) {
+            try {
+                return parseSyslogTimestamp(m.group(1));
+            } catch (DateTimeParseException ignored) {
                 // fall through to the default below
             }
         }
         return Instant.now();
+    }
+
+    /**
+     * BSD syslog timestamps omit the year, so it's assumed to be the current
+     * one; if that puts the timestamp more than a day in the future (e.g.
+     * reading a December entry from a file while it's now early January),
+     * the year is rolled back by one instead.
+     */
+    private static Instant parseSyslogTimestamp(String raw) {
+        String normalized = raw.trim().replaceAll("\\s+", " ");
+        int year = LocalDate.now(ZoneOffset.UTC).getYear();
+        LocalDateTime dt = LocalDateTime.parse(year + " " + normalized, SYSLOG_LOG_FORMAT);
+        Instant instant = dt.toInstant(ZoneOffset.UTC);
+        if (instant.isAfter(Instant.now().plus(Duration.ofDays(1)))) {
+            instant = dt.minusYears(1).toInstant(ZoneOffset.UTC);
+        }
+        return instant;
     }
 
     public record ParsedLine(Instant timestamp, LogLevel level, String message) {
