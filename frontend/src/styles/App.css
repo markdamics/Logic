@@ -856,6 +856,43 @@ body,
   flex: none;
 }
 
+.log-query-input {
+  width: 360px;
+  font-family: ui-monospace, Consolas, monospace;
+}
+
+.log-mode-toggle {
+  display: inline-flex;
+  flex: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-tag);
+  overflow: hidden;
+}
+
+.log-mode-btn {
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  padding: 5px var(--space-3);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.log-mode-btn + .log-mode-btn {
+  border-left: 1px solid var(--color-border);
+}
+
+.log-mode-btn:hover {
+  color: var(--color-primary);
+}
+
+.log-mode-btn.active {
+  background: var(--color-primary);
+  color: var(--color-primary-contrast);
+}
+
 .log-severity-chips {
   display: flex;
   gap: 6px;
@@ -938,6 +975,18 @@ body,
   border-radius: var(--radius-lg);
   overflow: hidden;
   background: var(--color-surface);
+}
+
+.log-aggregation {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  padding: var(--space-4);
+}
+
+.log-aggregation-summary {
+  font-size: 13px;
+  margin-bottom: var(--space-3);
 }
 
 .log-table {

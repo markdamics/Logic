@@ -11,6 +11,17 @@ app:
     # Override via ADMIN_USERNAME / ADMIN_PASSWORD env vars, or edit directly here.
     username: ${ADMIN_USERNAME:admin}
     password: ${ADMIN_PASSWORD:}
+  search:
+    # Where the embedded Lucene search index lives on disk.
+    index-dir: ${SEARCH_INDEX_DIR:./data/search-index}
+    # How often (ms) enabled sources are re-scanned and reindexed in the background.
+    index-interval-ms: ${SEARCH_INDEX_INTERVAL_MS:5000}
+    # Max age (days) an indexed entry is kept before the retention sweep purges
+    # it; 0 means unlimited (never purge), matching LogQueryParams.rangeMinutes'
+    # existing "<=0 = unbounded" convention.
+    retention-days: ${SEARCH_INDEX_RETENTION_DAYS:30}
+    # How often (ms) the retention sweep runs.
+    purge-interval-ms: ${SEARCH_INDEX_PURGE_INTERVAL_MS:3600000}
 
 spring:
   application:
@@ -20,8 +31,16 @@ spring:
     driver-class-name: org.h2.Driver
   jpa:
     hibernate:
-      ddl-auto: update
+      # Flyway (see below) owns schema changes now; Hibernate just validates
+      # entity mappings still match what Flyway created.
+      ddl-auto: validate
     open-in-view: false
+  flyway:
+    # Existing (pre-Flyway) databases already have the log_source table from
+    # Hibernate's old ddl-auto=update - treat that as version 1 already
+    # applied rather than trying to recreate it. Fresh databases have no
+    # schema to baseline against, so V1__baseline.sql just runs normally.
+    baseline-on-migrate: true
   h2:
     console:
       # Raw DB admin UI - stays behind auth when enabled, but off by default since

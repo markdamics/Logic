@@ -19,6 +19,7 @@
 
     <properties>
         <java.version>25</java.version>
+        <lucene.version>10.5.0</lucene.version>
     </properties>
 
     <dependencies>
@@ -47,6 +48,32 @@
             <groupId>com.hierynomus</groupId>
             <artifactId>sshj</artifactId>
             <version>0.40.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-flyway</artifactId>
+        </dependency>
+
+        <!-- Embedded search index (Search & Query feature) -->
+        <dependency>
+            <groupId>org.apache.lucene</groupId>
+            <artifactId>lucene-core</artifactId>
+            <version>${lucene.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.lucene</groupId>
+            <artifactId>lucene-analysis-common</artifactId>
+            <version>${lucene.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.lucene</groupId>
+            <artifactId>lucene-queryparser</artifactId>
+            <version>${lucene.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.lucene</groupId>
+            <artifactId>lucene-facet</artifactId>
+            <version>${lucene.version}</version>
         </dependency>
 
         <dependency>

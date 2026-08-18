@@ -2,6 +2,7 @@ import type {
   ConnectionTestResult,
   CreateSourceRequest,
   DashboardSummary,
+  LogQueryLanguageParams,
   LogQueryParams,
   LogQueryResult,
   LogSource,
@@ -99,6 +100,21 @@ export function fetchLogs(params: LogQueryParams): Promise<LogQueryResult> {
   if (params.size !== undefined) query.set("size", String(params.size));
 
   return request<LogQueryResult>(`/logs?${query.toString()}`);
+}
+
+export function queryLogs(params: LogQueryLanguageParams): Promise<LogQueryResult> {
+  const query = new URLSearchParams();
+  query.set("q", params.q);
+  query.set("queryLanguage", params.queryLanguage);
+  if (params.source) query.set("source", params.source);
+  if (params.file) query.set("file", params.file);
+  if (params.rangeMinutes !== undefined) query.set("rangeMinutes", String(params.rangeMinutes));
+  if (params.sortBy) query.set("sortBy", params.sortBy);
+  if (params.sortDir) query.set("sortDir", params.sortDir);
+  if (params.page !== undefined) query.set("page", String(params.page));
+  if (params.size !== undefined) query.set("size", String(params.size));
+
+  return request<LogQueryResult>(`/logs/query?${query.toString()}`);
 }
 
 export function listLogFiles(source?: string): Promise<string[]> {

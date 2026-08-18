@@ -1,14 +1,29 @@
 import { useEffect, useMemo, useState } from "react";
-import { fetchLogs, listLogFiles } from "../api/client";
-import type { LogEntry, LogLevel, LogQueryResult, LogSource } from "../api/types";
+import { fetchLogs, listLogFiles, queryLogs } from "../api/client";
+import type {
+  LogAggregationResult,
+  LogEntry,
+  LogLevel,
+  LogQueryResult,
+  LogSource,
+  QueryLanguage,
+} from "../api/types";
 import { createLogger } from "../utils/logger";
 import { parseMessage } from "../utils/messageParser";
 import { updateMessageFor } from "../utils/source";
+import { BarChart } from "./BarChart";
 
 const logger = createLogger("LogStream");
 
 type SortColumn = "time" | "level" | "source" | "file";
 type SortDirection = "asc" | "desc";
+type FilterMode = "simple" | "query";
+
+const QUERY_LANGUAGES: { value: QueryLanguage; label: string; placeholder: string }[] = [
+  { value: "LUCENE", label: "Lucene", placeholder: "level:ERROR AND source:payments-api" },
+  { value: "SPL", label: "SPL", placeholder: 'level=ERROR AND source=payments-api | stats count by source' },
+  { value: "LOGQL", label: "LogQL", placeholder: '{level="ERROR"} |= "timeout"' },
+];
 
 const LEVELS: LogLevel[] = ["ERROR", "WARN", "INFO", "DEBUG"];
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
@@ -45,8 +60,12 @@ interface LogStreamProps {
 }
 
 export function LogStream({ sources, onCountChange, reloadSignal, onReload }: LogStreamProps) {
+  const [mode, setMode] = useState<FilterMode>("simple");
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [queryInput, setQueryInput] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [queryLanguage, setQueryLanguage] = useState<QueryLanguage>("LUCENE");
   const [sourceFilter, setSourceFilter] = useState("");
   const [fileFilter, setFileFilter] = useState("");
   const [fileOptions, setFileOptions] = useState<string[]>([]);
@@ -107,6 +126,15 @@ export function LogStream({ sources, onCountChange, reloadSignal, onReload }: Lo
     return () => clearTimeout(timer);
   }, [searchInput]);
 
+  // Same debounce for the query-bar input.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(queryInput);
+      setPage(0);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [queryInput]);
+
   useEffect(() => {
     if (sources.length === 0) {
       setData(null);
@@ -117,9 +145,7 @@ export function LogStream({ sources, onCountChange, reloadSignal, onReload }: Lo
     setLoading(true);
     setError(null);
 
-    const params = {
-      search: debouncedSearch || undefined,
-      levels: severities.size > 0 ? Array.from(severities) : undefined,
+    const scope = {
       source: sourceFilter || undefined,
       file: fileFilter || undefined,
       rangeMinutes,
@@ -128,9 +154,18 @@ export function LogStream({ sources, onCountChange, reloadSignal, onReload }: Lo
       page,
       size: pageSize,
     };
-    logger.debug("Querying logs", params);
 
-    fetchLogs(params)
+    const request =
+      mode === "query"
+        ? queryLogs({ q: debouncedQuery, queryLanguage, ...scope })
+        : fetchLogs({
+            search: debouncedSearch || undefined,
+            levels: severities.size > 0 ? Array.from(severities) : undefined,
+            ...scope,
+          });
+    logger.debug("Querying logs", { mode, ...scope });
+
+    request
       .then((result) => {
         if (cancelled) return;
         setData(result);
@@ -149,7 +184,10 @@ export function LogStream({ sources, onCountChange, reloadSignal, onReload }: Lo
     };
   }, [
     sources.length,
+    mode,
     debouncedSearch,
+    debouncedQuery,
+    queryLanguage,
     severities,
     sourceFilter,
     fileFilter,
@@ -170,7 +208,20 @@ export function LogStream({ sources, onCountChange, reloadSignal, onReload }: Lo
   // underneath them (but not on a live-poll refresh of the same page).
   useEffect(() => {
     setExpandedIds(new Set());
-  }, [debouncedSearch, severities, sourceFilter, fileFilter, rangeMinutes, sortColumn, sortDirection, page, pageSize]);
+  }, [
+    mode,
+    debouncedSearch,
+    debouncedQuery,
+    queryLanguage,
+    severities,
+    sourceFilter,
+    fileFilter,
+    rangeMinutes,
+    sortColumn,
+    sortDirection,
+    page,
+    pageSize,
+  ]);
 
   const toggleSeverity = (level: LogLevel) => {
     setSeverities((prev) => {
@@ -186,6 +237,7 @@ export function LogStream({ sources, onCountChange, reloadSignal, onReload }: Lo
   };
 
   const applyPreset = (preset: Preset) => {
+    setMode("simple");
     setSeverities(new Set(preset.severities));
     setSearchInput(preset.search);
     setDebouncedSearch(preset.search);
@@ -233,12 +285,57 @@ export function LogStream({ sources, onCountChange, reloadSignal, onReload }: Lo
   return (
     <div className="log-stream">
       <div className="log-filters">
-        <input
-          className="input log-search"
-          placeholder="Search logs…"
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-        />
+        <div className="log-mode-toggle">
+          <button
+            type="button"
+            className={`log-mode-btn${mode === "simple" ? " active" : ""}`}
+            onClick={() => setMode("simple")}
+          >
+            Simple
+          </button>
+          <button
+            type="button"
+            className={`log-mode-btn${mode === "query" ? " active" : ""}`}
+            onClick={() => setMode("query")}
+          >
+            Query
+          </button>
+        </div>
+        {mode === "simple" ? (
+          <input
+            className="input log-search"
+            placeholder="Search logs…"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+          />
+        ) : (
+          <>
+            <input
+              className="input log-search log-query-input"
+              placeholder={QUERY_LANGUAGES.find((lang) => lang.value === queryLanguage)?.placeholder}
+              value={queryInput}
+              onChange={(e) => setQueryInput(e.target.value)}
+            />
+            <select
+              className="input"
+              value={queryLanguage}
+              onChange={(e) => {
+                // A query string in one language's syntax is essentially
+                // never valid in another - clear it rather than surface a
+                // confusing parse error against leftover text.
+                setQueryLanguage(e.target.value as QueryLanguage);
+                setQueryInput("");
+                setDebouncedQuery("");
+              }}
+            >
+              {QUERY_LANGUAGES.map((lang) => (
+                <option key={lang.value} value={lang.value}>
+                  {lang.label}
+                </option>
+              ))}
+            </select>
+          </>
+        )}
         <select
           className="input"
           value={sourceFilter}
@@ -285,7 +382,7 @@ export function LogStream({ sources, onCountChange, reloadSignal, onReload }: Lo
           ))}
         </select>
         <div className="log-severity-chips">
-          {LEVELS.map((level) => (
+          {mode === "simple" && LEVELS.map((level) => (
             <button
               key={level}
               type="button"
@@ -325,86 +422,92 @@ export function LogStream({ sources, onCountChange, reloadSignal, onReload }: Lo
         </button>
       )}
 
-      <div className="log-table-wrapper">
-        <table className="log-table entries-table">
-          <colgroup>
-            <col style={{ width: "110px" }} />
-            <col style={{ width: "110px" }} />
-            <col style={{ width: "90px" }} />
-            <col style={{ width: "160px" }} />
-            <col style={{ width: "auto" }} />
-          </colgroup>
-          <thead>
-            <tr>
-              <th onClick={() => toggleSort("time")}>Date {sortArrow("time")}</th>
-              <th onClick={() => toggleSort("time")}>Time {sortArrow("time")}</th>
-              <th onClick={() => toggleSort("level")}>Level {sortArrow("level")}</th>
-              <th onClick={() => toggleSort("file")}>File {sortArrow("file")}</th>
-              <th>Message</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((entry) => {
-              const isExpanded = expandedIds.has(entry.id);
-              return (
-                <LogRow key={entry.id} entry={entry} isExpanded={isExpanded} onToggle={toggleExpand} />
-              );
-            })}
-            {!loading && rows.length === 0 && (
-              <tr>
-                <td colSpan={5} className="log-empty">
-                  No log entries match the current filters.
-                </td>
-              </tr>
-            )}
-            {loading && (
-              <tr>
-                <td colSpan={5} className="log-empty">
-                  Loading…
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      {data?.aggregation ? (
+        <AggregationView aggregation={data.aggregation} />
+      ) : (
+        <>
+          <div className="log-table-wrapper">
+            <table className="log-table entries-table">
+              <colgroup>
+                <col style={{ width: "110px" }} />
+                <col style={{ width: "110px" }} />
+                <col style={{ width: "90px" }} />
+                <col style={{ width: "160px" }} />
+                <col style={{ width: "auto" }} />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th onClick={() => toggleSort("time")}>Date {sortArrow("time")}</th>
+                  <th onClick={() => toggleSort("time")}>Time {sortArrow("time")}</th>
+                  <th onClick={() => toggleSort("level")}>Level {sortArrow("level")}</th>
+                  <th onClick={() => toggleSort("file")}>File {sortArrow("file")}</th>
+                  <th>Message</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((entry) => {
+                  const isExpanded = expandedIds.has(entry.id);
+                  return (
+                    <LogRow key={entry.id} entry={entry} isExpanded={isExpanded} onToggle={toggleExpand} />
+                  );
+                })}
+                {!loading && rows.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="log-empty">
+                      No log entries match the current filters.
+                    </td>
+                  </tr>
+                )}
+                {loading && (
+                  <tr>
+                    <td colSpan={5} className="log-empty">
+                      Loading…
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
 
-      <div className="log-pagination">
-        <label className="log-page-size">
-          <span className="text-muted">Rows per page</span>
-          <select
-            className="input"
-            value={pageSize}
-            onChange={(e) => handlePageSizeChange(Number(e.target.value))}
-          >
-            {PAGE_SIZE_OPTIONS.map((size) => (
-              <option key={size} value={size}>
-                {size}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="log-pagination-nav">
-          <button
-            type="button"
-            className="btn btn-secondary btn-small"
-            disabled={currentPage <= 0}
-            onClick={() => setPage((p) => Math.max(0, p - 1))}
-          >
-            Prev
-          </button>
-          <span className="text-muted">
-            Page {currentPage + 1} of {totalPages}
-          </span>
-          <button
-            type="button"
-            className="btn btn-secondary btn-small"
-            disabled={currentPage + 1 >= totalPages}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            Next
-          </button>
-        </div>
-      </div>
+          <div className="log-pagination">
+            <label className="log-page-size">
+              <span className="text-muted">Rows per page</span>
+              <select
+                className="input"
+                value={pageSize}
+                onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+              >
+                {PAGE_SIZE_OPTIONS.map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="log-pagination-nav">
+              <button
+                type="button"
+                className="btn btn-secondary btn-small"
+                disabled={currentPage <= 0}
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+              >
+                Prev
+              </button>
+              <span className="text-muted">
+                Page {currentPage + 1} of {totalPages}
+              </span>
+              <button
+                type="button"
+                className="btn btn-secondary btn-small"
+                disabled={currentPage + 1 >= totalPages}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -466,6 +569,35 @@ function LogEntryDetail({ message }: { message: string }) {
         <div className="log-detail-message-label">Full message</div>
         <pre className="log-detail-message">{message}</pre>
       </div>
+    </div>
+  );
+}
+
+/** Renders a query-bar aggregation (SPL "stats count by" / LogQL count_over_time / rate) as a bar chart instead of the row table. */
+function AggregationView({ aggregation }: { aggregation: LogAggregationResult }) {
+  const isTimeSeries = aggregation.groupField === null;
+  const items = aggregation.buckets.map((bucket) => {
+    const value = bucket.rate ?? bucket.count;
+    if (!isTimeSeries) {
+      return { key: bucket.key, label: bucket.key, value, title: `${bucket.key}: ${bucket.count.toLocaleString()}` };
+    }
+    const when = new Date(bucket.key);
+    const valueLabel = bucket.rate !== null ? `${bucket.rate.toFixed(2)}/s` : bucket.count.toLocaleString();
+    return {
+      key: bucket.key,
+      label: when.toLocaleTimeString(),
+      value,
+      title: `${when.toLocaleString()}: ${valueLabel}`,
+    };
+  });
+
+  return (
+    <div className="log-aggregation">
+      <div className="log-aggregation-summary text-muted">
+        {aggregation.totalMatched.toLocaleString()} matched
+        {aggregation.groupField ? ` · grouped by ${aggregation.groupField}` : " · over time"}
+      </div>
+      <BarChart items={items} emptyMessage="No results for this query." />
     </div>
   );
 }

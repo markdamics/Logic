@@ -4,6 +4,7 @@ import type { DashboardSummary, LogSource } from "../api/types";
 import { formatRelativeTime } from "../utils/time";
 import { createLogger } from "../utils/logger";
 import { updateMessageFor } from "../utils/source";
+import { BarChart } from "./BarChart";
 import { StatusChip } from "./StatusChip";
 
 const logger = createLogger("Dashboard");
@@ -86,7 +87,6 @@ export function Dashboard({ sources, reloadSignal, onReload }: DashboardProps) {
     .filter((a) => a.errorsLast24h > 0)
     .sort((a, b) => b.errorsLast24h - a.errorsLast24h)
     .slice(0, 6);
-  const maxErrors = Math.max(...topErrorFiles.map((a) => a.errorsLast24h), 1);
   const sourcesWithUpdates = sources.filter((s) => s.changedFiles.length > 0);
 
   return (
@@ -138,26 +138,15 @@ export function Dashboard({ sources, reloadSignal, onReload }: DashboardProps) {
       <div className="dashboard-columns">
         <section className="dashboard-section">
           <h4 className="chart-heading">Errors by file (24h)</h4>
-          {topErrorFiles.length === 0 ? (
-            <div className="log-empty">No errors in the last 24h.</div>
-          ) : (
-            <div className="bar-chart">
-              {topErrorFiles.map((activity) => (
-                <div className="bar-chart-col" key={`${activity.source}/${activity.file}`}>
-                  <div className="bar-chart-plot">
-                    <div
-                      className="bar-chart-bar"
-                      style={{ height: `${(activity.errorsLast24h / maxErrors) * 100}%` }}
-                      title={`${activity.source} · ${activity.file}: ${activity.errorsLast24h} errors`}
-                    />
-                  </div>
-                  <div className="bar-chart-label" title={`${activity.source} · ${activity.file}`}>
-                    {activity.file}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <BarChart
+            items={topErrorFiles.map((activity) => ({
+              key: `${activity.source}/${activity.file}`,
+              label: activity.file,
+              value: activity.errorsLast24h,
+              title: `${activity.source} · ${activity.file}: ${activity.errorsLast24h} errors`,
+            }))}
+            emptyMessage="No errors in the last 24h."
+          />
         </section>
 
         <section className="dashboard-section">

@@ -102,6 +102,21 @@ public class LogIngestionService {
         return entries;
     }
 
+    /**
+     * Reads a source fresh (bypassing the interactive cache) for the search
+     * indexer - the same tail-read + parse pipeline {@link #entriesFor} uses,
+     * just decoupled from the UI-facing cache/TTL so indexing can run on its
+     * own schedule.
+     */
+    public IndexableSourceRead readForIndexing(LogSource source) {
+        List<LogEntry> entries = readSource(source);
+        Map<String, TailSource.Fingerprint> fingerprints = safeFingerprint(source);
+        return new IndexableSourceRead(entries, fingerprints == null ? Map.of() : fingerprints);
+    }
+
+    public record IndexableSourceRead(List<LogEntry> entries, Map<String, TailSource.Fingerprint> fingerprintsByFile) {
+    }
+
     /** Drops all cached entries so the next read re-fetches every source, live or not. */
     public void invalidateAll() {
         cache.clear();

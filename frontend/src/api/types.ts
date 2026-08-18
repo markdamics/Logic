@@ -45,17 +45,48 @@ export interface LogEntry {
   message: string;
 }
 
+export interface LogAggregationBucket {
+  /** The group's field value for "stats count by", or the bucket's start instant (ISO-8601) for a time-bucketed aggregation. */
+  key: string;
+  count: number;
+  /** count/second — only set for a LogQL rate(...) query, null otherwise. */
+  rate: number | null;
+}
+
+export interface LogAggregationResult {
+  /** Null for a time-bucketed aggregation (count_over_time/rate) — buckets are chronological, not grouped by field. */
+  groupField: string | null;
+  buckets: LogAggregationBucket[];
+  totalMatched: number;
+}
+
 export interface LogQueryResult {
   content: LogEntry[];
   page: number;
   size: number;
   totalElements: number;
   totalPages: number;
+  /** Set instead of content when the query ended in an aggregation stage (SPL "| stats count by", LogQL count_over_time/rate). */
+  aggregation: LogAggregationResult | null;
 }
 
 export interface LogQueryParams {
   search?: string;
   levels?: LogLevel[];
+  source?: string;
+  file?: string;
+  rangeMinutes?: number;
+  sortBy?: "time" | "level" | "source" | "file";
+  sortDir?: "asc" | "desc";
+  page?: number;
+  size?: number;
+}
+
+export type QueryLanguage = "LUCENE" | "SPL" | "LOGQL";
+
+export interface LogQueryLanguageParams {
+  q: string;
+  queryLanguage: QueryLanguage;
   source?: string;
   file?: string;
   rangeMinutes?: number;

@@ -1,92 +1,72 @@
 package com.logic.analyzer.logstream;
 
 import com.logic.analyzer.logstream.dto.LogQueryResult;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.logic.analyzer.search.index.SearchIndexService;
+import com.logic.analyzer.search.query.LuceneQueryExecutor;
+import com.logic.analyzer.search.query.QueryCompiler;
+import com.logic.analyzer.search.query.QueryNode;
+import org.apache.lucene.search.Query;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Comparator;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
+/**
+ * Filters/sorts/paginates log entries via the embedded Lucene search index
+ * rather than an in-memory scan: LogQueryParams is translated into the
+ * shared QueryNode AST (the same AST every query-language parser produces),
+ * compiled to a Lucene Query, and executed through the shared
+ * LuceneQueryExecutor - so indexing benefits the existing simple filters,
+ * not just the query-bar (SearchQueryService). The index itself is
+ * populated in the background by SearchIndexService; this class only reads it.
+ */
 @Service
 public class LogQueryService {
 
-    private static final Logger log = LoggerFactory.getLogger(LogQueryService.class);
-
     private final LogIngestionService ingestionService;
+    private final SearchIndexService searchIndexService;
+    private final LuceneQueryExecutor executor;
+    private final QueryCompiler queryCompiler;
 
-    public LogQueryService(LogIngestionService ingestionService) {
+    public LogQueryService(LogIngestionService ingestionService, SearchIndexService searchIndexService,
+                            LuceneQueryExecutor executor, QueryCompiler queryCompiler) {
         this.ingestionService = ingestionService;
+        this.searchIndexService = searchIndexService;
+        this.executor = executor;
+        this.queryCompiler = queryCompiler;
     }
 
     public LogQueryResult query(LogQueryParams params) {
-        List<LogEntry> all = ingestionService.collectEntries();
-
-        // rangeMinutes <= 0 means "all time" - no cutoff - rather than an empty window.
-        Instant cutoff = params.rangeMinutes() <= 0
-                ? Instant.MIN
-                : Instant.now().minus(Duration.ofMinutes(params.rangeMinutes()));
-        String term = params.search() == null ? "" : params.search().trim().toLowerCase(Locale.ROOT);
-
-        List<LogEntry> filtered = all.stream()
-                .filter(entry -> !entry.timestamp().isBefore(cutoff))
-                .filter(entry -> params.levels() == null || params.levels().isEmpty() || params.levels().contains(entry.level()))
-                .filter(entry -> params.source() == null || params.source().isBlank() || params.source().equals(entry.source()))
-                .filter(entry -> params.file() == null || params.file().isBlank() || params.file().equals(entry.file()))
-                .filter(entry -> term.isEmpty() || matches(entry, term))
-                .toList();
-
-        Comparator<LogEntry> comparator = comparatorFor(params.sortBy());
-        if ("desc".equalsIgnoreCase(params.sortDir())) {
-            comparator = comparator.reversed();
-        }
-        List<LogEntry> sorted = filtered.stream().sorted(comparator).toList();
-
-        int size = Math.max(1, params.size());
-        int totalElements = sorted.size();
-        int totalPages = (int) Math.ceil(totalElements / (double) size);
-        int fromIndex = Math.min(Math.max(params.page(), 0) * size, totalElements);
-        int toIndex = Math.min(fromIndex + size, totalElements);
-        List<LogEntry> content = sorted.subList(fromIndex, toIndex);
-
-        log.debug("Log query matched {} of {} ingested entries (page {} of {}, {} returned)",
-                totalElements, all.size(), params.page(), totalPages, content.size());
-
-        return new LogQueryResult(content, params.page(), size, totalElements, totalPages);
+        Query query = queryCompiler.compile(toQueryNode(params));
+        return executor.execute(query, params.sortBy(), params.sortDir(), params.page(), params.size());
     }
 
-    /** Forces the next query/summary to re-read every source, refreshing non-live sources on demand. */
+    /** Invalidates the interactive ingestion cache and forces an immediate reindex, so a manual Reload reflects instantly. */
     public void reload() {
         ingestionService.invalidateAll();
+        searchIndexService.reindexNow();
     }
 
-    /** Distinct, sorted file labels seen across ingested entries, optionally scoped to one source. */
+    /** Distinct, sorted file labels seen across indexed entries, optionally scoped to one source. */
     public List<String> listFiles(String source) {
-        return ingestionService.collectEntries().stream()
-                .filter(entry -> source == null || source.isBlank() || source.equals(entry.source()))
-                .map(LogEntry::file)
-                .filter(file -> file != null && !file.isBlank())
-                .distinct()
-                .sorted(String.CASE_INSENSITIVE_ORDER)
-                .toList();
+        return executor.listFiles(source);
     }
 
-    private boolean matches(LogEntry entry, String term) {
-        String haystack = (entry.message() + " " + entry.source() + " " + entry.level()
-                + " " + (entry.file() == null ? "" : entry.file()))
-                .toLowerCase(Locale.ROOT);
-        return haystack.contains(term);
-    }
+    private QueryNode toQueryNode(LogQueryParams params) {
+        List<QueryNode> clauses = new ArrayList<>(
+                QueryNode.scopeClauses(params.source(), params.file(), params.rangeMinutes()));
 
-    private Comparator<LogEntry> comparatorFor(String sortBy) {
-        return switch (sortBy == null ? "time" : sortBy) {
-            case "level" -> Comparator.comparingInt(entry -> entry.level().ordinal());
-            case "source" -> Comparator.comparing(LogEntry::source, String.CASE_INSENSITIVE_ORDER);
-            case "file" -> Comparator.comparing(entry -> entry.file() == null ? "" : entry.file(), String.CASE_INSENSITIVE_ORDER);
-            default -> Comparator.comparing(LogEntry::timestamp);
-        };
+        if (params.levels() != null && !params.levels().isEmpty()) {
+            List<QueryNode> levelClauses = params.levels().stream()
+                    .<QueryNode>map(level -> new QueryNode.FieldMatchNode("level", level.name(), true))
+                    .toList();
+            clauses.add(new QueryNode.OrNode(levelClauses));
+        }
+
+        if (params.search() != null && !params.search().isBlank()) {
+            clauses.add(new QueryNode.TermNode(params.search().trim()));
+        }
+
+        return clauses.isEmpty() ? new QueryNode.MatchAllNode() : new QueryNode.AndNode(clauses);
     }
 }
