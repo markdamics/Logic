@@ -1,17 +1,21 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { FormEvent } from "react";
 import { fetchLogs, listLogFiles, queryLogs } from "../api/client";
 import type {
+  CreateSavedSearchRequest,
   LogAggregationResult,
   LogEntry,
   LogLevel,
   LogQueryResult,
   LogSource,
   QueryLanguage,
+  SavedSearch,
 } from "../api/types";
 import { createLogger } from "../utils/logger";
 import { parseMessage } from "../utils/messageParser";
 import { updateMessageFor } from "../utils/source";
 import { BarChart } from "./BarChart";
+import { DeleteIcon } from "./icons";
 
 const logger = createLogger("LogStream");
 
@@ -57,9 +61,22 @@ interface LogStreamProps {
   onCountChange?: (count: number) => void;
   reloadSignal?: number;
   onReload?: () => void;
+  savedSearches: SavedSearch[];
+  savedSearchesLoading: boolean;
+  onCreateSavedSearch: (req: CreateSavedSearchRequest) => Promise<SavedSearch>;
+  onDeleteSavedSearch: (id: number) => Promise<void>;
 }
 
-export function LogStream({ sources, onCountChange, reloadSignal, onReload }: LogStreamProps) {
+export function LogStream({
+  sources,
+  onCountChange,
+  reloadSignal,
+  onReload,
+  savedSearches,
+  savedSearchesLoading,
+  onCreateSavedSearch,
+  onDeleteSavedSearch,
+}: LogStreamProps) {
   const [mode, setMode] = useState<FilterMode>("simple");
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -81,6 +98,14 @@ export function LogStream({ sources, onCountChange, reloadSignal, onReload }: Lo
   const [data, setData] = useState<LogQueryResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [showSaveForm, setShowSaveForm] = useState(false);
+  const [saveName, setSaveName] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [savedSearchError, setSavedSearchError] = useState<string | null>(null);
+  const [activeSavedSearchId, setActiveSavedSearchId] = useState<number | null>(null);
+  const [copiedId, setCopiedId] = useState<number | null>(null);
+  const appliedSavedSearchFromUrl = useRef(false);
 
   const sourceNames = useMemo(() => Array.from(new Set(sources.map((s) => s.name))).sort(), [sources]);
   const rangeMinutes = TIME_RANGES.find((r) => r.value === timeRange)?.minutes ?? 24 * 60;
@@ -222,6 +247,128 @@ export function LogStream({ sources, onCountChange, reloadSignal, onReload }: Lo
     page,
     pageSize,
   ]);
+
+  const applySavedSearch = (saved: SavedSearch) => {
+    if (saved.queryLanguage === "SIMPLE") {
+      setMode("simple");
+      setSearchInput(saved.search ?? "");
+      setDebouncedSearch(saved.search ?? "");
+      setSeverities(new Set(saved.levels));
+    } else {
+      setMode("query");
+      setQueryLanguage(saved.queryLanguage);
+      setQueryInput(saved.query ?? "");
+      setDebouncedQuery(saved.query ?? "");
+    }
+    setSourceFilter(saved.source ?? "");
+    setFileFilter(saved.file ?? "");
+    setTimeRange(TIME_RANGES.find((r) => r.minutes === saved.rangeMinutes)?.value ?? "24h");
+    setSortColumn((saved.sortBy as SortColumn) || "time");
+    setSortDirection((saved.sortDir as SortDirection) || "desc");
+    setPage(0);
+  };
+
+  // Open a shared `?savedSearch=<id>` link straight into its filters/results,
+  // once the saved-searches list has loaded (only once - re-fetching that
+  // list on a background refresh shouldn't stomp on filters the user has
+  // since changed by hand).
+  useEffect(() => {
+    if (appliedSavedSearchFromUrl.current || savedSearchesLoading) {
+      return;
+    }
+    appliedSavedSearchFromUrl.current = true;
+    const id = Number(new URLSearchParams(window.location.search).get("savedSearch"));
+    if (!id) {
+      return;
+    }
+    const match = savedSearches.find((s) => s.id === id);
+    if (match) {
+      applySavedSearch(match);
+      setActiveSavedSearchId(match.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedSearches, savedSearchesLoading]);
+
+  const linkFor = (id: number) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("savedSearch", String(id));
+    return url;
+  };
+
+  const handleRunSavedSearch = (saved: SavedSearch) => {
+    applySavedSearch(saved);
+    setActiveSavedSearchId(saved.id);
+    window.history.replaceState(null, "", linkFor(saved.id));
+  };
+
+  const handleCopySavedSearchLink = async (saved: SavedSearch) => {
+    try {
+      await navigator.clipboard.writeText(linkFor(saved.id).toString());
+      setCopiedId(saved.id);
+      setTimeout(() => setCopiedId((id) => (id === saved.id ? null : id)), 1500);
+    } catch (e) {
+      logger.warn("Failed to copy saved search link", e);
+    }
+  };
+
+  const handleDeleteSavedSearch = async (id: number) => {
+    setSavedSearchError(null);
+    try {
+      await onDeleteSavedSearch(id);
+      if (activeSavedSearchId === id) {
+        setActiveSavedSearchId(null);
+        const url = new URL(window.location.href);
+        url.searchParams.delete("savedSearch");
+        window.history.replaceState(null, "", url);
+      }
+    } catch (e) {
+      logger.warn(`Failed to delete saved search ${id}`, e);
+      setSavedSearchError(e instanceof Error ? e.message : "Failed to delete saved search");
+    }
+  };
+
+  const handleSaveCurrentSearch = async (e: FormEvent) => {
+    e.preventDefault();
+    const name = saveName.trim();
+    if (!name) {
+      return;
+    }
+    setSaving(true);
+    setSavedSearchError(null);
+    try {
+      const req: CreateSavedSearchRequest =
+        mode === "query"
+          ? {
+              name,
+              queryLanguage,
+              query: queryInput,
+              source: sourceFilter || undefined,
+              file: fileFilter || undefined,
+              rangeMinutes,
+              sortBy: sortColumn,
+              sortDir: sortDirection,
+            }
+          : {
+              name,
+              queryLanguage: "SIMPLE",
+              search: searchInput || undefined,
+              levels: severities.size > 0 ? Array.from(severities) : undefined,
+              source: sourceFilter || undefined,
+              file: fileFilter || undefined,
+              rangeMinutes,
+              sortBy: sortColumn,
+              sortDir: sortDirection,
+            };
+      await onCreateSavedSearch(req);
+      setSaveName("");
+      setShowSaveForm(false);
+    } catch (e) {
+      logger.warn("Failed to save search", e);
+      setSavedSearchError(e instanceof Error ? e.message : "Failed to save search");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const toggleSeverity = (level: LogLevel) => {
     setSeverities((prev) => {
@@ -410,6 +557,62 @@ export function LogStream({ sources, onCountChange, reloadSignal, onReload }: Lo
         ))}
       </div>
 
+      <div className="log-saved-searches">
+        <div className="log-saved-searches-header">
+          <span className="log-presets-label">Saved Searches</span>
+          {savedSearches.map((saved) => (
+            <div key={saved.id} className="saved-search-chip">
+              <button
+                type="button"
+                className={`preset-btn${activeSavedSearchId === saved.id ? " active" : ""}`}
+                title={describeSavedSearch(saved)}
+                onClick={() => handleRunSavedSearch(saved)}
+              >
+                {saved.name}
+              </button>
+              <button
+                type="button"
+                className="btn btn-icon btn-ghost"
+                title="Copy link"
+                onClick={() => handleCopySavedSearchLink(saved)}
+              >
+                {copiedId === saved.id ? "✓" : "🔗"}
+              </button>
+              <button
+                type="button"
+                className="btn btn-icon btn-ghost"
+                title="Delete saved search"
+                onClick={() => handleDeleteSavedSearch(saved.id)}
+              >
+                <DeleteIcon size={11} />
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            className="btn btn-secondary btn-small"
+            onClick={() => setShowSaveForm((v) => !v)}
+          >
+            {showSaveForm ? "Cancel" : "Save current search"}
+          </button>
+        </div>
+        {showSaveForm && (
+          <form className="log-save-form" onSubmit={handleSaveCurrentSearch}>
+            <input
+              className="input"
+              placeholder="Name this search…"
+              value={saveName}
+              onChange={(e) => setSaveName(e.target.value)}
+              autoFocus
+            />
+            <button type="submit" className="btn btn-primary btn-small" disabled={!saveName.trim() || saving}>
+              {saving ? "Saving…" : "Save"}
+            </button>
+          </form>
+        )}
+        {savedSearchError && <div className="error-banner">{savedSearchError}</div>}
+      </div>
+
       {error && <div className="error-banner">{error}</div>}
 
       {sourcesWithUpdates.length > 0 && (
@@ -571,6 +774,20 @@ function LogEntryDetail({ message }: { message: string }) {
       </div>
     </div>
   );
+}
+
+function describeSavedSearch(saved: SavedSearch): string {
+  const scope = [
+    saved.source ? `source=${saved.source}` : null,
+    saved.file ? `file=${saved.file}` : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const core =
+    saved.queryLanguage === "SIMPLE"
+      ? `Simple: ${saved.search || "(no text)"}${saved.levels.length > 0 ? ` [${saved.levels.join(", ")}]` : ""}`
+      : `${saved.queryLanguage}: ${saved.query}`;
+  return scope ? `${core} · ${scope}` : core;
 }
 
 /** Renders a query-bar aggregation (SPL "stats count by" / LogQL count_over_time / rate) as a bar chart instead of the row table. */

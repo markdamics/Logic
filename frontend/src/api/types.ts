@@ -96,6 +96,37 @@ export interface LogQueryLanguageParams {
   size?: number;
 }
 
+/** Adds SIMPLE (a snapshot of the plain-filter UI) to the query-bar languages, for SavedSearch only. */
+export type SavedSearchLanguage = QueryLanguage | "SIMPLE";
+
+export interface SavedSearch {
+  id: number;
+  name: string;
+  queryLanguage: SavedSearchLanguage;
+  query: string | null;
+  search: string | null;
+  levels: LogLevel[];
+  source: string | null;
+  file: string | null;
+  rangeMinutes: number;
+  sortBy: string;
+  sortDir: string;
+  createdAt: string;
+}
+
+export interface CreateSavedSearchRequest {
+  name: string;
+  queryLanguage: SavedSearchLanguage;
+  query?: string;
+  search?: string;
+  levels?: LogLevel[];
+  source?: string;
+  file?: string;
+  rangeMinutes: number;
+  sortBy: string;
+  sortDir: string;
+}
+
 export interface SourceActivity {
   source: string;
   status: SourceStatus;

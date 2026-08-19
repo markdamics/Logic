@@ -4,6 +4,7 @@ import { LogStream } from "./components/LogStream";
 import { Sidebar } from "./components/Sidebar";
 import { SourceDialog } from "./components/SourceDialog";
 import { SourceGrid } from "./components/SourceGrid";
+import { useSavedSearches } from "./hooks/useSavedSearches";
 import { useSources } from "./hooks/useSources";
 import { ApiError, reloadLogs } from "./api/client";
 import type { LogSource } from "./api/types";
@@ -28,13 +29,21 @@ function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => localStorage.getItem(SIDEBAR_STORAGE_KEY) === "true",
   );
-  const [screen, setScreen] = useState<Screen>("sources");
+  const [screen, setScreen] = useState<Screen>(() =>
+    new URLSearchParams(window.location.search).has("savedSearch") ? "logs" : "sources",
+  );
   const [logCount, setLogCount] = useState(0);
   const [dialogState, setDialogState] = useState<DialogState | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [reloadSignal, setReloadSignal] = useState(0);
   const [reloading, setReloading] = useState(false);
   const { sources, loading, error, create, update, remove, check, toggleEnabled, toggleLive } = useSources();
+  const {
+    savedSearches,
+    loading: savedSearchesLoading,
+    create: createSavedSearch,
+    remove: removeSavedSearch,
+  } = useSavedSearches();
 
   useEffect(() => {
     document.documentElement.dataset.theme = mode;
@@ -168,6 +177,10 @@ function App() {
               onCountChange={setLogCount}
               reloadSignal={reloadSignal}
               onReload={handleReload}
+              savedSearches={savedSearches}
+              savedSearchesLoading={savedSearchesLoading}
+              onCreateSavedSearch={createSavedSearch}
+              onDeleteSavedSearch={removeSavedSearch}
             />
           )}
 

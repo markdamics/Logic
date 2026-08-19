@@ -1,11 +1,13 @@
 import type {
   ConnectionTestResult,
+  CreateSavedSearchRequest,
   CreateSourceRequest,
   DashboardSummary,
   LogQueryLanguageParams,
   LogQueryParams,
   LogQueryResult,
   LogSource,
+  SavedSearch,
 } from "./types";
 import { createLogger } from "../utils/logger";
 
@@ -129,4 +131,24 @@ export function fetchDashboardSummary(): Promise<DashboardSummary> {
 
 export function reloadLogs(): Promise<void> {
   return request<void>("/logs/reload", { method: "POST" });
+}
+
+export function listSavedSearches(): Promise<SavedSearch[]> {
+  return request<SavedSearch[]>("/saved-searches");
+}
+
+export function createSavedSearch(req: CreateSavedSearchRequest): Promise<SavedSearch> {
+  return request<SavedSearch>("/saved-searches", {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
+}
+
+export function deleteSavedSearch(id: number): Promise<void> {
+  return request<void>(`/saved-searches/${id}`, { method: "DELETE" });
+}
+
+export function runSavedSearch(id: number, page = 0, size = 10): Promise<LogQueryResult> {
+  const query = new URLSearchParams({ page: String(page), size: String(size) });
+  return request<LogQueryResult>(`/saved-searches/${id}/run?${query.toString()}`, { method: "POST" });
 }

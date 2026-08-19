@@ -970,6 +970,37 @@ body,
   background: color-mix(in srgb, var(--color-primary) 14%, transparent);
 }
 
+.preset-btn.active {
+  background: var(--color-primary);
+  color: var(--color-bg);
+}
+
+.log-saved-searches {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.log-saved-searches-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.saved-search-chip {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.log-save-form {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 320px;
+}
+
 .log-table-wrapper {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);

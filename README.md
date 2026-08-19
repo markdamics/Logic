@@ -5,9 +5,9 @@ their content in real time.
 
 Core features: source management, real log ingestion with
 filtering/sorting/pagination, a live-updating Log Stream, a Dashboard
-overview, and a durably indexed Search & Query bar (Lucene syntax plus SPL
-and LogQL subsets, with aggregation charts). Saved/shareable searches and
-alerting are planned for later phases.
+overview, a durably indexed Search & Query bar (Lucene syntax plus SPL and
+LogQL subsets, with aggregation charts), and Saved Searches. Alerting is
+planned for a later phase.
 
 ## Features
 
@@ -64,6 +64,13 @@ alerting are planned for later phases.
     `count_over_time({...}[5m])` or `rate({...}[5m])`.
 - Aggregating queries (`stats count by`, `count_over_time`, `rate`) render as
   a bar chart in place of the row table instead of a flat count.
+- **Saved Searches** — bookmark the current filters (Simple mode) or query-bar
+  string (Lucene/SPL/LogQL mode, including its language and aggregation) under
+  a name, shown as chips next to the filter bar. Click a saved search to
+  re-run it, or use its link icon to copy a `?savedSearch=<id>` URL that
+  reopens straight into that saved search's filters and results — the
+  sharing model is a stable link, not a per-user "my searches" list (see
+  [Known simplifications](#known-simplifications-first-phase)).
 
 ### Dashboard
 
@@ -190,6 +197,15 @@ host key verification, etc.).
 | POST | `/api/logs/reload` | Invalidate the ingestion cache so non-live sources are re-read |
 | GET | `/api/logs/query` | Query-bar endpoint: indexed search against the durable Lucene store. Takes `q` and `queryLanguage` (`LUCENE`, `SPL`, or `LOGQL`) plus the same `source`/`file`/`rangeMinutes`/`sortBy`/`sortDir`/`page`/`size` params as above. Response is the same `LogQueryResult` shape with one addition: an `aggregation` field, populated (in place of `content`) when the query includes an aggregation stage (`stats count by`, `count_over_time`, `rate`) instead of returning rows. |
 
+### Saved Searches API
+
+| Method | Path | Description |
+| --- | --- | --- |
+| GET | `/api/saved-searches` | List all saved searches |
+| POST | `/api/saved-searches` | Save a search: `name`, `queryLanguage` (`LUCENE`/`SPL`/`LOGQL`/`SIMPLE`), and either `query` (a raw query-bar string, for the first three) or `search`/`levels` (a filter-bar snapshot, for `SIMPLE`), plus shared `source`/`file`/`rangeMinutes`/`sortBy`/`sortDir` scoping |
+| DELETE | `/api/saved-searches/{id}` | Remove a saved search |
+| POST | `/api/saved-searches/{id}/run` | Re-run a saved search (`page`/`size` params) — dispatches to the plain-filter path for `SIMPLE` saves or the query-bar path otherwise, returning the same `LogQueryResult` shape (including `aggregation`, when applicable) as `/api/logs` and `/api/logs/query` |
+
 ### Dashboard API
 
 | Method | Path | Description |
@@ -236,6 +252,10 @@ host key verification, etc.).
 - Search-index fingerprints (used to skip re-reading unchanged files) are
   held in memory only, not persisted — a backend restart costs one redundant
   (bounded, cheap) reindex pass per source rather than a correctness issue.
+- Saved Searches have no per-user ownership or ACL — the app has one shared
+  admin account today (see [Security](#security)), so "shareable" means a
+  stable `?savedSearch=<id>` link anyone with API access can open or delete,
+  not a private "my searches" list.
 
 These are flagged for hardening in a later phase (per-user auth,
 key-based SFTP auth, known-hosts verification, recursive/streaming
