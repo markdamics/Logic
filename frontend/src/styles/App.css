@@ -41,6 +41,27 @@ body,
   white-space: nowrap;
 }
 
+.sidebar-nav-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 6px;
+}
+
+.sidebar-nav-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: var(--tr-micro);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.sidebar-collapse-btn {
+  margin-left: auto;
+  flex: none;
+}
+
 .sidebar-nav {
   display: flex;
   flex-direction: column;
@@ -70,6 +91,7 @@ body,
 .sidebar-nav-item.active {
   background: color-mix(in srgb, var(--color-primary) 18%, transparent);
   color: var(--color-primary);
+  box-shadow: inset 2px 0 0 var(--color-primary);
 }
 
 .sidebar-spacer {
@@ -82,6 +104,21 @@ body,
   justify-content: flex-start;
   gap: var(--space-2);
   white-space: nowrap;
+}
+
+.sidebar-theme-dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
+.sidebar-theme-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: var(--tr-label);
 }
 
 /* Main column */
@@ -104,6 +141,30 @@ body,
 
 .topbar h3 {
   font-size: 22px;
+}
+
+.topbar-clock {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.status-footer {
+  flex: none;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: 0 var(--space-4);
+  border-top: 1px solid var(--color-border);
+  background: var(--bg-panel-2);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: var(--tr-micro);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
 }
 
 .topbar-right {
@@ -141,6 +202,7 @@ body,
 
 .btn-primary:hover {
   background: var(--color-primary-hover);
+  box-shadow: var(--glow-soft);
 }
 
 .btn-secondary {
@@ -214,68 +276,18 @@ body,
   padding: var(--space-2);
 }
 
-/* Sources cards use the mockup's "blueprint" treatment: transparent fill,
-   square hairline border, small crosshair registration marks at each
-   corner instead of a filled/elevated card surface. */
+/* Shaved top-right corner, matching the Axiom HUD mockup's source-card
+   treatment (clip-path, not the app's older crosshair-registration-mark look). */
 .source-card {
   position: relative;
   border: 1px solid var(--color-border);
-  border-radius: 0;
-  background: transparent;
+  clip-path: var(--clip-cut-tr);
+  background: var(--bg-panel);
   padding: var(--space-4);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   min-height: 130px;
-}
-
-.source-card-corner {
-  position: absolute;
-  width: 11px;
-  height: 11px;
-  color: var(--color-border);
-  pointer-events: none;
-}
-
-.source-card-corner::before,
-.source-card-corner::after {
-  content: "";
-  position: absolute;
-  background: currentColor;
-}
-
-.source-card-corner::before {
-  left: 5px;
-  top: 0;
-  width: 1px;
-  height: 100%;
-}
-
-.source-card-corner::after {
-  top: 5px;
-  left: 0;
-  width: 100%;
-  height: 1px;
-}
-
-.source-card-corner.tl {
-  top: -6px;
-  left: -6px;
-}
-
-.source-card-corner.tr {
-  top: -6px;
-  right: -6px;
-}
-
-.source-card-corner.bl {
-  bottom: -6px;
-  left: -6px;
-}
-
-.source-card-corner.br {
-  bottom: -6px;
-  right: -6px;
 }
 
 .source-card-actions {
@@ -318,6 +330,7 @@ body,
   height: 6px;
   border-radius: 50%;
   background: var(--color-error);
+  box-shadow: 0 0 8px currentColor;
   animation: live-pulse 1.6s ease-in-out infinite;
 }
 
@@ -347,6 +360,7 @@ body,
   height: 6px;
   border-radius: 50%;
   background: var(--color-warning);
+  box-shadow: 0 0 8px currentColor;
   animation: live-pulse 1.6s ease-in-out infinite;
 }
 
@@ -366,7 +380,7 @@ body,
 }
 
 .source-card-location {
-  font-family: ui-monospace, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 12.5px;
   color: var(--color-text-muted);
   word-break: break-all;
@@ -408,6 +422,7 @@ body,
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
+  background: transparent;
   border-style: dashed;
   color: var(--color-text-muted);
   font-family: var(--font-heading);
@@ -485,6 +500,31 @@ body,
   color: var(--color-text-muted);
 }
 
+.alerts-placeholder {
+  display: flex;
+  justify-content: center;
+  padding-top: var(--space-12);
+}
+
+.alerts-placeholder-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: 420px;
+  padding: var(--space-8) var(--space-6);
+  border: 1px solid var(--color-border);
+  clip-path: var(--clip-cut-tr);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.alerts-placeholder-panel h4 {
+  color: var(--color-text);
+  font-size: 16px;
+}
+
 /* Dashboard */
 
 .dashboard {
@@ -517,8 +557,8 @@ body,
 }
 
 .stat-card-value {
-  font-family: var(--font-heading);
-  font-weight: var(--font-heading-weight);
+  font-family: var(--font-mono);
+  font-weight: var(--fw-light);
   font-size: 32px;
 }
 
@@ -544,14 +584,17 @@ body,
 
 .dashboard-section {
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  clip-path: var(--clip-cut-tr);
   background: var(--color-surface);
   padding: var(--space-4);
 }
 
 .dashboard-section h4 {
   margin-bottom: var(--space-3);
-  font-size: 16px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: var(--tr-label);
+  color: var(--color-text-muted);
 }
 
 .dashboard-section h4.chart-heading {
@@ -618,6 +661,7 @@ body,
 
 .dashboard-section .log-table-wrapper {
   border: none;
+  clip-path: none;
 }
 
 .issue-list {
@@ -650,7 +694,7 @@ body,
 }
 
 .issue-message {
-  font-family: ui-monospace, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
   overflow-wrap: anywhere;
 }
@@ -717,6 +761,7 @@ body,
 .modal-panel {
   background: var(--color-surface);
   border-radius: var(--radius-lg);
+  clip-path: var(--clip-cut-tr);
   box-shadow: var(--shadow-modal);
   width: 100%;
   max-width: 480px;
@@ -858,7 +903,7 @@ body,
 
 .log-query-input {
   width: 360px;
-  font-family: ui-monospace, Consolas, monospace;
+  font-family: var(--font-mono);
 }
 
 .log-mode-toggle {
@@ -903,7 +948,7 @@ body,
   border: 1px solid var(--color-border);
   background: transparent;
   color: var(--color-text-muted);
-  border-radius: var(--radius-tag);
+  clip-path: var(--clip-cut-tag);
   padding: 5px var(--space-3);
   font-size: 12px;
   font-weight: 700;
@@ -959,7 +1004,7 @@ body,
   border: 1px solid var(--color-primary);
   background: transparent;
   color: var(--color-primary);
-  border-radius: var(--radius-tag);
+  clip-path: var(--clip-cut-tag);
   padding: 5px var(--space-3);
   font-size: 12px;
   font-weight: 600;
@@ -1004,6 +1049,7 @@ body,
 .log-table-wrapper {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
+  clip-path: var(--clip-cut-tr);
   overflow: hidden;
   background: var(--color-surface);
 }
@@ -1011,6 +1057,7 @@ body,
 .log-aggregation {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
+  clip-path: var(--clip-cut-tr);
   background: var(--color-surface);
   padding: var(--space-4);
 }
@@ -1052,25 +1099,29 @@ body,
   border-bottom: none;
 }
 
+.log-table tbody tr:nth-child(even) {
+  background: var(--bg-inset);
+}
+
 .log-table tbody tr:hover {
   background: var(--color-surface-raised);
 }
 
 .log-date,
 .log-time {
-  font-family: ui-monospace, Consolas, monospace;
+  font-family: var(--font-mono);
   color: var(--color-text-muted);
   white-space: nowrap;
 }
 
 .log-file {
-  font-family: ui-monospace, Consolas, monospace;
+  font-family: var(--font-mono);
   color: var(--color-text-muted);
   white-space: nowrap;
 }
 
 .log-message {
-  font-family: ui-monospace, Consolas, monospace;
+  font-family: var(--font-mono);
   white-space: pre-line; /* preserve real line breaks in multi-line stack traces */
 }
 
@@ -1134,7 +1185,7 @@ body,
   gap: var(--space-4);
   padding: var(--space-4);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  clip-path: var(--clip-cut-tr);
   background: var(--color-surface);
   box-shadow: var(--shadow-sm);
   animation: log-detail-in 0.12s ease-out;
@@ -1159,10 +1210,10 @@ body,
 
 .log-detail-header::before {
   content: "Detected format";
-  font-size: 11px;
-  font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: var(--tr-micro);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
   color: var(--color-text-muted);
 }
 
@@ -1170,7 +1221,7 @@ body,
   display: inline-flex;
   align-items: center;
   padding: 2px 10px;
-  border-radius: var(--radius-tag);
+  clip-path: var(--clip-cut-tag);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -1208,7 +1259,7 @@ body,
   display: grid;
   grid-template-columns: max-content 1fr;
   gap: 0 var(--space-4);
-  font-family: ui-monospace, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   line-height: 1.6;
 }
@@ -1219,6 +1270,8 @@ body,
 
 .log-detail-field-key {
   color: var(--color-text-muted);
+  letter-spacing: var(--tr-micro);
+  text-transform: uppercase;
   padding: 3px 0;
   border-bottom: 1px solid var(--color-border);
 }
@@ -1235,17 +1288,17 @@ body,
 }
 
 .log-detail-message-label {
-  font-size: 11px;
-  font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: var(--tr-micro);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
   color: var(--color-text-muted);
   margin-bottom: 4px;
 }
 
 .log-detail-message {
   margin: 0;
-  font-family: ui-monospace, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
   line-height: 1.5;
   white-space: pre-wrap;
@@ -1266,7 +1319,7 @@ body,
   display: inline-flex;
   align-items: center;
   padding: 2px 8px;
-  border-radius: var(--radius-tag);
+  clip-path: var(--clip-cut-tag);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.02em;

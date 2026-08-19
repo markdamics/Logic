@@ -86,7 +86,7 @@ export function LogStream({
   const [sourceFilter, setSourceFilter] = useState("");
   const [fileFilter, setFileFilter] = useState("");
   const [fileOptions, setFileOptions] = useState<string[]>([]);
-  const [timeRange, setTimeRange] = useState("24h");
+  const [timeRange, setTimeRange] = useState("0");
   const [severities, setSeverities] = useState<Set<LogLevel>>(new Set());
   const [sortColumn, setSortColumn] = useState<SortColumn>("time");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");

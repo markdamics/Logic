@@ -8,7 +8,11 @@ import com.logic.analyzer.source.LogSourceRepository;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.Term;
+import org.apache.lucene.search.BooleanClause;
+import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.Query;
 import org.apache.lucene.search.SearcherManager;
+import org.apache.lucene.search.TermQuery;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -33,10 +37,13 @@ import java.util.stream.Collectors;
  * governs that other, UI-facing cache's TTL), so the durable index can get
  * ahead of a stale non-live snapshot rather than being bound by it.
  *
- * Writes are idempotent (Lucene's updateDocument upsert keyed by a stable,
- * content-derived docId), so an in-memory per-file fingerprint is only a
- * cheap gate to skip re-submitting unchanged files - losing it on restart
- * costs one redundant (bounded, cheap) reindex pass, not a correctness bug.
+ * Each (source, file) reindex pass clears everything previously indexed for
+ * that file and writes its current tail-window read fresh (see
+ * {@link #indexEntries}), so the index always reflects a file's *current*
+ * content exactly rather than accumulating every version it's ever had. The
+ * in-memory per-file fingerprint is only a cheap gate to skip re-processing
+ * files that haven't changed - losing it on restart costs one redundant
+ * (bounded, cheap) reindex pass, not a correctness bug.
  */
 @Service
 public class SearchIndexService {
@@ -104,7 +111,7 @@ public class SearchIndexService {
             if (currentFingerprint != null && currentFingerprint.equals(lastIndexedFingerprint.get(fingerprintKey))) {
                 continue; // unchanged since the last successful index pass - nothing to do
             }
-            indexEntries(source, fileEntries.getValue());
+            indexEntries(source, fileEntries.getKey(), fileEntries.getValue());
             indexed++;
             if (currentFingerprint != null) {
                 lastIndexedFingerprint.put(fingerprintKey, currentFingerprint);
@@ -113,7 +120,31 @@ public class SearchIndexService {
         return indexed;
     }
 
-    private void indexEntries(LogSource source, List<LogEntry> entries) {
+    /**
+     * Each pass re-reads a file's *entire* current tail window, not just what
+     * changed since last time - so a line that scrolled out of the window (or
+     * a source file that got rewritten/rotated rather than purely appended
+     * to) must have its old document removed here, or it lingers in the index
+     * forever alongside its replacement. updateDocument's per-line Term upsert
+     * only ever replaces or adds; it can never notice "this line is gone now" -
+     * which is exactly what let a live source's document count grow far past
+     * its file's actual line count. Clearing everything previously indexed for
+     * this (source, file) before writing the current batch fresh makes each
+     * pass reflect the file's current content exactly, not an ever-growing
+     * superset of every version that file has ever had.
+     */
+    private void indexEntries(LogSource source, String file, List<LogEntry> entries) {
+        Query staleQuery = new BooleanQuery.Builder()
+                .add(new TermQuery(new Term("source", source.getName())), BooleanClause.Occur.MUST)
+                .add(new TermQuery(new Term("file", file)), BooleanClause.Occur.MUST)
+                .build();
+        try {
+            indexWriter.deleteDocuments(staleQuery);
+        } catch (IOException e) {
+            log.warn("Failed to clear stale index entries for source {} ('{}') file '{}': {}",
+                    source.getId(), source.getName(), file, e.getMessage());
+        }
+
         Map<String, Integer> duplicateOrdinals = new HashMap<>();
         for (LogEntry entry : entries) {
             String contentKey = source.getId() + "|" + entry.file() + "|" + entry.timestamp().toEpochMilli() + "|" + entry.message();
@@ -121,7 +152,7 @@ public class SearchIndexService {
             String docId = sha256(contentKey) + "::" + ordinal;
             try {
                 Document document = documentBuilder.build(source, entry, docId);
-                indexWriter.updateDocument(new Term("docId", docId), document);
+                indexWriter.addDocument(document);
             } catch (IOException e) {
                 log.warn("Failed to index an entry for source {} ('{}'): {}", source.getId(), source.getName(), e.getMessage());
             }

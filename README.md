@@ -6,8 +6,10 @@ their content in real time.
 Core features: source management, real log ingestion with
 filtering/sorting/pagination, a live-updating Log Stream, a Dashboard
 overview, a durably indexed Search & Query bar (Lucene syntax plus SPL and
-LogQL subsets, with aggregation charts), and Saved Searches. Alerting is
-planned for a later phase.
+LogQL subsets, with aggregation charts), and Saved Searches — styled after
+the Axiom HUD design system, with four selectable themes. Alerting has a
+placeholder screen in the nav but isn't built yet; it's planned for a later
+phase.
 
 ## Features
 
@@ -37,8 +39,7 @@ planned for a later phase.
   above the table when a non-live source has changed, with a one-click
   Reload.
 
-  ![log stream light](/Screenshots/Screenshot_20260808_015244.png)
-  ![log stream dark](/Screenshots/Screenshot_20260808_091518.png)
+  ![log stream dark](/Screenshots/logstream_dark_1.png)
 
 ### Search & Query
 
@@ -82,8 +83,7 @@ planned for a later phase.
 - Recent issues feed (latest errors & warnings across all sources).
 - Same live auto-refresh and "new data available" banner as the Log Stream.
 
-  ![dashboard ligh](/Screenshots/Screenshot_20260808_015211.png)
-  ![dashboard dark](/Screenshots/Screenshot_20260808_091530.png)
+  ![dashboard dark](/Screenshots/dashboard_dark_1.png)
 
 ### Source management (Sources screen)
 
@@ -102,9 +102,7 @@ planned for a later phase.
   inside a directory source), prompting a reload rather than silently going
   stale.
 
-  ![log source light 2](/Screenshots/Screenshot_20260808_091334.png)
-  ![log source light 1](/Screenshots/Screenshot_20260808_015315.png)
-  ![log source dark 1](/Screenshots/Screenshot_20260808_091439.png)
+  ![log source dark 1](/Screenshots/sources_dark_1.png)
 
 ### Shared Reload action
 
@@ -112,15 +110,33 @@ A Reload button (Log Stream and Dashboard) invalidates the ingestion cache so
 non-live sources are re-read on demand — the deliberate counterpart to "live"
 sources, which never need it.
 
+### Appearance
+
+Styled after the **Axiom HUD design system**: sharp shaved-corner panels
+(`clip-path`, not rounded corners), mono-readout typography for timestamps
+and stat values, and four selectable themes — click the theme chip at the
+bottom of the sidebar to cycle:
+
+| Theme | Look |
+| --- | --- |
+| NULLGRID (default) | Matte black + electric blue, dark |
+| GANTRY | Bone white + safety orange, light |
+| ABYSSAL | Deep navy + neon cyan, dark |
+| RAVEN | Near-black + hot magenta, dark |
+
+The choice persists in `localStorage`. Fonts (Oxanium / Archivo / IBM Plex
+Mono) load from Google Fonts — see [Known
+simplifications](#known-simplifications-first-phase).
+
 ## Stack
 
 - **Backend**: Java 25, Spring Boot 4, Maven, Spring Data JPA, H2 (embedded,
   file-based), Flyway (schema migrations), Apache Lucene (embedded search
   index, `lucene-core`/`lucene-analysis-common`/`lucene-queryparser`/
   `lucene-facet`), sshj (SFTP)
-- **Frontend**: TypeScript, React, Vite, plain CSS (dark mode by default,
-  primary color `#447caa`, design tokens for spacing/radius/shadow in
-  `theme.css`, self-hosted Barlow / Barlow Condensed type)
+- **Frontend**: TypeScript, React, Vite, plain CSS (design tokens — color,
+  spacing, radius, shadow/glow, typography — in `theme.css`, following the
+  Axiom HUD design system; see [Appearance](#appearance) above)
 
 ## Running in dev
 
@@ -144,6 +160,35 @@ configuration changes are needed for normal dev use. Open
 <http://localhost:5173> in a browser — the browser will prompt for
 credentials (see [Security](#security) below; default in dev is
 `admin` / `admin`).
+
+## Deployment
+
+A multi-stage `Dockerfile` builds the frontend, bundles it as Spring Boot
+static resources, and packages the backend into one self-contained jar/image
+— a single container serves both the UI (`/`) and the API (`/api/*`) from
+the same origin, so there's no CORS or reverse-proxy setup to do.
+
+```bash
+docker compose up --build
+```
+
+This starts Logic on <http://localhost:8080> with a named volume
+(`logic-data`) for its durable state (H2 database, encryption key, Lucene
+search index — everything under `./data`, per [Security](#security) and
+[Search & Query](#search--query) above). Two things to set before exposing
+this beyond localhost:
+
+- **`ADMIN_PASSWORD`** — `docker-compose.yml` ships with a placeholder
+  (`change-me`) and `AUTH_ENABLED=true`; override it via an env var or `.env`
+  file rather than editing the compose file in place.
+- **Log source volumes** — Logic only reads log files, it doesn't ship any
+  itself, so bind-mount whatever directories/files you want it to tail (see
+  the commented example in `docker-compose.yml`) — the path you register as
+  a source must match the path *inside* the container, not on the host.
+
+Building the image directly (no compose) works the same way any Dockerfile
+does: `docker build -t logic .` then `docker run -p 8080:8080 -v
+logic-data:/app/data logic`.
 
 ## Security
 
@@ -256,6 +301,13 @@ host key verification, etc.).
   admin account today (see [Security](#security)), so "shareable" means a
   stable `?savedSearch=<id>` link anyone with API access can open or delete,
   not a private "my searches" list.
+- The Axiom HUD theme's fonts (Oxanium, Archivo, IBM Plex Mono) load from
+  Google Fonts at runtime rather than being self-hosted — a network
+  dependency the app didn't previously have. Self-host the actual font
+  binaries in `theme.css` if that matters for your deployment.
+- The Alerts screen is a placeholder — the nav entry and an honest "not
+  available yet" panel exist, but there's no alert-rule backend (threshold
+  rules, mute/arm state, trigger history) behind it yet.
 
 These are flagged for hardening in a later phase (per-user auth,
 key-based SFTP auth, known-hosts verification, recursive/streaming

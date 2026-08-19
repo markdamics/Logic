@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Alerts } from "./components/Alerts";
 import { Dashboard } from "./components/Dashboard";
 import { LogStream } from "./components/LogStream";
 import { Sidebar } from "./components/Sidebar";
@@ -10,21 +11,22 @@ import { ApiError, reloadLogs } from "./api/client";
 import type { LogSource } from "./api/types";
 import type { Screen } from "./screens";
 import { SCREEN_TITLES } from "./screens";
-import { CollapseIcon, TestIcon } from "./components/icons";
+import { TestIcon } from "./components/icons";
+import { THEMES } from "./theme";
+import type { AxiomTheme } from "./theme";
 import { createLogger } from "./utils/logger";
 
 const logger = createLogger("App");
 
-type ThemeMode = "dark" | "light";
 type DialogState = { mode: "add" } | { mode: "edit"; source: LogSource };
 
 const THEME_STORAGE_KEY = "logic.theme-mode";
 const SIDEBAR_STORAGE_KEY = "logic.sidebar-collapsed";
 
 function App() {
-  const [mode, setMode] = useState<ThemeMode>(() => {
+  const [mode, setMode] = useState<AxiomTheme>(() => {
     const stored = localStorage.getItem(THEME_STORAGE_KEY);
-    return stored === "light" || stored === "dark" ? stored : "dark";
+    return THEMES.includes(stored as AxiomTheme) ? (stored as AxiomTheme) : "nullgrid";
   });
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => localStorage.getItem(SIDEBAR_STORAGE_KEY) === "true",
@@ -37,6 +39,7 @@ function App() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [reloadSignal, setReloadSignal] = useState(0);
   const [reloading, setReloading] = useState(false);
+  const [clock, setClock] = useState(() => new Date());
   const { sources, loading, error, create, update, remove, check, toggleEnabled, toggleLive } = useSources();
   const {
     savedSearches,
@@ -53,6 +56,11 @@ function App() {
   useEffect(() => {
     localStorage.setItem(SIDEBAR_STORAGE_KEY, String(sidebarCollapsed));
   }, [sidebarCollapsed]);
+
+  useEffect(() => {
+    const timer = setInterval(() => setClock(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const handleDelete = async (id: number) => {
     setActionError(null);
@@ -114,22 +122,21 @@ function App() {
         screen={screen}
         onNavigate={setScreen}
         collapsed={sidebarCollapsed}
+        onToggleCollapsed={() => setSidebarCollapsed((c) => !c)}
         mode={mode}
-        onToggleMode={() => setMode((m) => (m === "dark" ? "light" : "dark"))}
+        onToggleMode={() => setMode((m) => THEMES[(THEMES.indexOf(m) + 1) % THEMES.length])}
       />
 
       <div className="main">
         <div className="topbar">
-          <button
-            type="button"
-            className="btn btn-icon btn-ghost"
-            onClick={setSidebarCollapsed.bind(null, (c) => !c)}
-            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            <CollapseIcon />
-          </button>
           <h3>{SCREEN_TITLES[screen]}</h3>
           <div className="topbar-right">
+            {sources.some((s) => s.enabled && s.live) && (
+              <span className="live-badge" title="At least one source is being watched live">
+                <span className="live-dot" />
+                LIVE
+              </span>
+            )}
             {screen === "sources" && (
               <span className="text-muted">{sources.length} source{sources.length === 1 ? "" : "s"}</span>
             )}
@@ -153,6 +160,7 @@ function App() {
                 {sources.some((s) => s.changedFiles.length > 0) && <span className="update-dot reload-btn-dot" />}
               </button>
             )}
+            <span className="topbar-clock">{clock.toLocaleTimeString()}</span>
           </div>
         </div>
 
@@ -187,6 +195,12 @@ function App() {
           {screen === "dashboard" && !loading && (
             <Dashboard sources={sources} reloadSignal={reloadSignal} onReload={handleReload} />
           )}
+
+          {screen === "alerts" && <Alerts />}
+        </div>
+
+        <div className="status-footer">
+          <span>{sources.filter((s) => s.status === "REACHABLE").length} / {sources.length} SOURCES REACHABLE</span>
         </div>
       </div>
 

@@ -22,7 +22,9 @@ import java.util.regex.Pattern;
 
 /**
  * Builds the Lucene {@link Document} schema for one {@link LogEntry}. Every
- * document gets: a stable "docId" (the upsert key), the source/level/file
+ * document gets: a stable "docId" (a diagnostic identifier - SearchIndexService
+ * reconciles a file's documents by deleting and re-adding per pass, not by
+ * upserting on this field), the source/level/file
  * fixed fields (both a stored exact-match copy and a sortable DocValues copy),
  * a numeric timestamp (for range filtering and sorting), the raw message, and
  * a composite "_all" field powering bare-keyword search - the indexed

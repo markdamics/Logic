@@ -1,15 +1,16 @@
 import type { ReactElement } from "react";
 import type { Screen } from "../screens";
 import { SCREEN_TITLES } from "../screens";
-import { DashboardIcon, LogsIcon, SourcesIcon, TerminalIcon } from "./icons";
-
-type ThemeMode = "dark" | "light";
+import type { AxiomTheme } from "../theme";
+import { THEME_LABELS } from "../theme";
+import { AlertsIcon, CollapseIcon, DashboardIcon, LogsIcon, SourcesIcon, TerminalIcon } from "./icons";
 
 interface SidebarProps {
   screen: Screen;
   onNavigate: (screen: Screen) => void;
   collapsed: boolean;
-  mode: ThemeMode;
+  onToggleCollapsed: () => void;
+  mode: AxiomTheme;
   onToggleMode: () => void;
 }
 
@@ -17,14 +18,27 @@ const NAV_ITEMS: { screen: Screen; icon: (props: { size?: number }) => ReactElem
   { screen: "dashboard", icon: DashboardIcon },
   { screen: "logs", icon: LogsIcon },
   { screen: "sources", icon: SourcesIcon },
+  { screen: "alerts", icon: AlertsIcon },
 ];
 
-export function Sidebar({ screen, onNavigate, collapsed, mode, onToggleMode }: SidebarProps) {
+export function Sidebar({ screen, onNavigate, collapsed, onToggleCollapsed, mode, onToggleMode }: SidebarProps) {
   return (
     <nav className={`sidebar${collapsed ? " sidebar-collapsed" : ""}`}>
       <div className="sidebar-brand">
         <TerminalIcon size={20} />
         {!collapsed && <span>Logic</span>}
+      </div>
+
+      <div className="sidebar-nav-header">
+        {!collapsed && <span className="sidebar-nav-label">Navigation</span>}
+        <button
+          type="button"
+          className="btn btn-icon btn-ghost sidebar-collapse-btn"
+          onClick={onToggleCollapsed}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          <CollapseIcon size={13} />
+        </button>
       </div>
 
       <div className="sidebar-nav">
@@ -43,9 +57,14 @@ export function Sidebar({ screen, onNavigate, collapsed, mode, onToggleMode }: S
 
       <div className="sidebar-spacer" />
 
-      <button type="button" className="btn btn-secondary sidebar-theme-btn" onClick={onToggleMode}>
-        <span aria-hidden="true">{mode === "dark" ? "☀" : "☾"}</span>
-        {!collapsed && <span>{mode === "dark" ? "Light mode" : "Dark mode"}</span>}
+      <button
+        type="button"
+        className="btn btn-secondary sidebar-theme-btn"
+        onClick={onToggleMode}
+        title={`Theme: ${THEME_LABELS[mode]} — click to cycle`}
+      >
+        <span className="sidebar-theme-dot" aria-hidden="true" />
+        {!collapsed && <span className="sidebar-theme-label">{THEME_LABELS[mode]}</span>}
       </button>
     </nav>
   );

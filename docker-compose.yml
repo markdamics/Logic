@@ -1,0 +1,30 @@
+services:
+  logic:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      # Auth is on by default in this compose file - override the password
+      # before exposing this beyond localhost. See README.md#security.
+      AUTH_ENABLED: "false"
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: Init123
+      # Optional: pin the SFTP-password encryption key explicitly rather than
+      # relying on the auto-generated ./data/encryption.key file surviving.
+      # ENCRYPTION_KEY: ""
+    volumes:
+      # Durable state: H2 database, encryption key, Lucene search index.
+      - logic-data:/app/data
+      # Mount whatever log files/directories you want Logic to read, read-only
+      # (it only tails, never writes to them) - path on the right must match
+      # what you register as a source's path inside the container. Example:
+      # - /var/log/myapp:/var/log/myapp:ro
+      # ":z" relabels the host directory for shared access by containers -
+      # needed on SELinux-enforcing hosts (Fedora/RHEL/openSUSE-MicroOS
+      # style), otherwise even a root process inside the container gets
+      # Permission Denied traversing it despite normal Unix perms being fine.
+      - "./Test Data:/testdata:ro,z"
+    restart: unless-stopped
+
+volumes:
+  logic-data:

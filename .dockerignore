@@ -1,0 +1,14 @@
+# Build outputs (rebuilt inside the image)
+backend/target/
+frontend/dist/
+frontend/node_modules/
+
+# Runtime state - never bake into the image
+backend/data/
+
+# Not needed in the build context
+.git/
+.claude/
+Test Data/
+Screenshots/
+*.md
