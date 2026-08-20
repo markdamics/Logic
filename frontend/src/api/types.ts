@@ -1,3 +1,8 @@
+/** apmTraceUrlTemplate is null when unconfigured (APM_TRACE_URL_TEMPLATE unset) - no "Open in APM" link renders in that case. */
+export interface AppConfig {
+  apmTraceUrlTemplate: string | null;
+}
+
 export type SourceType = "LOCAL_FILE" | "LOCAL_DIRECTORY" | "SFTP" | "HTTP";
 
 export type SourceStatus = "UNVERIFIED" | "REACHABLE" | "UNREACHABLE";

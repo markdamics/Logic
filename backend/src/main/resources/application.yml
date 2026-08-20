@@ -25,6 +25,12 @@ app:
   alerts:
     # How often (ms) every alert rule is re-evaluated against the search index.
     evaluation-interval-ms: ${ALERT_EVALUATION_INTERVAL_MS:30000}
+  apm:
+    # Optional deep-link template for an external APM/tracing tool - {traceId}
+    # is substituted with a correlated field's value (see LogStream's
+    # Correlate button). Unset by default, so no "Open in APM" link renders
+    # until this is configured. Example: https://app.datadoghq.com/apm/trace/{traceId}
+    trace-url-template: ${APM_TRACE_URL_TEMPLATE:}
 
 spring:
   application:

@@ -1,6 +1,7 @@
 import type {
   AlertEvent,
   AlertRule,
+  AppConfig,
   ConnectionTestResult,
   CreateAlertRuleRequest,
   CreateSavedSearchRequest,
@@ -188,4 +189,8 @@ export function listAlertEvents(id: number): Promise<AlertEvent[]> {
 
 export function testAlertWebhook(id: number): Promise<void> {
   return request<void>(`/alerts/rules/${id}/test-webhook`, { method: "POST" });
+}
+
+export function getAppConfig(): Promise<AppConfig> {
+  return request<AppConfig>("/config");
 }

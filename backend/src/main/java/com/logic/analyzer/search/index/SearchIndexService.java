@@ -44,6 +44,10 @@ import java.util.stream.Collectors;
  * in-memory per-file fingerprint is only a cheap gate to skip re-processing
  * files that haven't changed - losing it on restart costs one redundant
  * (bounded, cheap) reindex pass, not a correctness bug.
+ *
+ * That reconciliation only fires while a source is still being reindexed -
+ * a *deleted* source is never revisited, so {@link #purgeSource} handles
+ * that case explicitly rather than leaving its documents orphaned forever.
  */
 @Service
 public class SearchIndexService {
@@ -90,6 +94,26 @@ public class SearchIndexService {
         lastIndexedFingerprint.clear();
         reindexAll();
         log.info("Search index reindex forced by reload");
+    }
+
+    /**
+     * Removes every indexed document for a source - a deleted source is
+     * never in {@link #reindexAll}'s source list again, so unlike a file
+     * whose content changes (reconciled on its next reindex pass, see
+     * {@link #indexEntries}), a deleted source's documents would otherwise
+     * never be revisited and stay orphaned in the index forever. Called by
+     * LogSourceService right after the source itself is deleted.
+     */
+    public void purgeSource(LogSource source) {
+        try {
+            indexWriter.deleteDocuments(new TermQuery(new Term("source", source.getName())));
+            indexWriter.commit();
+            searcherManager.maybeRefresh();
+        } catch (IOException e) {
+            log.warn("Failed to purge search index entries for deleted source {} ('{}'): {}",
+                    source.getId(), source.getName(), e.getMessage());
+        }
+        lastIndexedFingerprint.keySet().removeIf(key -> key.startsWith(source.getId() + ":"));
     }
 
     private int indexSource(LogSource source) {

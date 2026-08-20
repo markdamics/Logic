@@ -2,6 +2,7 @@ package com.logic.analyzer.source;
 
 import com.logic.analyzer.exception.SourceNotFoundException;
 import com.logic.analyzer.logstream.LogIngestionService;
+import com.logic.analyzer.search.index.SearchIndexService;
 import com.logic.analyzer.source.connectivity.SourceConnectivityChecker;
 import com.logic.analyzer.source.dto.ConnectionTestResult;
 import com.logic.analyzer.source.dto.LogSourceCreateRequest;
@@ -21,12 +22,14 @@ public class LogSourceService {
 
     private final LogSourceRepository repository;
     private final LogIngestionService ingestionService;
+    private final SearchIndexService searchIndexService;
     private final Map<SourceType, SourceConnectivityChecker> checkersByType;
 
     public LogSourceService(LogSourceRepository repository, LogIngestionService ingestionService,
-                             List<SourceConnectivityChecker> checkers) {
+                             SearchIndexService searchIndexService, List<SourceConnectivityChecker> checkers) {
         this.repository = repository;
         this.ingestionService = ingestionService;
+        this.searchIndexService = searchIndexService;
         this.checkersByType = new EnumMap<>(SourceType.class);
         for (SourceConnectivityChecker checker : checkers) {
             for (SourceType type : checker.supports()) {
@@ -93,10 +96,9 @@ public class LogSourceService {
     }
 
     public void delete(Long id) {
-        if (!repository.existsById(id)) {
-            throw new SourceNotFoundException(id);
-        }
+        LogSource source = repository.findById(id).orElseThrow(() -> new SourceNotFoundException(id));
         repository.deleteById(id);
+        searchIndexService.purgeSource(source);
         log.info("Deleted source {}", id);
     }
 

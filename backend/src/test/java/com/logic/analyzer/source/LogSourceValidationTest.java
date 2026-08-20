@@ -1,6 +1,8 @@
 package com.logic.analyzer.source;
 
+import com.logic.analyzer.exception.SourceNotFoundException;
 import com.logic.analyzer.logstream.LogIngestionService;
+import com.logic.analyzer.search.index.SearchIndexService;
 import com.logic.analyzer.source.dto.LogSourceCreateRequest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -14,6 +16,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -25,8 +29,11 @@ class LogSourceValidationTest {
     @Mock
     private LogIngestionService ingestionService;
 
+    @Mock
+    private SearchIndexService searchIndexService;
+
     private LogSourceService service() {
-        return new LogSourceService(repository, ingestionService, List.of());
+        return new LogSourceService(repository, ingestionService, searchIndexService, List.of());
     }
 
     @Test
@@ -166,5 +173,28 @@ class LogSourceValidationTest {
                         tuple("stale-source", List.of("stale.log")),
                         tuple("fresh-source", List.of())
                 );
+    }
+
+    @Test
+    void deletePurgesTheSourceFromTheSearchIndex() {
+        LogSource existing = new LogSource(
+                "app-log", SourceType.LOCAL_FILE, "/var/log/app.log", null, null, null, null);
+        when(repository.findById(1L)).thenReturn(Optional.of(existing));
+
+        service().delete(1L);
+
+        verify(repository).deleteById(1L);
+        verify(searchIndexService).purgeSource(existing);
+    }
+
+    @Test
+    void deleteThrowsAndNeverPurgesWhenTheSourceDoesNotExist() {
+        when(repository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service().delete(99L))
+                .isInstanceOf(SourceNotFoundException.class);
+
+        verify(searchIndexService, never()).purgeSource(any());
+        verify(repository, never()).deleteById(any());
     }
 }

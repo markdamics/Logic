@@ -1285,6 +1285,37 @@ body,
   border-bottom: 1px solid var(--color-border);
 }
 
+.correlate-btn {
+  margin-left: var(--space-2);
+  padding: 1px 6px;
+  border: 1px solid var(--line-accent);
+  clip-path: var(--clip-cut-tag);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: var(--tr-micro);
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.correlate-btn:hover {
+  background: var(--accent);
+  color: var(--text-on-accent);
+}
+
+.apm-link-btn {
+  border-color: var(--accent-2);
+  background: var(--accent-2-soft);
+  color: var(--accent-2);
+  text-decoration: none;
+}
+
+.apm-link-btn:hover {
+  background: var(--accent-2);
+  color: var(--text-on-accent);
+}
+
 .log-detail-field:last-of-type .log-detail-field-key,
 .log-detail-field:last-of-type .log-detail-field-value {
   border-bottom: none;

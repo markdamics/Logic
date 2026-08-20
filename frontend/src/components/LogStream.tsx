@@ -11,6 +11,7 @@ import type {
   QueryLanguage,
   SavedSearch,
 } from "../api/types";
+import { useAppConfig } from "../hooks/useAppConfig";
 import { createLogger } from "../utils/logger";
 import { parseMessage } from "../utils/messageParser";
 import { updateMessageFor } from "../utils/source";
@@ -106,6 +107,7 @@ export function LogStream({
   const [activeSavedSearchId, setActiveSavedSearchId] = useState<number | null>(null);
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const appliedSavedSearchFromUrl = useRef(false);
+  const appConfig = useAppConfig();
 
   const sourceNames = useMemo(() => Array.from(new Set(sources.map((s) => s.name))).sort(), [sources]);
   const rangeMinutes = TIME_RANGES.find((r) => r.value === timeRange)?.minutes ?? 24 * 60;
@@ -265,6 +267,21 @@ export function LogStream({
     setTimeRange(TIME_RANGES.find((r) => r.minutes === saved.rangeMinutes)?.value ?? "24h");
     setSortColumn((saved.sortBy as SortColumn) || "time");
     setSortDirection((saved.sortDir as SortDirection) || "desc");
+    setPage(0);
+  };
+
+  // Jump to every log line (any source) sharing a correlation ID field's
+  // value - an exact-match Lucene query against the field Logic already
+  // indexes, not a real distributed-tracing span lookup.
+  const handleCorrelate = (fieldName: string, value: string) => {
+    const query = `field.${fieldName}:"${value}"`;
+    setMode("query");
+    setQueryLanguage("LUCENE");
+    setQueryInput(query);
+    setDebouncedQuery(query);
+    setSourceFilter("");
+    setFileFilter("");
+    setTimeRange("0");
     setPage(0);
   };
 
@@ -651,7 +668,14 @@ export function LogStream({
                 {rows.map((entry) => {
                   const isExpanded = expandedIds.has(entry.id);
                   return (
-                    <LogRow key={entry.id} entry={entry} isExpanded={isExpanded} onToggle={toggleExpand} />
+                    <LogRow
+                      key={entry.id}
+                      entry={entry}
+                      isExpanded={isExpanded}
+                      onToggle={toggleExpand}
+                      onCorrelate={handleCorrelate}
+                      apmTraceUrlTemplate={appConfig?.apmTraceUrlTemplate ?? null}
+                    />
                   );
                 })}
                 {!loading && rows.length === 0 && (
@@ -719,9 +743,11 @@ interface LogRowProps {
   entry: LogEntry;
   isExpanded: boolean;
   onToggle: (id: number) => void;
+  onCorrelate: (fieldName: string, value: string) => void;
+  apmTraceUrlTemplate: string | null;
 }
 
-function LogRow({ entry, isExpanded, onToggle }: LogRowProps) {
+function LogRow({ entry, isExpanded, onToggle, onCorrelate, apmTraceUrlTemplate }: LogRowProps) {
   return (
     <>
       <tr
@@ -743,7 +769,7 @@ function LogRow({ entry, isExpanded, onToggle }: LogRowProps) {
       {isExpanded && (
         <tr className="log-detail-row">
           <td colSpan={5}>
-            <LogEntryDetail message={entry.message} />
+            <LogEntryDetail message={entry.message} onCorrelate={onCorrelate} apmTraceUrlTemplate={apmTraceUrlTemplate} />
           </td>
         </tr>
       )}
@@ -751,7 +777,20 @@ function LogRow({ entry, isExpanded, onToggle }: LogRowProps) {
   );
 }
 
-function LogEntryDetail({ message }: { message: string }) {
+/** Structured field names that plausibly identify a request/trace across log lines - not real span data, just an exact-match correlation key. */
+const CORRELATION_FIELD_NAMES = new Set(["traceid", "requestid", "correlationid", "spanid", "reqid"]);
+
+function isCorrelationField(key: string): boolean {
+  return CORRELATION_FIELD_NAMES.has(key.toLowerCase().replace(/[-_]/g, ""));
+}
+
+interface LogEntryDetailProps {
+  message: string;
+  onCorrelate: (fieldName: string, value: string) => void;
+  apmTraceUrlTemplate: string | null;
+}
+
+function LogEntryDetail({ message, onCorrelate, apmTraceUrlTemplate }: LogEntryDetailProps) {
   const parsed = useMemo(() => parseMessage(message), [message]);
   return (
     <div className="log-detail-panel">
@@ -763,7 +802,34 @@ function LogEntryDetail({ message }: { message: string }) {
           {parsed.fields.map((field, i) => (
             <div className="log-detail-field" key={`${field.key}-${i}`}>
               <span className="log-detail-field-key">{field.key}</span>
-              <span className="log-detail-field-value">{field.value}</span>
+              <span className="log-detail-field-value">
+                {field.value}
+                {isCorrelationField(field.key) && field.value && (
+                  <button
+                    type="button"
+                    className="correlate-btn"
+                    title={`Find every log line (any source) with ${field.key} = ${field.value}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onCorrelate(field.key, field.value);
+                    }}
+                  >
+                    Correlate
+                  </button>
+                )}
+                {isCorrelationField(field.key) && field.value && apmTraceUrlTemplate && (
+                  <a
+                    className="correlate-btn apm-link-btn"
+                    href={apmTraceUrlTemplate.replace("{traceId}", encodeURIComponent(field.value))}
+                    target="_blank"
+                    rel="noreferrer"
+                    title="Open this trace in your configured APM tool"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Open in APM ↗
+                  </a>
+                )}
+              </span>
             </div>
           ))}
         </div>
