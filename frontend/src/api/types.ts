@@ -127,6 +127,62 @@ export interface CreateSavedSearchRequest {
   sortDir: string;
 }
 
+export type AlertRuleType = "THRESHOLD" | "ANOMALY";
+export type AlertMetric = "COUNT" | "RATE";
+export type ComparisonOperator = "GT" | "GTE";
+
+export interface AlertRule {
+  id: number;
+  name: string;
+  queryLanguage: SavedSearchLanguage;
+  query: string | null;
+  search: string | null;
+  levels: LogLevel[];
+  source: string | null;
+  file: string | null;
+  ruleType: AlertRuleType;
+  windowMinutes: number;
+  metric: AlertMetric;
+  comparisonOp: ComparisonOperator | null;
+  threshold: number | null;
+  anomalyBaselineWindows: number | null;
+  anomalyStdDevMultiplier: number | null;
+  muted: boolean;
+  lastTriggeredAt: string | null;
+  lastEvaluatedAt: string | null;
+  webhookUrl: string | null;
+  webhookSecretConfigured: boolean;
+  createdAt: string;
+}
+
+export interface CreateAlertRuleRequest {
+  name: string;
+  queryLanguage: SavedSearchLanguage;
+  query?: string;
+  search?: string;
+  levels?: LogLevel[];
+  source?: string;
+  file?: string;
+  ruleType: AlertRuleType;
+  windowMinutes: number;
+  metric: AlertMetric;
+  comparisonOp?: ComparisonOperator;
+  threshold?: number;
+  anomalyBaselineWindows?: number;
+  anomalyStdDevMultiplier?: number;
+  webhookUrl?: string;
+  webhookSecret?: string;
+}
+
+export interface AlertEvent {
+  id: number;
+  triggeredAt: string;
+  resolvedAt: string | null;
+  metricValue: number;
+  thresholdAtTrigger: number | null;
+  webhookStatus: number | null;
+}
+
 export interface SourceActivity {
   source: string;
   status: SourceStatus;

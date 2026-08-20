@@ -37,8 +37,12 @@ public class LogQueryService {
     }
 
     public LogQueryResult query(LogQueryParams params) {
-        Query query = queryCompiler.compile(toQueryNode(params));
-        return executor.execute(query, params.sortBy(), params.sortDir(), params.page(), params.size());
+        return executor.execute(compile(params), params.sortBy(), params.sortDir(), params.page(), params.size());
+    }
+
+    /** Just the compiled scope Query, for callers that run their own execution (e.g. AlertEvaluationService). */
+    public Query compile(LogQueryParams params) {
+        return queryCompiler.compile(toQueryNode(params));
     }
 
     /** Invalidates the interactive ingestion cache and forces an immediate reindex, so a manual Reload reflects instantly. */

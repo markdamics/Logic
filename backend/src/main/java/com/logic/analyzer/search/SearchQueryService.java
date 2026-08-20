@@ -41,19 +41,35 @@ public class SearchQueryService {
 
     public LogQueryResult query(String q, QueryLanguage language, String source, String file, long rangeMinutes,
                                  String sortBy, String sortDir, int page, int size) {
+        ParsedQuery parsed = parse(q, language);
+        Query compiled = compileScope(parsed.filter(), source, file, rangeMinutes);
+        return parsed.aggregation()
+                .map(stage -> executor.executeAggregation(compiled, stage, rangeMinutes))
+                .orElseGet(() -> executor.execute(compiled, sortBy, sortDir, page, size));
+    }
+
+    /**
+     * Just the compiled scope Query (parse + scope, ignoring any aggregation
+     * stage the query text might include) - for callers that run their own
+     * execution instead of rows/aggregation (e.g. AlertEvaluationService,
+     * which builds its own CountOverTimeStage window).
+     */
+    public Query compile(String q, QueryLanguage language, String source, String file, long rangeMinutes) {
+        return compileScope(parse(q, language).filter(), source, file, rangeMinutes);
+    }
+
+    private ParsedQuery parse(String q, QueryLanguage language) {
         QueryParser parser = parsersByLanguage.get(language);
         if (parser == null) {
             throw new IllegalArgumentException("Unsupported query language: " + language);
         }
-        ParsedQuery parsed = parser.parse(q);
+        return parser.parse(q);
+    }
 
+    private Query compileScope(QueryNode filter, String source, String file, long rangeMinutes) {
         List<QueryNode> clauses = new ArrayList<>(QueryNode.scopeClauses(source, file, rangeMinutes));
-        clauses.add(parsed.filter());
+        clauses.add(filter);
         QueryNode combined = clauses.size() == 1 ? clauses.get(0) : new QueryNode.AndNode(clauses);
-
-        Query compiled = queryCompiler.compile(combined);
-        return parsed.aggregation()
-                .map(stage -> executor.executeAggregation(compiled, stage, rangeMinutes))
-                .orElseGet(() -> executor.execute(compiled, sortBy, sortDir, page, size));
+        return queryCompiler.compile(combined);
     }
 }

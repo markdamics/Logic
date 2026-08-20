@@ -5,6 +5,7 @@ import { LogStream } from "./components/LogStream";
 import { Sidebar } from "./components/Sidebar";
 import { SourceDialog } from "./components/SourceDialog";
 import { SourceGrid } from "./components/SourceGrid";
+import { useAlertRules } from "./hooks/useAlertRules";
 import { useSavedSearches } from "./hooks/useSavedSearches";
 import { useSources } from "./hooks/useSources";
 import { ApiError, reloadLogs } from "./api/client";
@@ -39,7 +40,6 @@ function App() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [reloadSignal, setReloadSignal] = useState(0);
   const [reloading, setReloading] = useState(false);
-  const [clock, setClock] = useState(() => new Date());
   const { sources, loading, error, create, update, remove, check, toggleEnabled, toggleLive } = useSources();
   const {
     savedSearches,
@@ -47,6 +47,15 @@ function App() {
     create: createSavedSearch,
     remove: removeSavedSearch,
   } = useSavedSearches();
+  const {
+    alertRules,
+    loading: alertRulesLoading,
+    create: createAlertRule,
+    update: updateAlertRule,
+    remove: removeAlertRule,
+    toggleMuted: toggleAlertRuleMuted,
+    events: fetchAlertEvents,
+  } = useAlertRules();
 
   useEffect(() => {
     document.documentElement.dataset.theme = mode;
@@ -56,11 +65,6 @@ function App() {
   useEffect(() => {
     localStorage.setItem(SIDEBAR_STORAGE_KEY, String(sidebarCollapsed));
   }, [sidebarCollapsed]);
-
-  useEffect(() => {
-    const timer = setInterval(() => setClock(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   const handleDelete = async (id: number) => {
     setActionError(null);
@@ -160,7 +164,6 @@ function App() {
                 {sources.some((s) => s.changedFiles.length > 0) && <span className="update-dot reload-btn-dot" />}
               </button>
             )}
-            <span className="topbar-clock">{clock.toLocaleTimeString()}</span>
           </div>
         </div>
 
@@ -196,7 +199,18 @@ function App() {
             <Dashboard sources={sources} reloadSignal={reloadSignal} onReload={handleReload} />
           )}
 
-          {screen === "alerts" && <Alerts />}
+          {screen === "alerts" && (
+            <Alerts
+              sources={sources}
+              alertRules={alertRules}
+              loading={alertRulesLoading}
+              onCreate={createAlertRule}
+              onUpdate={updateAlertRule}
+              onDelete={removeAlertRule}
+              onToggleMuted={toggleAlertRuleMuted}
+              onFetchEvents={fetchAlertEvents}
+            />
+          )}
         </div>
 
         <div className="status-footer">

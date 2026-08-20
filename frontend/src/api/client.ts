@@ -1,5 +1,8 @@
 import type {
+  AlertEvent,
+  AlertRule,
   ConnectionTestResult,
+  CreateAlertRuleRequest,
   CreateSavedSearchRequest,
   CreateSourceRequest,
   DashboardSummary,
@@ -151,4 +154,38 @@ export function deleteSavedSearch(id: number): Promise<void> {
 export function runSavedSearch(id: number, page = 0, size = 10): Promise<LogQueryResult> {
   const query = new URLSearchParams({ page: String(page), size: String(size) });
   return request<LogQueryResult>(`/saved-searches/${id}/run?${query.toString()}`, { method: "POST" });
+}
+
+export function listAlertRules(): Promise<AlertRule[]> {
+  return request<AlertRule[]>("/alerts/rules");
+}
+
+export function createAlertRule(req: CreateAlertRuleRequest): Promise<AlertRule> {
+  return request<AlertRule>("/alerts/rules", {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
+}
+
+export function updateAlertRule(id: number, req: CreateAlertRuleRequest): Promise<AlertRule> {
+  return request<AlertRule>(`/alerts/rules/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(req),
+  });
+}
+
+export function deleteAlertRule(id: number): Promise<void> {
+  return request<void>(`/alerts/rules/${id}`, { method: "DELETE" });
+}
+
+export function setAlertRuleMuted(id: number, muted: boolean): Promise<AlertRule> {
+  return request<AlertRule>(`/alerts/rules/${id}/${muted ? "mute" : "unmute"}`, { method: "POST" });
+}
+
+export function listAlertEvents(id: number): Promise<AlertEvent[]> {
+  return request<AlertEvent[]>(`/alerts/rules/${id}/events`);
+}
+
+export function testAlertWebhook(id: number): Promise<void> {
+  return request<void>(`/alerts/rules/${id}/test-webhook`, { method: "POST" });
 }

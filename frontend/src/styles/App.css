@@ -143,14 +143,6 @@ body,
   font-size: 22px;
 }
 
-.topbar-clock {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-  color: var(--color-text-muted);
-  white-space: nowrap;
-}
-
 .status-footer {
   flex: none;
   height: 26px;
@@ -498,6 +490,17 @@ body,
   padding: var(--space-8) var(--space-4);
   text-align: center;
   color: var(--color-text-muted);
+}
+
+.alerts-screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.alerts-toolbar {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .alerts-placeholder {
