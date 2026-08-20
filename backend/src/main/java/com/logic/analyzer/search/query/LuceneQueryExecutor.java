@@ -22,6 +22,8 @@ import org.apache.lucene.index.ReaderUtil;
 import org.apache.lucene.index.SortedDocValues;
 import org.apache.lucene.index.StoredFields;
 import org.apache.lucene.index.Term;
+import org.apache.lucene.search.BooleanClause;
+import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.Query;
@@ -346,11 +348,17 @@ public class LuceneQueryExecutor {
         return sorted.get(Math.max(0, Math.min(sorted.size() - 1, index)));
     }
 
-    /** Distinct, sorted file labels among documents matching the source scope (or every document if source is blank). */
-    public List<String> listFiles(String source) {
-        Query query = source == null || source.isBlank()
+    /**
+     * Distinct, sorted file labels among documents matching the source scope
+     * (or every document if source is blank). {@code excludedSources} keeps a
+     * disabled source's files out of the filter dropdown, same as its entries
+     * are kept out of query results.
+     */
+    public List<String> listFiles(String source, List<String> excludedSources) {
+        Query base = source == null || source.isBlank()
                 ? new MatchAllDocsQuery()
                 : new TermQuery(new Term("source", source));
+        Query query = excludedSources.isEmpty() ? base : withExclusions(base, excludedSources);
 
         IndexSearcher searcher = acquire();
         try {
@@ -373,6 +381,14 @@ public class LuceneQueryExecutor {
         } finally {
             releaseQuietly(searcher);
         }
+    }
+
+    private Query withExclusions(Query base, List<String> excludedSources) {
+        BooleanQuery.Builder builder = new BooleanQuery.Builder().add(base, BooleanClause.Occur.MUST);
+        for (String excluded : excludedSources) {
+            builder.add(new TermQuery(new Term("source", excluded)), BooleanClause.Occur.MUST_NOT);
+        }
+        return builder.build();
     }
 
     private IndexSearcher acquire() {

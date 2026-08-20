@@ -7,6 +7,8 @@ import com.logic.analyzer.search.query.QueryCompiler;
 import com.logic.analyzer.search.query.QueryLanguage;
 import com.logic.analyzer.search.query.QueryNode;
 import com.logic.analyzer.search.query.QueryParser;
+import com.logic.analyzer.source.LogSource;
+import com.logic.analyzer.source.LogSourceRepository;
 import org.apache.lucene.search.Query;
 import org.springframework.stereotype.Service;
 
@@ -29,14 +31,17 @@ public class SearchQueryService {
     private final Map<QueryLanguage, QueryParser> parsersByLanguage;
     private final QueryCompiler queryCompiler;
     private final LuceneQueryExecutor executor;
+    private final LogSourceRepository sourceRepository;
 
-    public SearchQueryService(List<QueryParser> parsers, QueryCompiler queryCompiler, LuceneQueryExecutor executor) {
+    public SearchQueryService(List<QueryParser> parsers, QueryCompiler queryCompiler, LuceneQueryExecutor executor,
+                               LogSourceRepository sourceRepository) {
         this.parsersByLanguage = new EnumMap<>(QueryLanguage.class);
         for (QueryParser parser : parsers) {
             parsersByLanguage.put(parser.language(), parser);
         }
         this.queryCompiler = queryCompiler;
         this.executor = executor;
+        this.sourceRepository = sourceRepository;
     }
 
     public LogQueryResult query(String q, QueryLanguage language, String source, String file, long rangeMinutes,
@@ -67,9 +72,17 @@ public class SearchQueryService {
     }
 
     private Query compileScope(QueryNode filter, String source, String file, long rangeMinutes) {
-        List<QueryNode> clauses = new ArrayList<>(QueryNode.scopeClauses(source, file, rangeMinutes));
+        List<QueryNode> clauses = new ArrayList<>(QueryNode.scopeClauses(source, file, rangeMinutes, disabledSourceNames()));
         clauses.add(filter);
         QueryNode combined = clauses.size() == 1 ? clauses.get(0) : new QueryNode.AndNode(clauses);
         return queryCompiler.compile(combined);
+    }
+
+    /** See LogQueryService.disabledSourceNames() - same reasoning, kept in lockstep with the simple-filter path. */
+    private List<String> disabledSourceNames() {
+        return sourceRepository.findAll().stream()
+                .filter(s -> !s.isEnabled())
+                .map(LogSource::getName)
+                .toList();
     }
 }

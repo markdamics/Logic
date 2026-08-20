@@ -7,6 +7,7 @@ import type {
   CreateSavedSearchRequest,
   CreateSourceRequest,
   DashboardSummary,
+  DirectoryListing,
   LogQueryLanguageParams,
   LogQueryParams,
   LogQueryResult,
@@ -91,6 +92,13 @@ export function setSourceLive(id: number, live: boolean): Promise<LogSource> {
   return request<LogSource>(`/sources/${id}/${live ? "enable-live" : "disable-live"}`, {
     method: "POST",
   });
+}
+
+/** Backs the Sources dialog's file/directory picker. Omit `path` to start at the server's home directory. */
+export function browseDirectory(path?: string): Promise<DirectoryListing> {
+  const query = new URLSearchParams();
+  if (path) query.set("path", path);
+  return request<DirectoryListing>(`/sources/browse?${query.toString()}`);
 }
 
 export function fetchLogs(params: LogQueryParams): Promise<LogQueryResult> {

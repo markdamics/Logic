@@ -11,12 +11,14 @@ const common = {
   strokeLinejoin: "round" as const,
 };
 
-export function TerminalIcon({ size = 20 }: IconProps) {
+/** The app's brand mark - a query/bracket glyph, distinct from the rest of this file's plain single-color line icons since one stroke is always the theme's accent color. */
+export function LogicMarkIcon({ size = 20 }: IconProps) {
   return (
-    <svg width={size} height={size} {...common}>
-      <rect x="3" y="4" width="18" height="16" rx="1" />
-      <path d="M7 9l3 3-3 3" />
-      <line x1="12" y1="15" x2="16" y2="15" />
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="square">
+      <path d="M11 11h21v14l-5 5H11z" />
+      <path d="M17 24h6" />
+      <path d="M17 18h10" stroke="var(--accent)" />
+      <path d="M29 28l9 9" />
     </svg>
   );
 }
@@ -106,6 +108,33 @@ export function PlusIcon({ size = 22 }: IconProps) {
       <path d="M12 16V4" />
       <path d="M6 10l6-6 6 6" />
       <path d="M4 20h16" />
+    </svg>
+  );
+}
+
+export function FolderIcon({ size = 15 }: IconProps) {
+  return (
+    <svg width={size} height={size} {...common}>
+      <path d="M3 6a1 1 0 011-1h5l2 2h9a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1z" />
+    </svg>
+  );
+}
+
+export function FileIcon({ size = 15 }: IconProps) {
+  return (
+    <svg width={size} height={size} {...common}>
+      <path d="M6 3h8l5 5v13a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1z" />
+      <path d="M14 3v5h5" />
+    </svg>
+  );
+}
+
+export function UpFolderIcon({ size = 15 }: IconProps) {
+  return (
+    <svg width={size} height={size} {...common}>
+      <path d="M3 6a1 1 0 011-1h5l2 2h9a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1z" />
+      <path d="M12 15v-4" />
+      <path d="M9.5 13l2.5-2.5 2.5 2.5" />
     </svg>
   );
 }

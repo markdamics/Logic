@@ -39,6 +39,19 @@ export interface ConnectionTestResult {
   checkedAt: string;
 }
 
+export interface DirectoryEntry {
+  name: string;
+  path: string;
+  directory: boolean;
+}
+
+/** Response for GET /api/sources/browse - `parent` is null at the filesystem root. */
+export interface DirectoryListing {
+  path: string;
+  parent: string | null;
+  entries: DirectoryEntry[];
+}
+
 export type LogLevel = "ERROR" | "WARN" | "INFO" | "DEBUG";
 
 export interface LogEntry {

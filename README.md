@@ -1,4 +1,4 @@
-# <img src="frontend/public/terminal-svgrepo-com.svg" width="28" height="28" alt="" valign="middle" /> Logic
+# <img src="frontend/public/logic-mark.svg" width="28" height="28" alt="" valign="middle" /> Logic
 
 Log Analyzer — a full-stack app for registering log sources and inspecting
 their content in real time.
@@ -129,10 +129,22 @@ selectable themes.
 - Register log sources of four types: a local file, a local directory (read
   non-recursively, capped to the 20 most recently modified files), an SFTP
   remote path, or a plain HTTP(S) URL.
+- **Browse…** — for a local file/directory source, a picker (backed by
+  `GET /api/sources/browse`) lists the *server's* filesystem so the path can
+  be navigated to rather than typed from memory; a directory source's picker
+  only lets you select a folder, a file source's picker only lets you select
+  a file. It browses the machine the backend runs on, not the browser's
+  machine — the two are the same host in the common single-box/Docker
+  deployment, but not necessarily when frontend and backend are split (see
+  [Known simplifications](#known-simplifications-first-phase)).
 - Edit, delete, and test connectivity (`UNVERIFIED` / `REACHABLE` /
   `UNREACHABLE`) for any source.
 - **Enable / disable** a source — disabled sources are skipped by ingestion
-  entirely (paused) but stay configured.
+  entirely (paused) and their already-indexed log lines stop appearing in the
+  Log Stream, query-bar results, and alert evaluation immediately, everywhere
+  in the app. Nothing is deleted from the index though: re-enabling brings
+  everything straight back (no re-ingest wait), unlike removing a source
+  entirely, which does purge its indexed data.
 - **Live** toggle — live sources are re-read continuously (~2s) so the Log
   Stream and Dashboard update on their own; non-live sources are read once and
   frozen as a fixed snapshot until reloaded.
@@ -268,6 +280,13 @@ host key verification, etc.).
 
 - Auth is a single shared admin account (HTTP Basic, see
   [Security](#security)) — no per-user accounts, roles, or audit log.
+- The Sources dialog's file/directory browse endpoint (`GET
+  /api/sources/browse`) isn't sandboxed to a configured root — it lists
+  whatever directory it's pointed at anywhere on the server's filesystem the
+  process can read. This adds no new capability beyond what a source's
+  `path` field already lets an admin name directly (see
+  `LocalFileConnectivityChecker`); it's a convenience for finding a path, not
+  a new trust boundary.
 - SFTP host key verification is disabled (accepts any host key) to simplify
   connecting to ad-hoc dev servers.
 - Directories are read non-recursively and capped to the 20 most recently

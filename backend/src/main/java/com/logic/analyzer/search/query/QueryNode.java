@@ -66,8 +66,15 @@ public sealed interface QueryNode {
      * simple-filter UI (LogQueryService) and the query-bar (SearchQueryService),
      * which ANDs this with whatever its query-language parser produced. Kept
      * here rather than duplicated so both stay in lockstep.
+     *
+     * @param excludedSources names of currently-disabled sources - a MUST_NOT
+     *                        clause per name, so a disabled source's already-indexed
+     *                        entries stop showing up everywhere (Log Stream, query-bar,
+     *                        alerts) the moment it's disabled, without purging them
+     *                        from the index (re-enabling is then instant, not a
+     *                        from-scratch re-ingest).
      */
-    static List<QueryNode> scopeClauses(String source, String file, long rangeMinutes) {
+    static List<QueryNode> scopeClauses(String source, String file, long rangeMinutes, List<String> excludedSources) {
         List<QueryNode> clauses = new ArrayList<>();
 
         // rangeMinutes <= 0 means "all time" - no cutoff - rather than an empty window.
@@ -80,6 +87,9 @@ public sealed interface QueryNode {
         }
         if (file != null && !file.isBlank()) {
             clauses.add(new FieldMatchNode("file", file, true));
+        }
+        for (String excluded : excludedSources) {
+            clauses.add(new NotNode(new FieldMatchNode("source", excluded, true)));
         }
         return clauses;
     }

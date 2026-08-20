@@ -109,7 +109,10 @@ export function LogStream({
   const appliedSavedSearchFromUrl = useRef(false);
   const appConfig = useAppConfig();
 
-  const sourceNames = useMemo(() => Array.from(new Set(sources.map((s) => s.name))).sort(), [sources]);
+  const sourceNames = useMemo(
+    () => Array.from(new Set(sources.filter((s) => s.enabled).map((s) => s.name))).sort(),
+    [sources],
+  );
   const rangeMinutes = TIME_RANGES.find((r) => r.value === timeRange)?.minutes ?? 24 * 60;
   const hasLiveSource = sources.some((s) => s.enabled && s.live);
   const sourcesWithUpdates = sources.filter((s) => s.changedFiles.length > 0);
@@ -143,6 +146,20 @@ export function LogStream({
       cancelled = true;
     };
   }, [sources.length, sourceFilter]);
+
+  // The source dropdown only lists enabled sources - if the selected one gets
+  // disabled mid-session (or a saved search/URL points at an already-disabled
+  // one), drop back to "All sources" rather than silently filtering by a name
+  // that no longer appears anywhere in the UI. Guarded on sources being loaded
+  // so this doesn't race a saved-search/URL restore that fires before the
+  // initial sources fetch resolves (sourceNames is empty then too).
+  useEffect(() => {
+    if (sources.length > 0 && sourceFilter && !sourceNames.includes(sourceFilter)) {
+      setSourceFilter("");
+      setFileFilter("");
+      setPage(0);
+    }
+  }, [sources.length, sourceFilter, sourceNames]);
 
   // Debounce free-text search so we don't hit the backend on every keystroke.
   useEffect(() => {

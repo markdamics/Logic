@@ -11,6 +11,7 @@ import com.logic.analyzer.search.query.LuceneQueryExecutor;
 import com.logic.analyzer.search.query.QueryCompiler;
 import com.logic.analyzer.search.query.QueryLanguage;
 import com.logic.analyzer.source.LogSource;
+import com.logic.analyzer.source.LogSourceRepository;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.core.KeywordAnalyzer;
 import org.apache.lucene.analysis.miscellaneous.PerFieldAnalyzerWrapper;
@@ -66,6 +67,8 @@ class AlertEvaluationServiceTest {
     private SearchIndexService searchIndexService;
     @Mock
     private WebhookNotifier webhookNotifier;
+    @Mock
+    private LogSourceRepository sourceRepository;
 
     private final Analyzer analyzer = new PerFieldAnalyzerWrapper(new KeywordAnalyzer(),
             Map.of("message", new StandardAnalyzer(), "_all", new StandardAnalyzer()));
@@ -81,14 +84,15 @@ class AlertEvaluationServiceTest {
     @BeforeEach
     void setUp() throws Exception {
         when(testSource.getId()).thenReturn(1L);
+        when(sourceRepository.findAll()).thenReturn(List.of());
         directory = new ByteBuffersDirectory();
         writer = new IndexWriter(directory, new IndexWriterConfig(analyzer));
         searcherManager = new SearcherManager(writer, false, false, null);
 
         LuceneQueryExecutor executor = new LuceneQueryExecutor(searcherManager, facetsConfig);
         QueryCompiler queryCompiler = new QueryCompiler(analyzer);
-        LogQueryService logQueryService = new LogQueryService(ingestionService, searchIndexService, executor, queryCompiler);
-        SearchQueryService searchQueryService = new SearchQueryService(List.of(), queryCompiler, executor);
+        LogQueryService logQueryService = new LogQueryService(ingestionService, searchIndexService, executor, queryCompiler, sourceRepository);
+        SearchQueryService searchQueryService = new SearchQueryService(List.of(), queryCompiler, executor, sourceRepository);
 
         when(ruleRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         // lenient: not every test's rule actually triggers, so this stub goes unused in those.

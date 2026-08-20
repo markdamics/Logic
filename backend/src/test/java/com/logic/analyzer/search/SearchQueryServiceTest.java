@@ -13,6 +13,7 @@ import com.logic.analyzer.search.query.SplSubsetQueryParser;
 import com.logic.analyzer.search.query.QueryLanguage;
 import com.logic.analyzer.search.query.QueryParser;
 import com.logic.analyzer.source.LogSource;
+import com.logic.analyzer.source.LogSourceRepository;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.core.KeywordAnalyzer;
 import org.apache.lucene.analysis.miscellaneous.PerFieldAnalyzerWrapper;
@@ -55,6 +56,7 @@ class SearchQueryServiceTest {
     private final FacetsConfig facetsConfig = new FacetsConfig();
     private final LogDocumentBuilder documentBuilder = new LogDocumentBuilder(facetsConfig);
     private final LogSource testSource = mock(LogSource.class);
+    private final LogSourceRepository sourceRepository = mock(LogSourceRepository.class);
 
     private Directory directory;
     private IndexWriter writer;
@@ -63,6 +65,7 @@ class SearchQueryServiceTest {
     @BeforeEach
     void setUp() throws Exception {
         when(testSource.getId()).thenReturn(1L);
+        when(sourceRepository.findAll()).thenReturn(List.of());
         directory = new ByteBuffersDirectory();
         writer = new IndexWriter(directory, new IndexWriterConfig(analyzer));
         searcherManager = new SearcherManager(writer, false, false, null);
@@ -79,7 +82,7 @@ class SearchQueryServiceTest {
         List<QueryParser> parsers = List.of(
                 new LuceneSyntaxQueryParser(analyzer), new SplSubsetQueryParser(), new LogQlSubsetQueryParser());
         return new SearchQueryService(parsers, new QueryCompiler(analyzer),
-                new LuceneQueryExecutor(searcherManager, facetsConfig));
+                new LuceneQueryExecutor(searcherManager, facetsConfig), sourceRepository);
     }
 
     private void seed(List<LogEntry> entries) throws Exception {
@@ -116,6 +119,21 @@ class SearchQueryServiceTest {
         assertThat(result.totalElements()).isEqualTo(2);
         assertThat(result.content()).extracting(LogEntry::source)
                 .containsExactlyInAnyOrder("payments-api", "test-runner");
+    }
+
+    @Test
+    void excludesAlreadyIndexedEntriesFromADisabledSource() throws Exception {
+        seed(sample());
+        LogSource disabled = mock(LogSource.class);
+        when(disabled.getName()).thenReturn("test-runner");
+        when(disabled.isEnabled()).thenReturn(false);
+        when(sourceRepository.findAll()).thenReturn(List.of(disabled));
+
+        LogQueryResult result = service().query("field.status:500", QueryLanguage.LUCENE,
+                null, null, 0, "time", "desc", 0, 10);
+
+        assertThat(result.totalElements()).isEqualTo(1);
+        assertThat(result.content().get(0).source()).isEqualTo("payments-api");
     }
 
     @Test

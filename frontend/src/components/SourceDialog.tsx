@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import type { CreateSourceRequest, LogSource, SourceType } from "../api/types";
 import { ApiError } from "../api/client";
 import { createLogger } from "../utils/logger";
+import { SourceBrowseDialog } from "./SourceBrowseDialog";
 
 const logger = createLogger("SourceDialog");
 
@@ -31,6 +32,8 @@ export function SourceDialog({ source, onClose, onSubmit }: SourceDialogProps) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [browsing, setBrowsing] = useState(false);
+  const isLocal = type === "LOCAL_FILE" || type === "LOCAL_DIRECTORY";
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -141,19 +144,26 @@ export function SourceDialog({ source, onClose, onSubmit }: SourceDialogProps) {
                   ? "Remote path"
                   : "Path"}
             </label>
-            <input
-              id="source-path"
-              value={path}
-              onChange={(e) => setPath(e.target.value)}
-              placeholder={
-                type === "HTTP"
-                  ? "https://example.com/logs/app.log"
-                  : type === "SFTP"
-                    ? "/var/log/nginx/access.log"
-                    : "/var/log/app.log"
-              }
-              required
-            />
+            <div className="form-field-with-action">
+              <input
+                id="source-path"
+                value={path}
+                onChange={(e) => setPath(e.target.value)}
+                placeholder={
+                  type === "HTTP"
+                    ? "https://example.com/logs/app.log"
+                    : type === "SFTP"
+                      ? "/var/log/nginx/access.log"
+                      : "/var/log/app.log"
+                }
+                required
+              />
+              {isLocal && (
+                <button type="button" className="btn btn-secondary" onClick={() => setBrowsing(true)}>
+                  Browse…
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="form-actions">
@@ -166,6 +176,14 @@ export function SourceDialog({ source, onClose, onSubmit }: SourceDialogProps) {
           </div>
         </form>
       </div>
+      {browsing && (
+        <SourceBrowseDialog
+          mode={type === "LOCAL_FILE" ? "file" : "directory"}
+          initialPath={path || undefined}
+          onSelect={setPath}
+          onClose={() => setBrowsing(false)}
+        />
+      )}
     </div>,
     document.body,
   );

@@ -824,6 +824,84 @@ body,
   margin-top: var(--space-6);
 }
 
+.form-field-with-action {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.form-field-with-action input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Source path browse dialog */
+
+.browse-dialog {
+  max-width: 560px;
+}
+
+.browse-path-row {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.browse-path-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.browse-list {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  max-height: 320px;
+  overflow-y: auto;
+  margin-bottom: var(--space-2);
+}
+
+.browse-entry {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-text);
+  font-size: 13px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.browse-entry:last-child {
+  border-bottom: none;
+}
+
+.browse-entry:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.browse-entry:disabled,
+.browse-entry-disabled {
+  color: var(--color-text-muted);
+  cursor: default;
+  opacity: 0.55;
+}
+
+.browse-entry-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.browse-empty {
+  padding: var(--space-4);
+  font-size: 13px;
+  text-align: center;
+}
+
 .error-banner {
   background: var(--color-error-bg);
   color: var(--color-error);

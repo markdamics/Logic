@@ -3,7 +3,7 @@ import type { Screen } from "../screens";
 import { SCREEN_TITLES } from "../screens";
 import type { AxiomTheme } from "../theme";
 import { THEME_LABELS } from "../theme";
-import { AlertsIcon, CollapseIcon, DashboardIcon, LogsIcon, SourcesIcon, TerminalIcon } from "./icons";
+import { AlertsIcon, CollapseIcon, DashboardIcon, LogicMarkIcon, LogsIcon, SourcesIcon } from "./icons";
 
 interface SidebarProps {
   screen: Screen;
@@ -25,7 +25,7 @@ export function Sidebar({ screen, onNavigate, collapsed, onToggleCollapsed, mode
   return (
     <nav className={`sidebar${collapsed ? " sidebar-collapsed" : ""}`}>
       <div className="sidebar-brand">
-        <TerminalIcon size={20} />
+        <LogicMarkIcon size={32} />
         {!collapsed && <span>Logic</span>}
       </div>
 

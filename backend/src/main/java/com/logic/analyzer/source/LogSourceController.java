@@ -1,6 +1,7 @@
 package com.logic.analyzer.source;
 
 import com.logic.analyzer.source.dto.ConnectionTestResult;
+import com.logic.analyzer.source.dto.DirectoryListing;
 import com.logic.analyzer.source.dto.LogSourceCreateRequest;
 import com.logic.analyzer.source.dto.LogSourceResponse;
 import jakarta.validation.Valid;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -22,9 +24,11 @@ import java.util.List;
 public class LogSourceController {
 
     private final LogSourceService service;
+    private final FileSystemBrowseService browseService;
 
-    public LogSourceController(LogSourceService service) {
+    public LogSourceController(LogSourceService service, FileSystemBrowseService browseService) {
         this.service = service;
+        this.browseService = browseService;
     }
 
     @GetMapping
@@ -72,5 +76,11 @@ public class LogSourceController {
     @PostMapping("/{id}/disable-live")
     public LogSourceResponse disableLive(@PathVariable Long id) {
         return service.setLive(id, false);
+    }
+
+    /** Backs the Sources dialog's file/directory picker for LOCAL_FILE/LOCAL_DIRECTORY. Omit {@code path} to start at the server's home directory. */
+    @GetMapping("/browse")
+    public DirectoryListing browse(@RequestParam(required = false) String path) {
+        return browseService.browse(path);
     }
 }

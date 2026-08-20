@@ -6,6 +6,7 @@ import com.logic.analyzer.search.index.SearchIndexService;
 import com.logic.analyzer.search.query.LuceneQueryExecutor;
 import com.logic.analyzer.search.query.QueryCompiler;
 import com.logic.analyzer.source.LogSource;
+import com.logic.analyzer.source.LogSourceRepository;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.facet.FacetsConfig;
@@ -47,6 +48,8 @@ class LogQueryServiceTest {
     private LogIngestionService ingestionService;
     @Mock
     private SearchIndexService searchIndexService;
+    @Mock
+    private LogSourceRepository sourceRepository;
 
     private final FacetsConfig facetsConfig = new FacetsConfig();
     private final LogDocumentBuilder documentBuilder = new LogDocumentBuilder(facetsConfig);
@@ -59,6 +62,7 @@ class LogQueryServiceTest {
     @BeforeEach
     void setUp() throws Exception {
         when(testSource.getId()).thenReturn(1L);
+        when(sourceRepository.findAll()).thenReturn(List.of());
         directory = new ByteBuffersDirectory();
         writer = new IndexWriter(directory, new IndexWriterConfig(new StandardAnalyzer()));
         searcherManager = new SearcherManager(writer, false, false, null);
@@ -73,7 +77,8 @@ class LogQueryServiceTest {
 
     private LogQueryService service() {
         return new LogQueryService(ingestionService, searchIndexService,
-                new LuceneQueryExecutor(searcherManager, facetsConfig), new QueryCompiler(new StandardAnalyzer()));
+                new LuceneQueryExecutor(searcherManager, facetsConfig), new QueryCompiler(new StandardAnalyzer()),
+                sourceRepository);
     }
 
     private void seed(List<LogEntry> entries) throws Exception {
@@ -213,5 +218,33 @@ class LogQueryServiceTest {
         List<String> files = service().listFiles("source-b");
 
         assertThat(files).containsExactly("web.log");
+    }
+
+    @Test
+    void excludesAlreadyIndexedEntriesFromADisabledSource() throws Exception {
+        seed(sample());
+        disable("source-a");
+
+        LogQueryResult result = service().query(new LogQueryParams(null, Set.of(), null, null, 60, "time", "desc", 0, 10));
+
+        assertThat(result.totalElements()).isEqualTo(1);
+        assertThat(result.content()).extracting(LogEntry::source).containsOnly("source-b");
+    }
+
+    @Test
+    void listFilesExcludesFilesThatOnlyBelongToADisabledSource() throws Exception {
+        seed(sample());
+        disable("source-a");
+
+        List<String> files = service().listFiles(null);
+
+        assertThat(files).containsExactly("web.log");
+    }
+
+    private void disable(String sourceName) {
+        LogSource disabled = mock(LogSource.class);
+        when(disabled.getName()).thenReturn(sourceName);
+        when(disabled.isEnabled()).thenReturn(false);
+        when(sourceRepository.findAll()).thenReturn(List.of(disabled));
     }
 }
