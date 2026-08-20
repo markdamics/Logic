@@ -6,8 +6,9 @@
 
 /* Axiom HUD tokens, pulled from the "Axiom HUD Design System" Claude Design
    project (tokens/colors.css, typography.css, spacing.css, effects.css).
-   Four selectable themes; NULLGRID is the default. Switch with
-   <html data-theme="gantry"> | "abyssal" | "raven" | "nullgrid">. */
+   Eight selectable themes; NULLGRID is the default. Switch with
+   <html data-theme="gantry"> | "abyssal" | "raven" | "ember" | "verdigris"
+   | "meridian" | "stark" | "nullgrid">. */
 :root {
   /* base reference ramps - theme-independent */
   --raw-black: #07090a;
@@ -319,6 +320,162 @@
   --status-info-soft: rgba(169, 230, 255, .14);
   --grid-line: rgba(230, 210, 255, .06);
   --grid-dot: rgba(230, 210, 255, .14);
+  color-scheme: dark;
+}
+
+/* EMBER - warm carbon + amber phosphor. CRT terminal, low-light cockpit. */
+:root[data-theme="ember"] {
+  --theme-name: "EMBER";
+  --bg-void: #0b0806;
+  --bg-panel: #14100c;
+  --bg-panel-2: #1c1712;
+  --bg-inset: #0f0b08;
+  --bg-scrim: rgba(8, 5, 3, .74);
+  --surface-glass: rgba(28, 23, 18, .64);
+  --surface-raised: #241d16;
+  --surface-hover: rgba(255, 160, 46, .08);
+  --text-primary: #f2e6d6;
+  --text-secondary: #b39c81;
+  --text-muted: #7a6a58;
+  --text-on-accent: #1a0d00;
+  --line-hair: rgba(255, 160, 46, .13);
+  --line-neutral: rgba(230, 205, 175, .13);
+  --line-strong: rgba(230, 205, 175, .30);
+  --line-accent: rgba(255, 160, 46, .6);
+  --accent: #ffa02e;
+  --accent-dim: #c9761a;
+  --accent-soft: rgba(255, 160, 46, .14);
+  --accent-glow: rgba(255, 160, 46, .34);
+  --accent-2: #7fd4c1;
+  --accent-2-soft: rgba(127, 212, 193, .14);
+  --status-ok: #8fd46a;
+  --status-warn: #ffcf40;
+  --status-danger: #ff5436;
+  --status-info: #7fd4c1;
+  --status-idle: #7a6a58;
+  --status-ok-soft: rgba(143, 212, 106, .14);
+  --status-warn-soft: rgba(255, 207, 64, .14);
+  --status-danger-soft: rgba(255, 84, 54, .14);
+  --status-info-soft: rgba(127, 212, 193, .14);
+  --grid-line: rgba(230, 205, 175, .06);
+  --grid-dot: rgba(230, 205, 175, .14);
+  color-scheme: dark;
+}
+
+/* VERDIGRIS - oxidized copper on deep pine. Salvage rig, long-duration life support. */
+:root[data-theme="verdigris"] {
+  --theme-name: "VERDIGRIS";
+  --bg-void: #050b09;
+  --bg-panel: #0b1512;
+  --bg-panel-2: #111f1a;
+  --bg-inset: #081110;
+  --bg-scrim: rgba(3, 8, 7, .74);
+  --surface-glass: rgba(17, 31, 26, .62);
+  --surface-raised: #16271f;
+  --surface-hover: rgba(79, 214, 168, .07);
+  --text-primary: #dff0e6;
+  --text-secondary: #95b3a4;
+  --text-muted: #5f7a6d;
+  --text-on-accent: #00160f;
+  --line-hair: rgba(79, 214, 168, .13);
+  --line-neutral: rgba(180, 220, 200, .13);
+  --line-strong: rgba(180, 220, 200, .29);
+  --line-accent: rgba(79, 214, 168, .6);
+  --accent: #4fd6a8;
+  --accent-dim: #2fa37c;
+  --accent-soft: rgba(79, 214, 168, .13);
+  --accent-glow: rgba(79, 214, 168, .32);
+  --accent-2: #c96a3a;
+  --accent-2-soft: rgba(201, 106, 58, .16);
+  --status-ok: #4fd6a8;
+  --status-warn: #e8c05a;
+  --status-danger: #e8604a;
+  --status-info: #6fc8d8;
+  --status-idle: #5f7a6d;
+  --status-ok-soft: rgba(79, 214, 168, .14);
+  --status-warn-soft: rgba(232, 192, 90, .14);
+  --status-danger-soft: rgba(232, 96, 74, .14);
+  --status-info-soft: rgba(111, 200, 216, .14);
+  --grid-line: rgba(180, 220, 200, .06);
+  --grid-dot: rgba(180, 220, 200, .14);
+  color-scheme: dark;
+}
+
+/* MERIDIAN - cool paper + indigo. Second light theme: analysis, reports, screenshots. */
+:root[data-theme="meridian"] {
+  --theme-name: "MERIDIAN";
+  --bg-void: #dbe0e8;
+  --bg-panel: #f2f4f8;
+  --bg-panel-2: #e6eaf1;
+  --bg-inset: #d3d9e3;
+  --bg-scrim: rgba(40, 46, 60, .44);
+  --surface-glass: rgba(242, 244, 248, .74);
+  --surface-raised: #ffffff;
+  --surface-hover: rgba(74, 92, 240, .07);
+  --text-primary: #12161f;
+  --text-secondary: #454e60;
+  --text-muted: #7b8496;
+  --text-on-accent: #f2f4ff;
+  --line-hair: rgba(18, 22, 31, .10);
+  --line-neutral: rgba(18, 22, 31, .15);
+  --line-strong: rgba(18, 22, 31, .32);
+  --line-accent: rgba(74, 92, 240, .6);
+  --accent: #4a5cf0;
+  --accent-dim: #3341c4;
+  --accent-soft: rgba(74, 92, 240, .11);
+  --accent-glow: rgba(74, 92, 240, .20);
+  --accent-2: #8a5cf0;
+  --accent-2-soft: rgba(138, 92, 240, .12);
+  --status-ok: #177a55;
+  --status-warn: #9a6a00;
+  --status-danger: #b32438;
+  --status-info: #2a5fb8;
+  --status-idle: #7b8496;
+  --status-ok-soft: rgba(23, 122, 85, .11);
+  --status-warn-soft: rgba(154, 106, 0, .11);
+  --status-danger-soft: rgba(179, 36, 56, .11);
+  --status-info-soft: rgba(42, 95, 184, .11);
+  --grid-line: rgba(18, 22, 31, .055);
+  --grid-dot: rgba(18, 22, 31, .15);
+  color-scheme: light;
+}
+
+/* STARK - achromatic. No hue except danger. Maximum contrast, e-ink and projection. */
+:root[data-theme="stark"] {
+  --theme-name: "STARK";
+  --bg-void: #000000;
+  --bg-panel: #0b0b0b;
+  --bg-panel-2: #141414;
+  --bg-inset: #060606;
+  --bg-scrim: rgba(0, 0, 0, .8);
+  --surface-glass: rgba(20, 20, 20, .66);
+  --surface-raised: #1c1c1c;
+  --surface-hover: rgba(255, 255, 255, .07);
+  --text-primary: #ffffff;
+  --text-secondary: #a6a6a6;
+  --text-muted: #6b6b6b;
+  --text-on-accent: #000000;
+  --line-hair: rgba(255, 255, 255, .14);
+  --line-neutral: rgba(255, 255, 255, .18);
+  --line-strong: rgba(255, 255, 255, .42);
+  --line-accent: rgba(255, 255, 255, .75);
+  --accent: #ffffff;
+  --accent-dim: #bdbdbd;
+  --accent-soft: rgba(255, 255, 255, .12);
+  --accent-glow: rgba(255, 255, 255, .26);
+  --accent-2: #8c8c8c;
+  --accent-2-soft: rgba(140, 140, 140, .16);
+  --status-ok: #ffffff;
+  --status-warn: #d4d4d4;
+  --status-danger: #ff2b1c;
+  --status-info: #a6a6a6;
+  --status-idle: #6b6b6b;
+  --status-ok-soft: rgba(255, 255, 255, .13);
+  --status-warn-soft: rgba(212, 212, 212, .13);
+  --status-danger-soft: rgba(255, 43, 28, .16);
+  --status-info-soft: rgba(166, 166, 166, .13);
+  --grid-line: rgba(255, 255, 255, .06);
+  --grid-dot: rgba(255, 255, 255, .16);
   color-scheme: dark;
 }
 

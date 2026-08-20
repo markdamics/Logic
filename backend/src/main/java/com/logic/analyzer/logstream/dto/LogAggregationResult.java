@@ -14,10 +14,12 @@ public record LogAggregationResult(
         long totalMatched
 ) {
     /**
-     * @param key   the group's field value for stats-count-by, or the bucket's
-     *              start instant (ISO-8601) for time-bucketed aggregations
-     * @param rate  count/second - only set for {@code rate(...)}, null otherwise
+     * @param key       the group's field value for stats-count-by, or the bucket's
+     *                  start instant (ISO-8601) for time-bucketed aggregations
+     * @param rate      count/second - only set for {@code rate(...)}, null otherwise
+     * @param statValue the computed avg/min/max/sum/percentile value - only set for a
+     *                  NumericStatsByStage/NumericStatsOverTimeStage query, null otherwise
      */
-    public record Bucket(String key, long count, Double rate) {
+    public record Bucket(String key, long count, Double rate, Double statValue) {
     }
 }

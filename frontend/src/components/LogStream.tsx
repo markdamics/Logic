@@ -856,16 +856,22 @@ function describeSavedSearch(saved: SavedSearch): string {
   return scope ? `${core} · ${scope}` : core;
 }
 
-/** Renders a query-bar aggregation (SPL "stats count by" / LogQL count_over_time / rate) as a bar chart instead of the row table. */
+/** Renders a query-bar aggregation (SPL "stats count by" / numeric stat, LogQL count_over_time / rate / numeric stat) as a bar chart instead of the row table. */
 function AggregationView({ aggregation }: { aggregation: LogAggregationResult }) {
-  const isTimeSeries = aggregation.groupField === null;
+  // A single "all"-keyed bucket is the backend's sentinel for an ungrouped
+  // numeric stat (e.g. "stats avg(field.duration_ms)" with no "by" clause) -
+  // not a time bucket, so it must skip the Date parsing below.
+  const isUngroupedStat = aggregation.groupField === null && aggregation.buckets.length === 1 && aggregation.buckets[0].key === "all";
+  const isTimeSeries = aggregation.groupField === null && !isUngroupedStat;
   const items = aggregation.buckets.map((bucket) => {
-    const value = bucket.rate ?? bucket.count;
+    const value = bucket.statValue ?? bucket.rate ?? bucket.count;
+    const statLabel = bucket.statValue !== null ? bucket.statValue.toLocaleString(undefined, { maximumFractionDigits: 2 }) : null;
     if (!isTimeSeries) {
-      return { key: bucket.key, label: bucket.key, value, title: `${bucket.key}: ${bucket.count.toLocaleString()}` };
+      const valueLabel = statLabel ?? bucket.count.toLocaleString();
+      return { key: bucket.key, label: bucket.key, value, title: `${bucket.key}: ${valueLabel}` };
     }
     const when = new Date(bucket.key);
-    const valueLabel = bucket.rate !== null ? `${bucket.rate.toFixed(2)}/s` : bucket.count.toLocaleString();
+    const valueLabel = statLabel ?? (bucket.rate !== null ? `${bucket.rate.toFixed(2)}/s` : bucket.count.toLocaleString());
     return {
       key: bucket.key,
       label: when.toLocaleTimeString(),
@@ -878,7 +884,11 @@ function AggregationView({ aggregation }: { aggregation: LogAggregationResult })
     <div className="log-aggregation">
       <div className="log-aggregation-summary text-muted">
         {aggregation.totalMatched.toLocaleString()} matched
-        {aggregation.groupField ? ` · grouped by ${aggregation.groupField}` : " · over time"}
+        {aggregation.groupField
+          ? ` · grouped by ${aggregation.groupField}`
+          : isTimeSeries
+            ? " · over time"
+            : ""}
       </div>
       <BarChart items={items} emptyMessage="No results for this query." />
     </div>

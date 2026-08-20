@@ -244,4 +244,72 @@ class SearchQueryServiceTest {
             }
         });
     }
+
+    private List<LogEntry> numericSample() {
+        Instant now = Instant.now();
+        return List.of(
+                new LogEntry(11, now.minusSeconds(10), LogLevel.INFO, "payments-api",
+                        "app.log", "{\"duration_ms\": 100}"),
+                new LogEntry(12, now.minusSeconds(20), LogLevel.INFO, "payments-api",
+                        "app.log", "{\"duration_ms\": 200}"),
+                new LogEntry(13, now.minusSeconds(30), LogLevel.INFO, "payments-api",
+                        "app.log", "{\"duration_ms\": 300}"),
+                new LogEntry(14, now.minusSeconds(40), LogLevel.INFO, "test-runner",
+                        "app.log", "{\"duration_ms\": 50}")
+        );
+    }
+
+    @Test
+    void splNumericStatsByGroupsAndComputesTheAveragePerGroup() throws Exception {
+        seed(numericSample());
+
+        LogQueryResult result = service().query("| stats avg(field.duration_ms) by source", QueryLanguage.SPL,
+                null, null, 0, "time", "desc", 0, 10);
+
+        assertThat(result.content()).isEmpty();
+        assertThat(result.aggregation().totalMatched()).isEqualTo(4);
+        assertThat(result.aggregation().buckets())
+                .extracting(LogAggregationResult.Bucket::key, LogAggregationResult.Bucket::statValue)
+                .containsExactlyInAnyOrder(
+                        org.assertj.core.groups.Tuple.tuple("payments-api", 200.0),
+                        org.assertj.core.groups.Tuple.tuple("test-runner", 50.0));
+    }
+
+    @Test
+    void splNumericStatsWithoutByComputesASingleAggregateAcrossAllMatches() throws Exception {
+        seed(numericSample());
+
+        LogQueryResult min = service().query("| stats min(field.duration_ms)", QueryLanguage.SPL,
+                null, null, 0, "time", "desc", 0, 10);
+        assertThat(min.aggregation().buckets()).hasSize(1);
+        assertThat(min.aggregation().buckets().get(0).statValue()).isEqualTo(50.0);
+
+        LogQueryResult max = service().query("| stats max(field.duration_ms)", QueryLanguage.SPL,
+                null, null, 0, "time", "desc", 0, 10);
+        assertThat(max.aggregation().buckets().get(0).statValue()).isEqualTo(300.0);
+
+        LogQueryResult sum = service().query("| stats sum(field.duration_ms)", QueryLanguage.SPL,
+                null, null, 0, "time", "desc", 0, 10);
+        assertThat(sum.aggregation().buckets().get(0).statValue()).isEqualTo(650.0);
+
+        LogQueryResult p95 = service().query("| stats p95(field.duration_ms)", QueryLanguage.SPL,
+                null, null, 0, "time", "desc", 0, 10);
+        assertThat(p95.aggregation().buckets().get(0).statValue()).isEqualTo(300.0);
+    }
+
+    @Test
+    void logQlAvgOverTimeComputesTheAverageWithinEachTimeBucket() throws Exception {
+        seed(numericSample());
+
+        LogQueryResult result = service().query("avg_over_time(field.duration_ms{}[1h])", QueryLanguage.LOGQL,
+                null, null, 60, "time", "desc", 0, 10);
+
+        assertThat(result.content()).isEmpty();
+        assertThat(result.aggregation().totalMatched()).isEqualTo(4);
+        // all 4 docs fall within a few seconds of "now" so a 1h-wide bucket over a 60-minute window puts them all together.
+        assertThat(result.aggregation().buckets())
+                .filteredOn(b -> b.statValue() != null)
+                .hasSize(1)
+                .allSatisfy(b -> assertThat(b.statValue()).isEqualTo(162.5));
+    }
 }

@@ -4,6 +4,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -28,6 +29,8 @@ import java.util.regex.Pattern;
  *   level=ERROR AND source=payments-api
  *   "connection refused" NOT source=test-runner
  *   status&gt;=500 | stats count by source
+ *   level=ERROR | stats avg(field.duration_ms) by source
+ *   status&gt;=500 | stats p95(field.duration_ms)
  * </pre>
  */
 @Component
@@ -38,6 +41,8 @@ public class SplSubsetQueryParser implements QueryParser {
     /** Checked longest-first so ">=" doesn't get misread as ">" followed by a stray "=". */
     private static final String[] COMPARISON_OPS = {">=", "<=", "!=", "=", ">", "<"};
     private static final Pattern STATS_COUNT_BY = Pattern.compile("(?i)^stats\\s+count\\s+by\\s+(\\S+)$");
+    private static final Pattern STATS_NUMERIC = Pattern.compile(
+            "(?i)^stats\\s+(avg|min|max|sum|p50|p95|p99)\\(([^)]+)\\)(?:\\s+by\\s+(\\S+))?$");
 
     @Override
     public QueryLanguage language() {
@@ -182,18 +187,36 @@ public class SplSubsetQueryParser implements QueryParser {
         return "field." + name + "#num";
     }
 
-    // ── aggregation suffix: "stats count by <field>" ──
+    // ── aggregation suffix: "stats count by <field>" or "stats avg|min|max|sum|p50|p95|p99(<field>) [by <field>]" ──
 
     private Optional<AggregationStage> parseAggregation(String aggregationPart) {
         if (aggregationPart == null || aggregationPart.isBlank()) {
             return Optional.empty();
         }
-        Matcher matcher = STATS_COUNT_BY.matcher(aggregationPart.trim());
-        if (!matcher.matches()) {
-            throw new IllegalArgumentException("Unsupported SPL aggregation stage: '" + aggregationPart.trim()
-                    + "' - only '| stats count by <field>' is supported");
+        String trimmed = aggregationPart.trim();
+
+        Matcher numericMatcher = STATS_NUMERIC.matcher(trimmed);
+        if (numericMatcher.matches()) {
+            AggregationStage.NumericStatFunction function =
+                    AggregationStage.NumericStatFunction.valueOf(numericMatcher.group(1).toUpperCase(Locale.ROOT));
+            String numericField = resolveNumericStatsField(numericMatcher.group(2));
+            String groupByField = numericMatcher.group(3) == null ? null : resolveKeywordField(numericMatcher.group(3));
+            return Optional.of(new AggregationStage.NumericStatsByStage(numericField, function, groupByField));
         }
-        return Optional.of(new AggregationStage.StatsCountByStage(resolveKeywordField(matcher.group(1))));
+
+        Matcher countMatcher = STATS_COUNT_BY.matcher(trimmed);
+        if (countMatcher.matches()) {
+            return Optional.of(new AggregationStage.StatsCountByStage(resolveKeywordField(countMatcher.group(1))));
+        }
+
+        throw new IllegalArgumentException("Unsupported SPL aggregation stage: '" + trimmed
+                + "' - only '| stats count by <field>' or '| stats avg|min|max|sum|p50|p95|p99(<field>) [by <field>]' is supported");
+    }
+
+    /** LuceneQueryExecutor expects the full "field.&lt;name&gt;" key - accepts a bare name too, prepending "field." if missing. */
+    private String resolveNumericStatsField(String name) {
+        String trimmed = name.trim();
+        return trimmed.startsWith("field.") ? trimmed : "field." + trimmed;
     }
 
     // ── tokenizer ──

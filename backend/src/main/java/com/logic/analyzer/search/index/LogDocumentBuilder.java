@@ -15,6 +15,7 @@ import org.apache.lucene.document.TextField;
 import org.apache.lucene.facet.FacetsConfig;
 import org.apache.lucene.facet.sortedset.SortedSetDocValuesFacetField;
 import org.apache.lucene.util.BytesRef;
+import org.apache.lucene.util.NumericUtils;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -33,10 +34,15 @@ import java.util.regex.Pattern;
  * On top of that, {@link MessageFieldExtractor} detects a structured shape
  * (JSON/syslog/access-log/logfmt) in the message and each of its fields
  * becomes an individually filterable "field.&lt;name&gt;" keyword field, with a
- * numeric sibling "field.&lt;name&gt;#num" when the value looks numeric - capped
- * at MAX_DYNAMIC_FIELDS per document since arbitrary JSON has unbounded key
- * cardinality (fields beyond the cap still appear in the full-text message/
- * _all content, just not as their own filterable field).
+ * numeric sibling "field.&lt;name&gt;#num" when the value looks numeric - a
+ * DoublePoint (range filtering, e.g. status&gt;=500) plus a "field.&lt;name&gt;#numdv"
+ * NumericDocValuesField sibling (a separate field name, not a doc-values
+ * addition to "#num" itself - see the inline comment below) so
+ * LuceneQueryExecutor can read matching docs' actual values back for metrics
+ * aggregation (avg/min/max/percentile) - capped at MAX_DYNAMIC_FIELDS
+ * per document since arbitrary JSON has unbounded key cardinality (fields
+ * beyond the cap still appear in the full-text message/_all content, just
+ * not as their own filterable field).
  *
  * Every keyword field (fixed and dynamic) also gets a SortedSetDocValuesFacetField
  * sibling so "stats count by &lt;field&gt;"-style aggregation works generically,
@@ -98,7 +104,19 @@ public class LogDocumentBuilder {
                 doc.add(new SortedSetDocValuesFacetField(fieldName, field.value()));
             }
             if (NUMERIC.matcher(field.value()).matches()) {
-                doc.add(new DoublePoint(fieldName + "#num", Double.parseDouble(field.value())));
+                double numericValue = Double.parseDouble(field.value());
+                doc.add(new DoublePoint(fieldName + "#num", numericValue));
+                // A distinct field name (not "#num" reused) is required here: a Lucene index's
+                // per-field schema (including doc-values type) is fixed by whichever segment
+                // wrote it first, so adding doc values under the existing "#num" name breaks on
+                // any index with documents written before this field existed ("cannot change
+                // field ... from doc values type=NONE to inconsistent doc values type=NUMERIC").
+                // "#numdv" is a fresh field name, so it's absent (not NONE) on old documents -
+                // LuceneQueryExecutor just treats those as unsampled for numeric-stats purposes,
+                // no reindex/migration required. The double is packed via NumericUtils'
+                // sortable-bits conversion (symmetric with sortableLongToDouble on read) since
+                // NumericDocValuesField only stores longs.
+                doc.add(new NumericDocValuesField(fieldName + "#numdv", NumericUtils.doubleToSortableLong(numericValue)));
             }
             dynamicFieldCount++;
         }

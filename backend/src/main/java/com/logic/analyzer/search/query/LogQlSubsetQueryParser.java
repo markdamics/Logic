@@ -6,6 +6,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -15,8 +16,9 @@ import java.util.regex.Pattern;
  * A documented SUBSET of Grafana Loki's LogQL, not full parity: a label
  * (stream) selector {@code {field="value", field2=~"regex"}}, chained line
  * filters ({@code |=}, {@code !=}, {@code |~}, {@code !~}), and one optional
- * wrapping aggregation - {@code count_over_time(...[5m])} or
- * {@code rate(...[1m])} with duration units s/m/h/d.
+ * wrapping aggregation - {@code count_over_time(...[5m])}, {@code rate(...[1m])},
+ * or a numeric statistic {@code avg_over_time(field.duration_ms{...}[5m])}
+ * (also min/max/sum/p50/p95/p99) - with duration units s/m/h/d.
  *
  * Hand-written recursive-descent over a small character cursor, matching
  * this codebase's existing style of hand-rolled parsing (see LogLineParser)
@@ -29,6 +31,8 @@ import java.util.regex.Pattern;
  *   {source="payments-api"} |~ "conn(ection)? refused"
  *   count_over_time({level="ERROR"}[5m])
  *   rate({level="ERROR"}[1m])
+ *   avg_over_time(field.duration_ms{level="ERROR"}[5m])
+ *   p95_over_time(field.duration_ms{}[1m])
  * </pre>
  */
 @Component
@@ -38,6 +42,8 @@ public class LogQlSubsetQueryParser implements QueryParser {
     private static final Set<String> KEYWORD_FIELDS = Set.of("level", "source", "file", "format");
     private static final Pattern AGGREGATION_WRAPPER =
             Pattern.compile("(?s)^(count_over_time|rate)\\s*\\((.*)\\[(\\d+)([smhd])]\\s*\\)\\s*$");
+    private static final Pattern NUMERIC_AGGREGATION_WRAPPER = Pattern.compile(
+            "(?is)^(avg|min|max|sum|p50|p95|p99)_over_time\\(\\s*([A-Za-z0-9_.]+)\\s*(\\{.*)\\[(\\d+)([smhd])]\\s*\\)\\s*$");
 
     @Override
     public QueryLanguage language() {
@@ -50,6 +56,17 @@ public class LogQlSubsetQueryParser implements QueryParser {
             return ParsedQuery.filterOnly(new QueryNode.MatchAllNode());
         }
         String trimmed = queryString.trim();
+
+        Matcher numericAggregation = NUMERIC_AGGREGATION_WRAPPER.matcher(trimmed);
+        if (numericAggregation.matches()) {
+            AggregationStage.NumericStatFunction function =
+                    AggregationStage.NumericStatFunction.valueOf(numericAggregation.group(1).toUpperCase(Locale.ROOT));
+            String numericField = resolveNumericStatsField(numericAggregation.group(2));
+            QueryNode filter = parsePlainQuery(numericAggregation.group(3).trim());
+            Duration bucket = toDuration(Long.parseLong(numericAggregation.group(4)), numericAggregation.group(5));
+            AggregationStage stage = new AggregationStage.NumericStatsOverTimeStage(numericField, function, bucket);
+            return new ParsedQuery(filter, Optional.of(stage));
+        }
 
         Matcher aggregation = AGGREGATION_WRAPPER.matcher(trimmed);
         if (aggregation.matches()) {
@@ -140,6 +157,12 @@ public class LogQlSubsetQueryParser implements QueryParser {
 
     private String resolveKeywordField(String name) {
         return KEYWORD_FIELDS.contains(name) ? name : "field." + name;
+    }
+
+    /** LuceneQueryExecutor expects the full "field.&lt;name&gt;" key - accepts a bare name too, prepending "field." if missing. */
+    private String resolveNumericStatsField(String name) {
+        String trimmed = name.trim();
+        return trimmed.startsWith("field.") ? trimmed : "field." + trimmed;
     }
 
     private Duration toDuration(long amount, String unit) {

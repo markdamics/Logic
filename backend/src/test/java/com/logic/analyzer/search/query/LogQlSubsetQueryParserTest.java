@@ -81,6 +81,22 @@ class LogQlSubsetQueryParserTest {
     }
 
     @Test
+    void avgOverTimeParsesTheFieldBucketDurationAndInnerSelector() {
+        ParsedQuery parsed = parser.parse("avg_over_time(field.duration_ms{level=\"ERROR\"}[5m])");
+
+        assertThat(parsed.aggregation()).contains(new AggregationStage.NumericStatsOverTimeStage(
+                "field.duration_ms", AggregationStage.NumericStatFunction.AVG, Duration.ofMinutes(5)));
+        assertThat(parsed.filter()).isEqualTo(new QueryNode.FieldMatchNode("level", "ERROR", true));
+    }
+
+    @Test
+    void numericOverTimeFunctionsAcceptABareFieldNameAndAreCaseInsensitive() {
+        assertThat(parser.parse("P95_over_time(duration_ms{}[1h])").aggregation())
+                .contains(new AggregationStage.NumericStatsOverTimeStage(
+                        "field.duration_ms", AggregationStage.NumericStatFunction.P95, Duration.ofHours(1)));
+    }
+
+    @Test
     void rejectsAMissingClosingBrace() {
         assertThatThrownBy(() -> parser.parse("{level=\"ERROR\""))
                 .isInstanceOf(IllegalArgumentException.class);

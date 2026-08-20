@@ -56,6 +56,30 @@ class SplSubsetQueryParserTest {
     }
 
     @Test
+    void statsNumericFunctionByGroupParsesIntoANumericStatsByStage() {
+        ParsedQuery parsed = parser.parse("level=ERROR | stats avg(field.duration_ms) by source");
+
+        assertThat(parsed.aggregation()).contains(new AggregationStage.NumericStatsByStage(
+                "field.duration_ms", AggregationStage.NumericStatFunction.AVG, "source"));
+    }
+
+    @Test
+    void statsNumericFunctionAcceptsABareFieldNameAndCaseInsensitiveFunction() {
+        ParsedQuery parsed = parser.parse("| stats P95(duration_ms) by source");
+
+        assertThat(parsed.aggregation()).contains(new AggregationStage.NumericStatsByStage(
+                "field.duration_ms", AggregationStage.NumericStatFunction.P95, "source"));
+    }
+
+    @Test
+    void statsNumericFunctionWithoutByHasANullGroupByField() {
+        ParsedQuery parsed = parser.parse("| stats sum(field.duration_ms)");
+
+        assertThat(parsed.aggregation()).contains(new AggregationStage.NumericStatsByStage(
+                "field.duration_ms", AggregationStage.NumericStatFunction.SUM, null));
+    }
+
+    @Test
     void rejectsTwoBareTermsWithNoOperatorBetweenThem() {
         assertThatThrownBy(() -> parser.parse("foo bar"))
                 .isInstanceOf(IllegalArgumentException.class);

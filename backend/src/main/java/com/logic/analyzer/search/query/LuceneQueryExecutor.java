@@ -16,6 +16,10 @@ import org.apache.lucene.facet.range.LongRangeFacetCounts;
 import org.apache.lucene.facet.sortedset.DefaultSortedSetDocValuesReaderState;
 import org.apache.lucene.facet.sortedset.SortedSetDocValuesFacetCounts;
 import org.apache.lucene.facet.sortedset.SortedSetDocValuesReaderState;
+import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.index.NumericDocValues;
+import org.apache.lucene.index.ReaderUtil;
+import org.apache.lucene.index.SortedDocValues;
 import org.apache.lucene.index.StoredFields;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.IndexSearcher;
@@ -28,6 +32,7 @@ import org.apache.lucene.search.SortField;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TopFieldDocs;
+import org.apache.lucene.util.NumericUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -37,7 +42,9 @@ import java.io.UncheckedIOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
@@ -60,6 +67,8 @@ public class LuceneQueryExecutor {
     private static final int MAX_TIME_BUCKETS = 500;
     /** count_over_time/rate need a bounded window; "all time" (rangeMinutes <= 0) falls back to this many minutes. */
     private static final long DEFAULT_AGGREGATION_WINDOW_MINUTES = 24 * 60;
+    /** Cap on matching docs sampled for avg/min/max/sum/percentile stats - Lucene's facet module counts docs per label, it doesn't sum an arbitrary numeric field, so this walks raw doc values directly and needs its own bound. */
+    private static final int MAX_NUMERIC_SAMPLE_DOCS = 50_000;
 
     private final SearcherManager searcherManager;
     private final FacetsConfig facetsConfig;
@@ -125,6 +134,10 @@ public class LuceneQueryExecutor {
                         bucketedCount(facetsCollector, countOverTime.bucket(), rangeMinutes, false, totalMatched);
                 case AggregationStage.RateStage rate ->
                         bucketedCount(facetsCollector, rate.bucket(), rangeMinutes, true, totalMatched);
+                case AggregationStage.NumericStatsByStage numericStatsBy ->
+                        numericStatsBy(searcher, query, numericStatsBy, totalMatched);
+                case AggregationStage.NumericStatsOverTimeStage numericStatsOverTime ->
+                        numericStatsOverTime(searcher, query, numericStatsOverTime, rangeMinutes, totalMatched);
             };
 
             log.debug("Aggregation matched {} entries, {} buckets", totalMatched, aggregation.buckets().size());
@@ -147,7 +160,7 @@ public class LuceneQueryExecutor {
         List<LogAggregationResult.Bucket> buckets = result == null
                 ? List.of()
                 : List.of(result.labelValues).stream()
-                        .map(lv -> new LogAggregationResult.Bucket(lv.label, lv.value.longValue(), null))
+                        .map(lv -> new LogAggregationResult.Bucket(lv.label, lv.value.longValue(), null, null))
                         .toList();
         return new LogAggregationResult(field, buckets, totalMatched);
     }
@@ -188,9 +201,149 @@ public class LuceneQueryExecutor {
         for (LongRange range : ranges) {
             long count = countsByLabel.getOrDefault(range.label, 0L);
             Double rate = asRate ? count / bucketSeconds : null;
-            buckets.add(new LogAggregationResult.Bucket(range.label, count, rate));
+            buckets.add(new LogAggregationResult.Bucket(range.label, count, rate, null));
         }
         return new LogAggregationResult(null, buckets, totalMatched);
+    }
+
+    /**
+     * {@code stats avg(field.duration_ms) by source} - Lucene's facet module
+     * counts docs per label, it doesn't sum/average an arbitrary numeric
+     * field per label, so this walks up to MAX_NUMERIC_SAMPLE_DOCS matching
+     * docs directly, reading each one's numeric DocValues (added in
+     * LogDocumentBuilder) and its group field's value, then computes the
+     * requested statistic per group. Runs a second search independent of the
+     * FacetsCollector-based total-count pass above - a modest cost for a
+     * simple, correct implementation over trying to force a raw-value scan
+     * through machinery built for counting.
+     */
+    private LogAggregationResult numericStatsBy(IndexSearcher searcher, Query query,
+                                                 AggregationStage.NumericStatsByStage stage, long totalMatched) throws IOException {
+        String numericField = stage.numericField() + "#numdv";
+        String groupField = stage.groupByField();
+        Map<String, List<Double>> valuesByGroup = new LinkedHashMap<>();
+
+        TopDocs topDocs = searcher.search(query, MAX_NUMERIC_SAMPLE_DOCS);
+        List<LeafReaderContext> leaves = searcher.getIndexReader().leaves();
+        StoredFields storedFields = searcher.storedFields();
+
+        NumericDocValues numericDV = null;
+        SortedDocValues groupDV = null;
+        int currentLeaf = -1;
+
+        for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
+            int leafIdx = ReaderUtil.subIndex(scoreDoc.doc, leaves);
+            LeafReaderContext leaf = leaves.get(leafIdx);
+            int leafDocId = scoreDoc.doc - leaf.docBase;
+            if (leafIdx != currentLeaf) {
+                numericDV = leaf.reader().getNumericDocValues(numericField);
+                // Only fixed fields (source/file/level) carry a plain SortedDocValuesField;
+                // dynamic field.<name> targets fall back to the stored field below.
+                groupDV = groupField == null ? null : leaf.reader().getSortedDocValues(groupField);
+                currentLeaf = leafIdx;
+            }
+            if (numericDV == null || !numericDV.advanceExact(leafDocId)) {
+                continue;
+            }
+            double value = NumericUtils.sortableLongToDouble(numericDV.longValue());
+
+            String groupKey;
+            if (groupField == null) {
+                // No "by <field>" clause - a single aggregate across every matched doc.
+                groupKey = "all";
+            } else if (groupDV != null && groupDV.advanceExact(leafDocId)) {
+                groupKey = groupDV.lookupOrd(groupDV.ordValue()).utf8ToString();
+            } else {
+                groupKey = storedFields.document(scoreDoc.doc).get(groupField);
+            }
+            if (groupKey == null) {
+                continue;
+            }
+            valuesByGroup.computeIfAbsent(groupKey, k -> new ArrayList<>()).add(value);
+        }
+
+        List<LogAggregationResult.Bucket> buckets = valuesByGroup.entrySet().stream()
+                .map(e -> new LogAggregationResult.Bucket(e.getKey(), e.getValue().size(), null, computeStat(e.getValue(), stage.function())))
+                .sorted(Comparator.comparing(LogAggregationResult.Bucket::key))
+                .limit(MAX_GROUP_BUCKETS)
+                .toList();
+        return new LogAggregationResult(groupField, buckets, totalMatched);
+    }
+
+    /** {@code avg_over_time(field.duration_ms{...}[5m])} - same raw-doc-value walk as numericStatsBy, bucketed by time instead of a group field. */
+    private LogAggregationResult numericStatsOverTime(IndexSearcher searcher, Query query,
+            AggregationStage.NumericStatsOverTimeStage stage, long rangeMinutes, long totalMatched) throws IOException {
+        long bucketMillis = Math.max(1, stage.bucket().toMillis());
+        long now = System.currentTimeMillis();
+        long effectiveRangeMinutes = rangeMinutes > 0 ? rangeMinutes : DEFAULT_AGGREGATION_WINDOW_MINUTES;
+        long windowStart = now - Duration.ofMinutes(effectiveRangeMinutes).toMillis();
+
+        List<LongRange> ranges = new ArrayList<>();
+        long cursor = windowStart;
+        while (cursor < now && ranges.size() < MAX_TIME_BUCKETS) {
+            long end = Math.min(cursor + bucketMillis, now);
+            ranges.add(new LongRange(Instant.ofEpochMilli(cursor).toString(), cursor, true, end, false));
+            cursor = end;
+        }
+        if (ranges.isEmpty()) {
+            return new LogAggregationResult(null, List.of(), totalMatched);
+        }
+
+        String numericField = stage.numericField() + "#numdv";
+        Map<Integer, List<Double>> valuesByBucketIndex = new HashMap<>();
+
+        TopDocs topDocs = searcher.search(query, MAX_NUMERIC_SAMPLE_DOCS);
+        List<LeafReaderContext> leaves = searcher.getIndexReader().leaves();
+
+        NumericDocValues numericDV = null;
+        NumericDocValues timestampDV = null;
+        int currentLeaf = -1;
+
+        for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
+            int leafIdx = ReaderUtil.subIndex(scoreDoc.doc, leaves);
+            LeafReaderContext leaf = leaves.get(leafIdx);
+            int leafDocId = scoreDoc.doc - leaf.docBase;
+            if (leafIdx != currentLeaf) {
+                numericDV = leaf.reader().getNumericDocValues(numericField);
+                timestampDV = leaf.reader().getNumericDocValues("timestampMillis");
+                currentLeaf = leafIdx;
+            }
+            if (numericDV == null || !numericDV.advanceExact(leafDocId)
+                    || timestampDV == null || !timestampDV.advanceExact(leafDocId)) {
+                continue;
+            }
+            double value = NumericUtils.sortableLongToDouble(numericDV.longValue());
+            long ts = timestampDV.longValue();
+            int bucketIndex = (int) Math.max(0, Math.min(ranges.size() - 1, (ts - windowStart) / bucketMillis));
+            valuesByBucketIndex.computeIfAbsent(bucketIndex, k -> new ArrayList<>()).add(value);
+        }
+
+        List<LogAggregationResult.Bucket> buckets = new ArrayList<>();
+        for (int i = 0; i < ranges.size(); i++) {
+            List<Double> values = valuesByBucketIndex.getOrDefault(i, List.of());
+            Double stat = values.isEmpty() ? null : computeStat(values, stage.function());
+            buckets.add(new LogAggregationResult.Bucket(ranges.get(i).label, values.size(), null, stat));
+        }
+        return new LogAggregationResult(null, buckets, totalMatched);
+    }
+
+    private double computeStat(List<Double> values, AggregationStage.NumericStatFunction function) {
+        return switch (function) {
+            case AVG -> values.stream().mapToDouble(Double::doubleValue).average().orElse(0);
+            case MIN -> values.stream().mapToDouble(Double::doubleValue).min().orElse(0);
+            case MAX -> values.stream().mapToDouble(Double::doubleValue).max().orElse(0);
+            case SUM -> values.stream().mapToDouble(Double::doubleValue).sum();
+            case P50 -> percentile(values, 50);
+            case P95 -> percentile(values, 95);
+            case P99 -> percentile(values, 99);
+        };
+    }
+
+    /** Nearest-rank percentile - simple and exact for the bounded (MAX_NUMERIC_SAMPLE_DOCS) sample sizes this app deals with, no approximation needed. */
+    private double percentile(List<Double> values, int pct) {
+        List<Double> sorted = values.stream().sorted().toList();
+        int index = (int) Math.ceil(pct / 100.0 * sorted.size()) - 1;
+        return sorted.get(Math.max(0, Math.min(sorted.size() - 1, index)));
     }
 
     /** Distinct, sorted file labels among documents matching the source scope (or every document if source is blank). */

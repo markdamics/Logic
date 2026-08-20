@@ -6,10 +6,11 @@ their content in real time.
 Core features: source management, real log ingestion with
 filtering/sorting/pagination, a live-updating Log Stream, a Dashboard
 overview, a durably indexed Search & Query bar (Lucene syntax plus SPL and
-LogQL subsets, with aggregation charts), and Saved Searches — styled after
-the Axiom HUD design system, with four selectable themes. Alerting has a
-placeholder screen in the nav but isn't built yet; it's planned for a later
-phase.
+LogQL subsets, with count/rate/numeric-stat aggregation charts), threshold
+and anomaly Alerting with webhook notifications, log-native observability
+(trace-ID correlation across sources and an optional APM deep-link), and
+Saved Searches — styled after the Axiom HUD design system, with four
+selectable themes.
 
 ## Features
 
@@ -58,13 +59,28 @@ phase.
     boolean operators, phrases, wildcards, etc.) against `_all` or any
     specific field.
   - **SPL (subset)** — `field=value`, comparisons (`status>=500`),
-    `AND`/`OR`/`NOT`, quoted phrases, and one aggregation stage:
-    `| stats count by <field>`.
+    `AND`/`OR`/`NOT`, quoted phrases, and one aggregation stage: either
+    `| stats count by <field>`, or a numeric statistic over a structured
+    numeric field — `| stats avg|min|max|sum|p50|p95|p99(field.<name>) [by
+    <field>]` (the `by <field>` clause is optional; omitting it computes one
+    aggregate across every matched entry instead of grouping).
   - **LogQL (subset)** — label selectors (`{level="ERROR"}`), line filters
-    (`|=` contains, `|~` regex), and one aggregation stage:
-    `count_over_time({...}[5m])` or `rate({...}[5m])`.
-- Aggregating queries (`stats count by`, `count_over_time`, `rate`) render as
-  a bar chart in place of the row table instead of a flat count.
+    (`|=` contains, `|~` regex), and one aggregation stage: `count_over_time`,
+    `rate` (`count_over_time({...}[5m])`, `rate({...}[5m])`), or a numeric
+    statistic time-bucketed the same way —
+    `avg|min|max|sum|p50|p95|p99_over_time(field.<name>{...}[5m])`.
+- Aggregating queries render as a bar chart in place of the row table instead
+  of a flat count — grouped/time-bucketed counts and rates as before, plus
+  the avg/min/max/sum/percentile value for a numeric-stats query.
+- **Trace correlation** — a structured field that looks like a correlation ID
+  (`trace_id`, `request_id`, `correlation_id`, `span_id`, `req_id`, matched
+  case-insensitively) gets a "Correlate" button in the expanded row view;
+  clicking it switches to Lucene query mode and jumps to every log line
+  across every source that shares that exact value, in chronological order.
+- **APM deep-link** — when `APM_TRACE_URL_TEMPLATE` is configured (see
+  [Security](#security)), the same correlation fields also render an "Open in
+  APM ↗" link that substitutes the field's value into the template and opens
+  it in a new tab — a stateless link-out, not a data pull from the APM tool.
 - **Saved Searches** — bookmark the current filters (Simple mode) or query-bar
   string (Lucene/SPL/LogQL mode, including its language and aggregation) under
   a name, shown as chips next to the filter bar. Click a saved search to
@@ -72,6 +88,29 @@ phase.
   reopens straight into that saved search's filters and results — the
   sharing model is a stable link, not a per-user "my searches" list (see
   [Known simplifications](#known-simplifications-first-phase)).
+
+### Alerting
+
+- Rules watch a query-bar query or Simple-mode filter (same scope shape as a
+  Saved Search) over a rolling time window and evaluate one of two ways:
+  - **Threshold** — fires when the window's count (or rate) crosses a fixed
+    comparison (`>`, `>=`, `<`, `<=`, `=`) against a number you set. Covers
+    both error-spike and specific-pattern alerts — a pattern alert is just a
+    threshold rule whose query is the pattern, with a `count >= 1` threshold.
+  - **Anomaly** — fires when the window's count is more than *k* standard
+    deviations above the mean of a configurable number of prior windows (a
+    statistical baseline, not ML).
+- **Webhook notifications** — an optional per-rule URL is POSTed a JSON
+  payload on trigger, HMAC-SHA256-signed (`X-Logic-Signature: sha256=...`)
+  with a per-rule secret so the receiving end can verify authenticity; the
+  secret is encrypted at rest the same way SFTP passwords are. A "test
+  webhook" action sends a synthetic payload without waiting for a real
+  trigger.
+- **Mute / unmute** — a muted rule keeps evaluating (so its trigger history
+  stays accurate) but never sends a webhook.
+- Trigger history per rule (timestamp, the metric value that crossed the
+  threshold) and a last-evaluated timestamp for visibility into whether a
+  rule is actually running.
 
 ### Dashboard
 
@@ -215,47 +254,15 @@ The search index is configured the same way:
 | `SEARCH_INDEX_RETENTION_DAYS` | `30` | Max age (days) an indexed entry is kept before the retention sweep purges it; `0` means unlimited. |
 | `SEARCH_INDEX_PURGE_INTERVAL_MS` | `3600000` | How often the retention sweep runs. |
 
+Observability is configured the same way:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `APM_TRACE_URL_TEMPLATE` | *(unset)* | A URL template for the "Open in APM ↗" link (see [Search & Query](#search--query) above), e.g. `https://app.datadoghq.com/apm/trace/{traceId}`. The literal `{traceId}` is replaced with the correlation field's value. Leave unset to hide the link entirely. |
+
 See [Known simplifications](#known-simplifications-first-phase) below for
 what's deliberately still missing (per-user accounts, key-based SFTP auth,
 host key verification, etc.).
-
-## API
-
-### Sources API
-
-| Method | Path | Description |
-| --- | --- | --- |
-| GET | `/api/sources` | List all configured log sources |
-| POST | `/api/sources` | Add a log source (`LOCAL_FILE`, `LOCAL_DIRECTORY`, `SFTP`, or `HTTP`) |
-| PUT | `/api/sources/{id}` | Edit a source (resets its connectivity status) |
-| DELETE | `/api/sources/{id}` | Remove a log source |
-| POST | `/api/sources/{id}/test-connection` | Test whether a source is reachable |
-| POST | `/api/sources/{id}/enable` \| `/disable` | Pause/resume ingestion for a source |
-| POST | `/api/sources/{id}/enable-live` \| `/disable-live` | Toggle continuous re-reading for a source |
-
-### Log Stream API
-
-| Method | Path | Description |
-| --- | --- | --- |
-| GET | `/api/logs` | Filtered/sorted/paginated log entries (`search`, `level`, `source`, `file`, `rangeMinutes`, `sortBy`, `sortDir`, `page`, `size`) |
-| GET | `/api/logs/files` | Distinct file names seen, optionally scoped to a `source` |
-| POST | `/api/logs/reload` | Invalidate the ingestion cache so non-live sources are re-read |
-| GET | `/api/logs/query` | Query-bar endpoint: indexed search against the durable Lucene store. Takes `q` and `queryLanguage` (`LUCENE`, `SPL`, or `LOGQL`) plus the same `source`/`file`/`rangeMinutes`/`sortBy`/`sortDir`/`page`/`size` params as above. Response is the same `LogQueryResult` shape with one addition: an `aggregation` field, populated (in place of `content`) when the query includes an aggregation stage (`stats count by`, `count_over_time`, `rate`) instead of returning rows. |
-
-### Saved Searches API
-
-| Method | Path | Description |
-| --- | --- | --- |
-| GET | `/api/saved-searches` | List all saved searches |
-| POST | `/api/saved-searches` | Save a search: `name`, `queryLanguage` (`LUCENE`/`SPL`/`LOGQL`/`SIMPLE`), and either `query` (a raw query-bar string, for the first three) or `search`/`levels` (a filter-bar snapshot, for `SIMPLE`), plus shared `source`/`file`/`rangeMinutes`/`sortBy`/`sortDir` scoping |
-| DELETE | `/api/saved-searches/{id}` | Remove a saved search |
-| POST | `/api/saved-searches/{id}/run` | Re-run a saved search (`page`/`size` params) — dispatches to the plain-filter path for `SIMPLE` saves or the query-bar path otherwise, returning the same `LogQueryResult` shape (including `aggregation`, when applicable) as `/api/logs` and `/api/logs/query` |
-
-### Dashboard API
-
-| Method | Path | Description |
-| --- | --- | --- |
-| GET | `/api/dashboard/summary` | Source/entry/error counts, errors-by-file, source activity, and recent issues (last 24h) |
 
 ## Known simplifications (first phase)
 
@@ -285,10 +292,16 @@ host key verification, etc.).
 - Indexing is near-real-time, not instant: a source's content can take up to
   `SEARCH_INDEX_INTERVAL_MS` (default 5s) to appear in query-bar/indexed
   search results after it's read.
-- Aggregation results are capped (top 100 groups for `stats count by`, up to
-  500 time buckets for `count_over_time`/`rate`, defaulting to a 24h window
-  when no explicit time range is given) rather than paginated — a query
-  producing more groups/buckets than that is silently truncated to the cap.
+- Aggregation results are capped (top 100 groups for `stats count by`/a
+  grouped numeric stat, up to 500 time buckets for `count_over_time`/`rate`/a
+  time-bucketed numeric stat, defaulting to a 24h window when no explicit
+  time range is given) rather than paginated — a query producing more
+  groups/buckets than that is silently truncated to the cap. A numeric-stats
+  query additionally samples at most 50,000 matching entries' values (reading
+  raw Lucene doc values isn't something the facet-based counting path used by
+  `stats count by` supports, so it's a separate, separately-capped code
+  path) — avg/min/max/sum/percentile are computed over that sample, not
+  necessarily every match.
 - The per-document ID used for idempotent reindexing is derived from
   `source + file + sha256(timestamp + message)`; two genuinely
   byte-identical log lines from the same file at the same timestamp are
@@ -301,13 +314,21 @@ host key verification, etc.).
   admin account today (see [Security](#security)), so "shareable" means a
   stable `?savedSearch=<id>` link anyone with API access can open or delete,
   not a private "my searches" list.
-- The Axiom HUD theme's fonts (Oxanium, Archivo, IBM Plex Mono) load from
-  Google Fonts at runtime rather than being self-hosted — a network
-  dependency the app didn't previously have. Self-host the actual font
-  binaries in `theme.css` if that matters for your deployment.
-- The Alerts screen is a placeholder — the nav entry and an honest "not
-  available yet" panel exist, but there's no alert-rule backend (threshold
-  rules, mute/arm state, trigger history) behind it yet.
+- Anomaly alerting is a statistical baseline (mean + k·stddev of prior
+  windows), not ML-based anomaly detection.
+- Alert webhooks are the only incident-tool integration — no built-in
+  Slack/PagerDuty/OpsGenie templates (a generic signed-JSON webhook can feed
+  any of those via their own inbound-webhook support) and no
+  automated-remediation/playbook execution.
+- "Metrics", "tracing", and "APM" are all log-native, not independent
+  systems: numeric aggregation runs over structured fields already extracted
+  from log messages (no separate metrics ingestion/storage pipeline, e.g. a
+  Prometheus scrape or OTLP push, decoupled from log content); trace
+  correlation is an exact-match query over a shared ID-shaped field (no real
+  distributed-tracing data model — span ingestion, parent/child waterfalls, a
+  service dependency graph); and the APM link is a stateless URL template
+  (no per-vendor API integration pulling actual trace/span data). Each is a
+  reasonable next phase on its own.
 
 These are flagged for hardening in a later phase (per-user auth,
 key-based SFTP auth, known-hosts verification, recursive/streaming

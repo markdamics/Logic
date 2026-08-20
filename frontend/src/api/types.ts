@@ -56,6 +56,8 @@ export interface LogAggregationBucket {
   count: number;
   /** count/second — only set for a LogQL rate(...) query, null otherwise. */
   rate: number | null;
+  /** The computed avg/min/max/sum/percentile value — only set for a numeric-stats query, null otherwise. */
+  statValue: number | null;
 }
 
 export interface LogAggregationResult {
