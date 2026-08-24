@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { createSource, deleteSource, listSources, setSourceEnabled, setSourceLive, testConnection, updateSource } from "../api/client";
+import { createSource, deleteSource, listSources, setSourceEnabled, setSourceLive, testConnection, updateSource, uploadSource } from "../api/client";
 import type { CreateSourceRequest, LogSource } from "../api/types";
 import { createLogger } from "../utils/logger";
 
@@ -61,6 +61,12 @@ export function useSources() {
     setSources((prev) => prev.map((s) => (s.id === id ? updated : s)));
   }, []);
 
+  const upload = useCallback(async (formData: FormData) => {
+    const created = await uploadSource(formData);
+    logger.info(`Uploaded source '${created.name}' (id=${created.id})`);
+    setSources((prev) => [...prev, created]);
+  }, []);
+
   const remove = useCallback(async (id: number) => {
     await deleteSource(id);
     logger.info(`Deleted source ${id}`);
@@ -90,5 +96,5 @@ export function useSources() {
     setSources((prev) => prev.map((s) => (s.id === id ? updated : s)));
   }, []);
 
-  return { sources, loading, error, refresh, create, update, remove, check, toggleEnabled, toggleLive };
+  return { sources, loading, error, refresh, create, update, upload, remove, check, toggleEnabled, toggleLive };
 }

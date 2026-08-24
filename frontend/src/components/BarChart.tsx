@@ -10,7 +10,6 @@ interface BarChartProps {
   emptyMessage?: string;
 }
 
-/** A simple vertical bar chart — extracted from Dashboard's "Errors by file" panel so it can also render query-bar aggregation results. */
 export function BarChart({ items, emptyMessage = "No data." }: BarChartProps) {
   if (items.length === 0) {
     return <div className="log-empty">{emptyMessage}</div>;
@@ -41,9 +40,6 @@ export function BarChart({ items, emptyMessage = "No data." }: BarChartProps) {
           <div
             className="bar-chart-label"
             title={item.title ?? item.label}
-            // Shown labels are wider than their own narrow column once there
-            // are many bars, so let them spill over neighboring (unlabeled)
-            // columns instead of ellipsis-clipping to nothing.
             style={i % labelStride === 0 ? { overflow: "visible", position: "relative", zIndex: 1 } : undefined}
           >
             {i % labelStride === 0 ? item.label : ""}

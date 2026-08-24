@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 import type { Screen } from "../screens";
 import { SCREEN_TITLES } from "../screens";
-import type { AxiomTheme } from "../theme";
+import type { MahoTheme } from "../theme";
 import { THEME_LABELS } from "../theme";
 import { AlertsIcon, CollapseIcon, DashboardIcon, LogicMarkIcon, LogsIcon, SourcesIcon } from "./icons";
 
@@ -10,7 +10,7 @@ interface SidebarProps {
   onNavigate: (screen: Screen) => void;
   collapsed: boolean;
   onToggleCollapsed: () => void;
-  mode: AxiomTheme;
+  mode: MahoTheme;
   onToggleMode: () => void;
 }
 

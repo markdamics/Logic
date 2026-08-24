@@ -14,7 +14,7 @@ import type { Screen } from "./screens";
 import { SCREEN_TITLES } from "./screens";
 import { TestIcon } from "./components/icons";
 import { THEMES } from "./theme";
-import type { AxiomTheme } from "./theme";
+import type { MahoTheme } from "./theme";
 import { createLogger } from "./utils/logger";
 
 const logger = createLogger("App");
@@ -25,9 +25,9 @@ const THEME_STORAGE_KEY = "logic.theme-mode";
 const SIDEBAR_STORAGE_KEY = "logic.sidebar-collapsed";
 
 function App() {
-  const [mode, setMode] = useState<AxiomTheme>(() => {
+  const [mode, setMode] = useState<MahoTheme>(() => {
     const stored = localStorage.getItem(THEME_STORAGE_KEY);
-    return THEMES.includes(stored as AxiomTheme) ? (stored as AxiomTheme) : "nullgrid";
+    return THEMES.includes(stored as MahoTheme) ? (stored as MahoTheme) : "tsuki";
   });
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => localStorage.getItem(SIDEBAR_STORAGE_KEY) === "true",
@@ -40,7 +40,7 @@ function App() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [reloadSignal, setReloadSignal] = useState(0);
   const [reloading, setReloading] = useState(false);
-  const { sources, loading, error, create, update, remove, check, toggleEnabled, toggleLive } = useSources();
+  const { sources, loading, error, create, update, upload, remove, check, toggleEnabled, toggleLive } = useSources();
   const {
     savedSearches,
     loading: savedSearchesLoading,
@@ -225,6 +225,7 @@ function App() {
           onSubmit={(req) =>
             dialogState.mode === "edit" ? update(dialogState.source.id, req) : create(req)
           }
+          onUpload={upload}
         />
       )}
     </div>

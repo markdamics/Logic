@@ -1,14 +1,14 @@
-export type AxiomTheme = "nullgrid" | "gantry" | "abyssal" | "raven" | "ember" | "verdigris" | "meridian" | "stark";
+export type MahoTheme = "tsuki" | "shu" | "seiji" | "sakura" | "kohaku" | "matcha" | "fuji" | "nezu";
 
-export const THEMES: AxiomTheme[] = ["nullgrid", "gantry", "abyssal", "raven", "ember", "verdigris", "meridian", "stark"];
+export const THEMES: MahoTheme[] = ["tsuki", "shu", "seiji", "sakura", "kohaku", "matcha", "fuji", "nezu"];
 
-export const THEME_LABELS: Record<AxiomTheme, string> = {
-  nullgrid: "NULLGRID",
-  gantry: "GANTRY",
-  abyssal: "ABYSSAL",
-  raven: "RAVEN",
-  ember: "EMBER",
-  verdigris: "VERDIGRIS",
-  meridian: "MERIDIAN",
-  stark: "STARK",
+export const THEME_LABELS: Record<MahoTheme, string> = {
+  tsuki: "TSUKI",
+  shu: "SHU",
+  seiji: "SEIJI",
+  sakura: "SAKURA",
+  kohaku: "KOHAKU",
+  matcha: "MATCHA",
+  fuji: "FUJI",
+  nezu: "NEZU",
 };

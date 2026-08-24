@@ -3,7 +3,7 @@ export interface AppConfig {
   apmTraceUrlTemplate: string | null;
 }
 
-export type SourceType = "LOCAL_FILE" | "LOCAL_DIRECTORY" | "SFTP" | "HTTP";
+export type SourceType = "LOCAL_FILE" | "LOCAL_DIRECTORY" | "SFTP" | "HTTP" | "UPLOAD_FILE" | "UPLOAD_DIRECTORY";
 
 export type SourceStatus = "UNVERIFIED" | "REACHABLE" | "UNREACHABLE";
 

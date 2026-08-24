@@ -1,47 +1,23 @@
-/* Axiom ships these as a Google Fonts substitution (no vendor binaries were
-   provided) - trades Logic's previous self-hosted Barlow files for a CDN
-   dependency. Self-host real binaries here later if that matters. @import
-   must come first in the file, ahead of every other rule. */
-@import url("https://fonts.googleapis.com/css2?family=Oxanium:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@300;400;500;600&family=Archivo:wght@400;500;600;700&display=swap");
+/* Maho ships one voice: JetBrains Mono carries display, UI and code alike.
+   Google Fonts substitution (no vendor binaries were provided) - swap for
+   self-hosted binaries later if that matters. @import must come first. */
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap");
 
-/* Axiom HUD tokens, pulled from the "Axiom HUD Design System" Claude Design
-   project (tokens/colors.css, typography.css, spacing.css, effects.css).
-   Eight selectable themes; NULLGRID is the default. Switch with
-   <html data-theme="gantry"> | "abyssal" | "raven" | "ember" | "verdigris"
-   | "meridian" | "stark" | "nullgrid">. */
+/* Maho design system tokens, pulled from the "Maho Design System" Claude
+   Design project (tokens/colors.css, accents.css, typography.css, spacing.css,
+   radius.css, elevation.css, motion.css). Eight selectable themes, named for
+   and paired with eight of Maho's own nine accent ramps, each on a Maho base
+   (Yoru dark / Asa light); TSUKI (Yoru + tsuki, the system's own default
+   pairing) is Logic's default. Switch with <html data-theme="shu"> | "seiji"
+   | "sakura" | "kohaku" | "matcha" | "fuji" | "nezu" | "tsuki">. */
 :root {
-  /* base reference ramps - theme-independent */
-  --raw-black: #07090a;
-  --raw-slate-900: #0e1214;
-  --raw-slate-800: #141a1d;
-  --raw-slate-700: #1c2427;
-  --raw-slate-500: #3a4649;
-  --raw-slate-300: #62716e;
-  --raw-slate-200: #9aaaa6;
-  --raw-slate-050: #e6efec;
-  --raw-bone-100: #f3f1ea;
-  --raw-bone-200: #e9e6dd;
-  --raw-bone-300: #dfdcd4;
-  --raw-bone-400: #d8d5cb;
-  --raw-electric: #3c9cff;
-  --raw-acid: #b8ff2e;
-  --raw-orange: #ff7a1a;
-  --raw-cyan: #3ff0ff;
-  --raw-yellow: #ffe14d;
-  --raw-magenta: #ff2d78;
-  --raw-ice: #a9e6ff;
-  --raw-safety: #e2571b;
-  --raw-red: #ff3b30;
-  --raw-green: #34e07a;
-  --raw-amber: #ffb01f;
-  --raw-blue: #4dd6ff;
-
-  /* typography - three families: technical display, neutral sans, telemetry mono */
-  --font-display: "Oxanium", "Eurostile", "DIN Condensed", system-ui, sans-serif;
-  --font-sans: "Archivo", "Helvetica Neue", system-ui, sans-serif;
-  --font-mono: "IBM Plex Mono", "Roboto Mono", ui-monospace, monospace;
+  /* typography - single mono voice; scale/weight/tracking do the work a
+     type pairing used to */
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-display: var(--font-mono);
+  --font-sans: var(--font-mono);
   --font-heading: var(--font-display);
-  --font-heading-weight: 600;
+  --font-heading-weight: 500;
 
   --fs-micro: 10px;
   --fs-label: 11px;
@@ -67,14 +43,14 @@
   --lh-body: 1.55;
   --lh-loose: 1.7;
 
-  --tr-micro: 0.22em;
-  --tr-label: 0.12em;
-  --tr-caps: 0.06em;
+  --tr-micro: 0.16em;
+  --tr-label: 0.16em;
+  --tr-caps: 0.04em;
   --tr-normal: 0;
   --tr-tight: -0.01em;
-  --tr-display: -0.02em;
+  --tr-display: -0.04em;
 
-  /* spacing - 4px base unit, matches Logic's existing --space-N scale exactly */
+  /* spacing - 4px base unit, unchanged from Logic's layout */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -85,78 +61,59 @@
   --space-10: 40px;
   --space-12: 48px;
 
-  /* geometry - sharp by default; radii exist only to soften 1px hairlines */
-  --radius-sm: 1px;
-  --radius-md: 2px;
-  --radius-lg: 3px;
-  --radius-tag: 2px;
-  --cut-sm: 6px;
-  --cut-md: 10px;
-  --cut-lg: 16px;
+  /* geometry - Maho's tight-corner scale: 2 badge, 3 button/input,
+     6 segmented control/small panel, 10 card/large panel */
+  --radius-xs: 2px;
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-tag: var(--radius-xs);
+  --radius-pill: 999px;
   --hair: 1px;
 
-  /* signature shaved-corner clip paths */
-  --clip-cut-tr: polygon(0 0, calc(100% - var(--cut-md)) 0, 100% var(--cut-md), 100% 100%, 0 100%);
-  --clip-cut-bl: polygon(0 0, 100% 0, 100% 100%, var(--cut-md) 100%, 0 calc(100% - var(--cut-md)));
-  --clip-cut-diag: polygon(0 0, calc(100% - var(--cut-md)) 0, 100% var(--cut-md), 100% 100%, var(--cut-md) 100%, 0 calc(100% - var(--cut-md)));
-  --clip-cut-tag: polygon(var(--cut-sm) 0, 100% 0, 100% 100%, 0 100%, 0 var(--cut-sm));
-
-  /* motion */
-  --dur-instant: 70ms;
-  --dur-fast: 120ms;
-  --dur-base: 180ms;
+  /* motion - one curve, four durations; nothing bounces */
+  --dur-instant: 80ms;
+  --dur-fast: 140ms;
+  --dur-base: 200ms;
   --dur-slow: 320ms;
-  --ease-snap: cubic-bezier(.2, .9, .1, 1);
-  --ease-out: cubic-bezier(.16, 1, .3, 1);
+  --ease-standard: cubic-bezier(.22, .61, .36, 1);
+  --ease-exit: cubic-bezier(.4, 0, 1, 1);
+  --ease-enter: cubic-bezier(0, 0, .2, 1);
 
-  /* NULLGRID - matte black + electric blue. Tech-minimalism, default. */
-  --theme-name: "NULLGRID";
-  --bg-void: #07090a;
-  --bg-panel: #0e1214;
-  --bg-panel-2: #141a1d;
-  --bg-inset: #0a0e10;
-  --bg-scrim: rgba(4, 6, 7, .72);
-  --surface-glass: rgba(20, 26, 29, .62);
-  --surface-raised: #1c2427;
-  --surface-hover: rgba(60, 156, 255, .08);
-  --text-primary: #e6efec;
-  --text-secondary: #9aaaa6;
-  --text-muted: #62716e;
-  --text-on-accent: #00101f;
-  --line-hair: rgba(60, 156, 255, .12);
-  --line-neutral: rgba(190, 210, 205, .14);
-  --line-strong: rgba(190, 210, 205, .30);
-  --line-accent: rgba(60, 156, 255, .6);
-  --accent: #3c9cff;
-  --accent-dim: #2a7ad4;
-  --accent-soft: rgba(60, 156, 255, .15);
-  --accent-glow: rgba(60, 156, 255, .38);
-  --accent-2: #ff7a1a;
-  --accent-2-soft: rgba(255, 122, 26, .14);
-  --status-ok: #34e07a;
-  --status-warn: #ffb01f;
-  --status-danger: #ff3b30;
-  --status-info: #59e3e0;
-  --status-idle: #62716e;
-  --status-ok-soft: rgba(52, 224, 122, .14);
-  --status-warn-soft: rgba(255, 176, 31, .14);
-  --status-danger-soft: rgba(255, 59, 48, .14);
-  --status-info-soft: rgba(89, 227, 224, .14);
-  --grid-line: rgba(190, 210, 205, .055);
-  --grid-dot: rgba(190, 210, 205, .13);
+  /* TSUKI - Yoru (deep charcoal-blue night) + tsuki moonlight accent.
+     Maho's own native pairing; Logic's default. */
+  --theme-name: "TSUKI";
+  --bg-void: #04060A;
+  --bg-panel: #070A0F;
+  --bg-panel-2: #0B1017;
+  --bg-inset: #04060A;
+  --surface-raised: #111823;
+  --text-primary: #DCE3EB;
+  --text-secondary: #8794A4;
+  --text-on-accent: #070A0F;
+  --line-neutral: rgba(46, 59, 76, .6);
+  --surface-hover: rgba(24, 33, 48, .06);
+  --accent: #8CBFE4;
+  --accent-dim: #B7D8F0;
+  --accent-2: #D8A857;
+  --line-accent: #5C9BC9;
+  --status-ok: #6E9E7F;
+  --status-warn: #C4963F;
+  --status-danger: #E4714D;
+  --grid-line: rgba(220, 227, 235, .04);
+  --shadow-well: inset 0 1px 0 rgba(255, 255, 255, .04);
+  --shadow-panel: 0 8px 24px -8px rgba(4, 6, 10, .5);
+  --shadow-overlay: 0 24px 64px -20px rgba(4, 6, 10, .7);
 
-  /* effects that reference theme colors */
-  --border-hair: var(--hair) solid var(--line-hair);
-  --border-neutral: var(--hair) solid var(--line-neutral);
-  --border-strong: var(--hair) solid var(--line-strong);
-  --border-accent: var(--hair) solid var(--line-accent);
-  --shadow-well: inset 0 1px 0 rgba(255, 255, 255, .04), inset 0 0 0 1px rgba(0, 0, 0, .25);
-  --shadow-panel: 0 1px 0 rgba(0, 0, 0, .4), 0 12px 32px -16px rgba(0, 0, 0, .7);
-  --shadow-overlay: 0 24px 64px -20px rgba(0, 0, 0, .85);
-  --glow-accent: 0 0 0 1px var(--line-accent), 0 0 18px -4px var(--accent-glow);
+  /* computed formulas - re-resolve per theme from whichever accent/status
+     values are cascaded on <html>, so they only need to be declared once */
+  --accent-soft: color-mix(in srgb, var(--accent) 14%, transparent);
+  --accent-glow: color-mix(in srgb, var(--accent) 45%, transparent);
+  --accent-2-soft: color-mix(in srgb, var(--accent-2) 16%, transparent);
   --glow-soft: 0 0 12px -2px var(--accent-glow);
-  --glow-danger: 0 0 14px -3px var(--status-danger);
-  --focus-ring: 0 0 0 1px var(--bg-void), 0 0 0 2px var(--accent);
+  --status-ok-soft: color-mix(in srgb, var(--status-ok) 14%, transparent);
+  --status-warn-soft: color-mix(in srgb, var(--status-warn) 14%, transparent);
+  --status-danger-soft: color-mix(in srgb, var(--status-danger) 14%, transparent);
 
   /* Logic's existing token vocabulary, aliased onto the tokens above so the
      rest of the app's CSS (written against --color-* and --shadow-* names)
@@ -167,6 +124,7 @@
 
   --color-bg: var(--bg-void);
   --color-surface: var(--bg-panel);
+  --color-surface-card: var(--bg-panel-2);
   --color-surface-raised: var(--surface-raised);
   --color-text: var(--text-primary);
   --color-text-muted: var(--text-secondary);
@@ -186,297 +144,128 @@
   color-scheme: dark;
 }
 
-:root[data-theme="nullgrid"] {
+/* Yoru - shared dark base for the six night themes. Each theme below layers
+   its own accent ramp on top. */
+:root[data-theme="tsuki"],
+:root[data-theme="seiji"],
+:root[data-theme="sakura"],
+:root[data-theme="kohaku"],
+:root[data-theme="matcha"],
+:root[data-theme="nezu"] {
+  --bg-void: #04060A;
+  --bg-panel: #070A0F;
+  --bg-panel-2: #0B1017;
+  --bg-inset: #04060A;
+  --surface-raised: #111823;
+  --text-primary: #DCE3EB;
+  --text-secondary: #8794A4;
+  --text-on-accent: #070A0F;
+  --line-neutral: rgba(46, 59, 76, .6);
+  --surface-hover: rgba(24, 33, 48, .06);
+  --status-ok: #6E9E7F;
+  --status-warn: #C4963F;
+  --status-danger: #E4714D;
+  --grid-line: rgba(220, 227, 235, .04);
+  --shadow-well: inset 0 1px 0 rgba(255, 255, 255, .04);
+  --shadow-panel: 0 8px 24px -8px rgba(4, 6, 10, .5);
+  --shadow-overlay: 0 24px 64px -20px rgba(4, 6, 10, .7);
+  color-scheme: dark;
+}
+
+/* Asa - shared light base for the two day themes. */
+:root[data-theme="shu"],
+:root[data-theme="fuji"] {
+  --bg-void: #E9EDF3;
+  --bg-panel: #F5F7FA;
+  --bg-panel-2: #FFFFFF;
+  --bg-inset: #E9EDF3;
+  --surface-raised: #FFFFFF;
+  --text-primary: #111823;
+  --text-secondary: #5A6879;
+  --text-on-accent: #FFFFFF;
+  --line-neutral: rgba(180, 192, 205, .5);
+  --surface-hover: rgba(11, 16, 23, .04);
+  --status-ok: #4E7D5F;
+  --status-warn: #9C7326;
+  --status-danger: #A84124;
+  --grid-line: rgba(11, 16, 23, .045);
+  --shadow-well: inset 0 1px 0 #FFFFFF;
+  --shadow-panel: 0 8px 24px -10px rgba(11, 16, 23, .15);
+  --shadow-overlay: 0 24px 64px -24px rgba(11, 16, 23, .2);
+  color-scheme: light;
+}
+
+:root[data-theme="tsuki"] {
   /* Explicit alias of the bare-:root default above, so switching "back" to
-     NULLGRID from another theme is a real selector match, not an absence. */
-  --bg-void: #07090a;
-  --bg-panel: #0e1214;
-  --bg-panel-2: #141a1d;
-  --surface-raised: #1c2427;
-  --text-primary: #e6efec;
-  --text-secondary: #9aaaa6;
-  --text-muted: #62716e;
-  --line-neutral: rgba(190, 210, 205, .14);
-  --accent: #3c9cff;
-  --accent-dim: #2a7ad4;
-  --status-ok: #34e07a;
-  --status-warn: #ffb01f;
-  --status-danger: #ff3b30;
-  --status-info: #59e3e0;
-  color-scheme: dark;
+     TSUKI from another theme is a real selector match, not an absence. */
+  --theme-name: "TSUKI";
+  --accent: #8CBFE4;
+  --accent-dim: #B7D8F0;
+  --accent-2: #D8A857;
+  --line-accent: #5C9BC9;
 }
 
-/* GANTRY - bone white + safety orange. Hard sci-fi / NASA-punk, light. */
-:root[data-theme="gantry"] {
-  --theme-name: "GANTRY";
-  --bg-void: #dfdcd4;
-  --bg-panel: #f3f1ea;
-  --bg-panel-2: #e9e6dd;
-  --bg-inset: #d8d5cb;
-  --bg-scrim: rgba(60, 56, 48, .42);
-  --surface-glass: rgba(243, 241, 234, .72);
-  --surface-raised: #ffffff;
-  --surface-hover: rgba(226, 87, 27, .07);
-  --text-primary: #16181a;
-  --text-secondary: #4b5158;
-  --text-muted: #82867e;
-  --text-on-accent: #fff6f0;
-  --line-hair: rgba(20, 24, 28, .10);
-  --line-neutral: rgba(20, 24, 28, .16);
-  --line-strong: rgba(20, 24, 28, .34);
-  --line-accent: rgba(226, 87, 27, .65);
-  --accent: #e2571b;
-  --accent-dim: #b8410f;
-  --accent-soft: rgba(226, 87, 27, .12);
-  --accent-glow: rgba(226, 87, 27, .22);
-  --accent-2: #1d6f8f;
-  --accent-2-soft: rgba(29, 111, 143, .12);
-  --status-ok: #1f7a4d;
-  --status-warn: #b26a00;
-  --status-danger: #b3251d;
-  --status-info: #1d6f8f;
-  --status-idle: #82867e;
-  --status-ok-soft: rgba(31, 122, 77, .12);
-  --status-warn-soft: rgba(178, 106, 0, .12);
-  --status-danger-soft: rgba(179, 37, 29, .12);
-  --status-info-soft: rgba(29, 111, 143, .12);
-  --grid-line: rgba(20, 24, 28, .06);
-  --grid-dot: rgba(20, 24, 28, .16);
-  color-scheme: light;
+/* SHU - Asa + shu vermilion. Hard sci-fi / NASA-punk, light. */
+:root[data-theme="shu"] {
+  --theme-name: "SHU";
+  --accent: #A84124;
+  --accent-dim: #CF5533;
+  --accent-2: #3A7A72;
+  --line-accent: #CF5533;
 }
 
-/* ABYSSAL - deep navy + neon cyan / electric yellow. Cyber HUD. */
-:root[data-theme="abyssal"] {
-  --theme-name: "ABYSSAL";
-  --bg-void: #04070f;
-  --bg-panel: #0a1020;
-  --bg-panel-2: #101a30;
-  --bg-inset: #070c18;
-  --bg-scrim: rgba(2, 5, 12, .74);
-  --surface-glass: rgba(16, 26, 48, .62);
-  --surface-raised: #16223c;
-  --surface-hover: rgba(63, 240, 255, .07);
-  --text-primary: #e2ecff;
-  --text-secondary: #93a6c6;
-  --text-muted: #5b6c8a;
-  --text-on-accent: #001318;
-  --line-hair: rgba(63, 240, 255, .12);
-  --line-neutral: rgba(120, 180, 255, .14);
-  --line-strong: rgba(120, 180, 255, .30);
-  --line-accent: rgba(63, 240, 255, .6);
-  --accent: #3ff0ff;
-  --accent-dim: #22b6c9;
-  --accent-soft: rgba(63, 240, 255, .13);
-  --accent-glow: rgba(63, 240, 255, .34);
-  --accent-2: #ffe14d;
-  --accent-2-soft: rgba(255, 225, 77, .14);
-  --status-ok: #37e0a8;
-  --status-warn: #ffe14d;
-  --status-danger: #ff4d6d;
-  --status-info: #6fb0ff;
-  --status-idle: #5b6c8a;
-  --status-ok-soft: rgba(55, 224, 168, .14);
-  --status-warn-soft: rgba(255, 225, 77, .14);
-  --status-danger-soft: rgba(255, 77, 109, .14);
-  --status-info-soft: rgba(111, 176, 255, .14);
-  --grid-line: rgba(120, 180, 255, .07);
-  --grid-dot: rgba(120, 180, 255, .16);
-  color-scheme: dark;
+/* SEIJI - Yoru + seiji celadon. Cyber HUD. */
+:root[data-theme="seiji"] {
+  --theme-name: "SEIJI";
+  --accent: #7FBFB6;
+  --accent-dim: #B5DBD5;
+  --accent-2: #D8A857;
+  --line-accent: #549C93;
 }
 
-/* RAVEN - near-black + hot magenta / ice. Gacha sci-fi, high drama. */
-:root[data-theme="raven"] {
-  --theme-name: "RAVEN";
-  --bg-void: #08070a;
-  --bg-panel: #100d14;
-  --bg-panel-2: #17131d;
-  --bg-inset: #0b0910;
-  --bg-scrim: rgba(6, 4, 8, .74);
-  --surface-glass: rgba(23, 19, 29, .64);
-  --surface-raised: #211b29;
-  --surface-hover: rgba(255, 45, 120, .07);
-  --text-primary: #efe9f2;
-  --text-secondary: #a89fb2;
-  --text-muted: #6d6577;
-  --text-on-accent: #14000a;
-  --line-hair: rgba(255, 45, 120, .12);
-  --line-neutral: rgba(230, 210, 255, .12);
-  --line-strong: rgba(230, 210, 255, .28);
-  --line-accent: rgba(255, 45, 120, .6);
-  --accent: #ff2d78;
-  --accent-dim: #c81f5c;
-  --accent-soft: rgba(255, 45, 120, .14);
-  --accent-glow: rgba(255, 45, 120, .34);
-  --accent-2: #a9e6ff;
-  --accent-2-soft: rgba(169, 230, 255, .14);
-  --status-ok: #4de3a0;
-  --status-warn: #ffb01f;
-  --status-danger: #ff2d78;
-  --status-info: #a9e6ff;
-  --status-idle: #6d6577;
-  --status-ok-soft: rgba(77, 227, 160, .14);
-  --status-warn-soft: rgba(255, 176, 31, .14);
-  --status-danger-soft: rgba(255, 45, 120, .14);
-  --status-info-soft: rgba(169, 230, 255, .14);
-  --grid-line: rgba(230, 210, 255, .06);
-  --grid-dot: rgba(230, 210, 255, .14);
-  color-scheme: dark;
+/* SAKURA - Yoru + sakura rose. Gacha sci-fi, high drama. */
+:root[data-theme="sakura"] {
+  --theme-name: "SAKURA";
+  --accent: #E2A2B4;
+  --accent-dim: #EFC5CF;
+  --accent-2: #8CBFE4;
+  --line-accent: #C4788E;
 }
 
-/* EMBER - warm carbon + amber phosphor. CRT terminal, low-light cockpit. */
-:root[data-theme="ember"] {
-  --theme-name: "EMBER";
-  --bg-void: #0b0806;
-  --bg-panel: #14100c;
-  --bg-panel-2: #1c1712;
-  --bg-inset: #0f0b08;
-  --bg-scrim: rgba(8, 5, 3, .74);
-  --surface-glass: rgba(28, 23, 18, .64);
-  --surface-raised: #241d16;
-  --surface-hover: rgba(255, 160, 46, .08);
-  --text-primary: #f2e6d6;
-  --text-secondary: #b39c81;
-  --text-muted: #7a6a58;
-  --text-on-accent: #1a0d00;
-  --line-hair: rgba(255, 160, 46, .13);
-  --line-neutral: rgba(230, 205, 175, .13);
-  --line-strong: rgba(230, 205, 175, .30);
-  --line-accent: rgba(255, 160, 46, .6);
-  --accent: #ffa02e;
-  --accent-dim: #c9761a;
-  --accent-soft: rgba(255, 160, 46, .14);
-  --accent-glow: rgba(255, 160, 46, .34);
-  --accent-2: #7fd4c1;
-  --accent-2-soft: rgba(127, 212, 193, .14);
-  --status-ok: #8fd46a;
-  --status-warn: #ffcf40;
-  --status-danger: #ff5436;
-  --status-info: #7fd4c1;
-  --status-idle: #7a6a58;
-  --status-ok-soft: rgba(143, 212, 106, .14);
-  --status-warn-soft: rgba(255, 207, 64, .14);
-  --status-danger-soft: rgba(255, 84, 54, .14);
-  --status-info-soft: rgba(127, 212, 193, .14);
-  --grid-line: rgba(230, 205, 175, .06);
-  --grid-dot: rgba(230, 205, 175, .14);
-  color-scheme: dark;
+/* KOHAKU - Yoru + kohaku amber. CRT terminal, low-light cockpit. */
+:root[data-theme="kohaku"] {
+  --theme-name: "KOHAKU";
+  --accent: #D8A857;
+  --accent-dim: #EBD3A6;
+  --accent-2: #7FBFB6;
+  --line-accent: #B4842F;
 }
 
-/* VERDIGRIS - oxidized copper on deep pine. Salvage rig, long-duration life support. */
-:root[data-theme="verdigris"] {
-  --theme-name: "VERDIGRIS";
-  --bg-void: #050b09;
-  --bg-panel: #0b1512;
-  --bg-panel-2: #111f1a;
-  --bg-inset: #081110;
-  --bg-scrim: rgba(3, 8, 7, .74);
-  --surface-glass: rgba(17, 31, 26, .62);
-  --surface-raised: #16271f;
-  --surface-hover: rgba(79, 214, 168, .07);
-  --text-primary: #dff0e6;
-  --text-secondary: #95b3a4;
-  --text-muted: #5f7a6d;
-  --text-on-accent: #00160f;
-  --line-hair: rgba(79, 214, 168, .13);
-  --line-neutral: rgba(180, 220, 200, .13);
-  --line-strong: rgba(180, 220, 200, .29);
-  --line-accent: rgba(79, 214, 168, .6);
-  --accent: #4fd6a8;
-  --accent-dim: #2fa37c;
-  --accent-soft: rgba(79, 214, 168, .13);
-  --accent-glow: rgba(79, 214, 168, .32);
-  --accent-2: #c96a3a;
-  --accent-2-soft: rgba(201, 106, 58, .16);
-  --status-ok: #4fd6a8;
-  --status-warn: #e8c05a;
-  --status-danger: #e8604a;
-  --status-info: #6fc8d8;
-  --status-idle: #5f7a6d;
-  --status-ok-soft: rgba(79, 214, 168, .14);
-  --status-warn-soft: rgba(232, 192, 90, .14);
-  --status-danger-soft: rgba(232, 96, 74, .14);
-  --status-info-soft: rgba(111, 200, 216, .14);
-  --grid-line: rgba(180, 220, 200, .06);
-  --grid-dot: rgba(180, 220, 200, .14);
-  color-scheme: dark;
+/* MATCHA - Yoru + matcha green. Salvage rig, long-duration life support. */
+:root[data-theme="matcha"] {
+  --theme-name: "MATCHA";
+  --accent: #8CBF9B;
+  --accent-dim: #B9D8C0;
+  --accent-2: #E4714D;
+  --line-accent: #5F9A72;
 }
 
-/* MERIDIAN - cool paper + indigo. Second light theme: analysis, reports, screenshots. */
-:root[data-theme="meridian"] {
-  --theme-name: "MERIDIAN";
-  --bg-void: #dbe0e8;
-  --bg-panel: #f2f4f8;
-  --bg-panel-2: #e6eaf1;
-  --bg-inset: #d3d9e3;
-  --bg-scrim: rgba(40, 46, 60, .44);
-  --surface-glass: rgba(242, 244, 248, .74);
-  --surface-raised: #ffffff;
-  --surface-hover: rgba(74, 92, 240, .07);
-  --text-primary: #12161f;
-  --text-secondary: #454e60;
-  --text-muted: #7b8496;
-  --text-on-accent: #f2f4ff;
-  --line-hair: rgba(18, 22, 31, .10);
-  --line-neutral: rgba(18, 22, 31, .15);
-  --line-strong: rgba(18, 22, 31, .32);
-  --line-accent: rgba(74, 92, 240, .6);
-  --accent: #4a5cf0;
-  --accent-dim: #3341c4;
-  --accent-soft: rgba(74, 92, 240, .11);
-  --accent-glow: rgba(74, 92, 240, .20);
-  --accent-2: #8a5cf0;
-  --accent-2-soft: rgba(138, 92, 240, .12);
-  --status-ok: #177a55;
-  --status-warn: #9a6a00;
-  --status-danger: #b32438;
-  --status-info: #2a5fb8;
-  --status-idle: #7b8496;
-  --status-ok-soft: rgba(23, 122, 85, .11);
-  --status-warn-soft: rgba(154, 106, 0, .11);
-  --status-danger-soft: rgba(179, 36, 56, .11);
-  --status-info-soft: rgba(42, 95, 184, .11);
-  --grid-line: rgba(18, 22, 31, .055);
-  --grid-dot: rgba(18, 22, 31, .15);
-  color-scheme: light;
+/* FUJI - Asa + fuji wisteria. Second light theme: analysis, reports. */
+:root[data-theme="fuji"] {
+  --theme-name: "FUJI";
+  --accent: #5E4E92;
+  --accent-dim: #7F6EB4;
+  --accent-2: #9E566C;
+  --line-accent: #7F6EB4;
 }
 
-/* STARK - achromatic. No hue except danger. Maximum contrast, e-ink and projection. */
-:root[data-theme="stark"] {
-  --theme-name: "STARK";
-  --bg-void: #000000;
-  --bg-panel: #0b0b0b;
-  --bg-panel-2: #141414;
-  --bg-inset: #060606;
-  --bg-scrim: rgba(0, 0, 0, .8);
-  --surface-glass: rgba(20, 20, 20, .66);
-  --surface-raised: #1c1c1c;
-  --surface-hover: rgba(255, 255, 255, .07);
-  --text-primary: #ffffff;
-  --text-secondary: #a6a6a6;
-  --text-muted: #6b6b6b;
-  --text-on-accent: #000000;
-  --line-hair: rgba(255, 255, 255, .14);
-  --line-neutral: rgba(255, 255, 255, .18);
-  --line-strong: rgba(255, 255, 255, .42);
-  --line-accent: rgba(255, 255, 255, .75);
-  --accent: #ffffff;
-  --accent-dim: #bdbdbd;
-  --accent-soft: rgba(255, 255, 255, .12);
-  --accent-glow: rgba(255, 255, 255, .26);
-  --accent-2: #8c8c8c;
-  --accent-2-soft: rgba(140, 140, 140, .16);
-  --status-ok: #ffffff;
-  --status-warn: #d4d4d4;
-  --status-danger: #ff2b1c;
-  --status-info: #a6a6a6;
-  --status-idle: #6b6b6b;
-  --status-ok-soft: rgba(255, 255, 255, .13);
-  --status-warn-soft: rgba(212, 212, 212, .13);
-  --status-danger-soft: rgba(255, 43, 28, .16);
-  --status-info-soft: rgba(166, 166, 166, .13);
-  --grid-line: rgba(255, 255, 255, .06);
-  --grid-dot: rgba(255, 255, 255, .16);
-  color-scheme: dark;
+/* NEZU - Yoru + nezu graphite. No chroma except danger. Maximum contrast. */
+:root[data-theme="nezu"] {
+  --theme-name: "NEZU";
+  --accent: #98A5B4;
+  --accent-dim: #C0C8D2;
+  --accent-2: #8794A4;
+  --line-accent: #71808F;
 }
 
 * {
@@ -493,7 +282,7 @@ body {
   font-family: var(--font-sans);
   background: var(--color-bg);
   color: var(--color-text);
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition: background-color var(--dur-base) var(--ease-standard), color var(--dur-base) var(--ease-standard);
   background-image:
     linear-gradient(var(--grid-line) var(--hair), transparent var(--hair)),
     linear-gradient(90deg, var(--grid-line) var(--hair), transparent var(--hair));

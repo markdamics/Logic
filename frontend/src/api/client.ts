@@ -31,8 +31,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const method = init?.method ?? "GET";
   logger.debug(`${method} ${path}`);
 
+  const isFormData = init?.body instanceof FormData;
   const response = await fetch(`/api${path}`, {
-    headers: { "Content-Type": "application/json" },
+    ...(isFormData ? {} : { headers: { "Content-Type": "application/json" } }),
     ...init,
   });
 
@@ -99,6 +100,11 @@ export function browseDirectory(path?: string): Promise<DirectoryListing> {
   const query = new URLSearchParams();
   if (path) query.set("path", path);
   return request<DirectoryListing>(`/sources/browse?${query.toString()}`);
+}
+
+/** Creates an UPLOAD_FILE/UPLOAD_DIRECTORY source from browser-uploaded file(s). */
+export function uploadSource(formData: FormData): Promise<LogSource> {
+  return request<LogSource>("/sources/upload", { method: "POST", body: formData });
 }
 
 export function fetchLogs(params: LogQueryParams): Promise<LogQueryResult> {

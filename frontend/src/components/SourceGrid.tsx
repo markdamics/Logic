@@ -9,11 +9,18 @@ const TYPE_LABELS: Record<LogSource["type"], string> = {
   LOCAL_DIRECTORY: "Local directory",
   SFTP: "SFTP",
   HTTP: "HTTP(S)",
+  UPLOAD_FILE: "Uploaded file",
+  UPLOAD_DIRECTORY: "Uploaded directory",
 };
 
 function locationOf(source: LogSource): string {
   if (source.type === "SFTP") {
     return `${source.username ?? ""}@${source.host ?? ""}:${source.port ?? 22}${source.path ?? ""}`;
+  }
+  if (source.type === "UPLOAD_FILE" || source.type === "UPLOAD_DIRECTORY") {
+    // The stored path is an internal server-side storage location - show just the
+    // original file/directory name, not the full path.
+    return source.path?.split(/[/\\]/).filter(Boolean).pop() ?? "";
   }
   return source.path ?? "";
 }
@@ -109,22 +116,24 @@ export function SourceGrid({ sources, onTest, onEdit, onDelete, onToggleEnabled,
               </span>
               <span className="switch-row-label">Enabled</span>
             </label>
-            <label
-              className="switch-row"
-              title={source.live ? "Stop watching live" : "Watch live — continuously refresh this source"}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <span className="switch switch-live">
-                <input
-                  type="checkbox"
-                  checked={source.live}
-                  disabled={busyId === source.id}
-                  onChange={() => withBusy(source.id, () => onToggleLive(source.id, !source.live))}
-                />
-                <span className="switch-slider" />
-              </span>
-              <span className="switch-row-label">Live</span>
-            </label>
+            {source.type !== "UPLOAD_FILE" && source.type !== "UPLOAD_DIRECTORY" && (
+              <label
+                className="switch-row"
+                title={source.live ? "Stop watching live" : "Watch live — continuously refresh this source"}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <span className="switch switch-live">
+                  <input
+                    type="checkbox"
+                    checked={source.live}
+                    disabled={busyId === source.id}
+                    onChange={() => withBusy(source.id, () => onToggleLive(source.id, !source.live))}
+                  />
+                  <span className="switch-slider" />
+                </span>
+                <span className="switch-row-label">Live</span>
+              </label>
+            )}
           </div>
         </div>
       ))}
