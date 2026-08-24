@@ -20,7 +20,7 @@ public class LocalFileConnectivityChecker implements SourceConnectivityChecker {
 
     @Override
     public Set<SourceType> supports() {
-        return Set.of(SourceType.LOCAL_FILE, SourceType.LOCAL_DIRECTORY);
+        return Set.of(SourceType.LOCAL_FILE, SourceType.LOCAL_DIRECTORY, SourceType.UPLOAD_FILE, SourceType.UPLOAD_DIRECTORY);
     }
 
     @Override
@@ -28,6 +28,9 @@ public class LocalFileConnectivityChecker implements SourceConnectivityChecker {
         Path path = Path.of(source.getPath());
         Instant now = Instant.now();
         log.debug("Checking local {} at {}", source.getType(), path);
+
+        boolean expectsDirectory = source.getType() == SourceType.LOCAL_DIRECTORY || source.getType() == SourceType.UPLOAD_DIRECTORY;
+        boolean expectsFile = source.getType() == SourceType.LOCAL_FILE || source.getType() == SourceType.UPLOAD_FILE;
 
         if (!Files.exists(path)) {
             log.warn("Local path does not exist: {}", path);
@@ -37,11 +40,11 @@ public class LocalFileConnectivityChecker implements SourceConnectivityChecker {
             log.warn("Local path is not readable: {}", path);
             return new ConnectionTestResult(SourceStatus.UNREACHABLE, "Path is not readable: " + path, now);
         }
-        if (source.getType() == SourceType.LOCAL_DIRECTORY && !Files.isDirectory(path)) {
+        if (expectsDirectory && !Files.isDirectory(path)) {
             log.warn("Expected a directory but found a file: {}", path);
             return new ConnectionTestResult(SourceStatus.UNREACHABLE, "Path is not a directory: " + path, now);
         }
-        if (source.getType() == SourceType.LOCAL_FILE && Files.isDirectory(path)) {
+        if (expectsFile && Files.isDirectory(path)) {
             log.warn("Expected a file but found a directory: {}", path);
             return new ConnectionTestResult(SourceStatus.UNREACHABLE, "Path is a directory, expected a file: " + path, now);
         }

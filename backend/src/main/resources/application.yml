@@ -31,10 +31,20 @@ app:
     # Correlate button). Unset by default, so no "Open in APM" link renders
     # until this is configured. Example: https://app.datadoghq.com/apm/trace/{traceId}
     trace-url-template: ${APM_TRACE_URL_TEMPLATE:}
+  uploads:
+    # Where uploaded source files/directories (UPLOAD_FILE/UPLOAD_DIRECTORY) are stored on
+    # disk after upload.
+    dir: ${UPLOADS_DIR:./data/uploads}
 
 spring:
   application:
     name: log-analyzer-backend
+  servlet:
+    multipart:
+      # Caps on a single uploaded file / the whole multipart request for UPLOAD_FILE and
+      # UPLOAD_DIRECTORY sources (a directory upload sends every file in one request).
+      max-file-size: ${UPLOAD_MAX_FILE_SIZE:100MB}
+      max-request-size: ${UPLOAD_MAX_REQUEST_SIZE:500MB}
   datasource:
     url: jdbc:h2:file:./data/logsources;AUTO_SERVER=TRUE
     driver-class-name: org.h2.Driver

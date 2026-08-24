@@ -6,6 +6,7 @@ import com.logic.analyzer.source.dto.LogSourceCreateRequest;
 import com.logic.analyzer.source.dto.LogSourceResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -25,10 +27,13 @@ public class LogSourceController {
 
     private final LogSourceService service;
     private final FileSystemBrowseService browseService;
+    private final SourceUploadService uploadService;
 
-    public LogSourceController(LogSourceService service, FileSystemBrowseService browseService) {
+    public LogSourceController(LogSourceService service, FileSystemBrowseService browseService,
+                                SourceUploadService uploadService) {
         this.service = service;
         this.browseService = browseService;
+        this.uploadService = uploadService;
     }
 
     @GetMapping
@@ -82,5 +87,14 @@ public class LogSourceController {
     @GetMapping("/browse")
     public DirectoryListing browse(@RequestParam(required = false) String path) {
         return browseService.browse(path);
+    }
+
+    /** Stores browser-uploaded file(s) on disk and creates an UPLOAD_FILE/UPLOAD_DIRECTORY source pointing at them. */
+    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @ResponseStatus(HttpStatus.CREATED)
+    public LogSourceResponse upload(@RequestParam String name, @RequestParam SourceType type,
+                                     @RequestParam("files") MultipartFile[] files) {
+        String path = uploadService.store(type, files);
+        return service.create(new LogSourceCreateRequest(name, type, path, null, null, null, null));
     }
 }

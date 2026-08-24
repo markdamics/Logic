@@ -10,6 +10,13 @@ backend/data/
 node_modules/
 dist/
 
+# Frontend embedded into the backend jar during desktop/production builds
+# (see desktop/build.sh and Dockerfile) - not meant to be committed
+backend/src/main/resources/static/
+
+# Desktop build artifacts: bundled JRE + jar staged for Tauri packaging
+desktop/src-tauri/resources/
+
 # Compiled class file
 *.class
 

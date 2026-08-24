@@ -40,11 +40,6 @@ import java.util.stream.Stream;
  * returned forever - until something calls {@link #invalidateAll()} (wired
  * to the frontend's Reload action), keeping them as fixed, deliberate
  * snapshots instead of re-reading disk/network on every request.
- *
- * Known simplifications: directories are read non-recursively and capped to
- * the most recently modified files; there's no incremental/streaming tail
- * (each read re-fetches the trailing window), and SFTP opens a fresh
- * connection per read rather than pooling one.
  */
 @Service
 public class LogIngestionService {
@@ -124,18 +119,6 @@ public class LogIngestionService {
         log.info("Ingestion cache invalidated for all sources");
     }
 
-    /**
-     * Which specific file(s) within a non-live source look like they've
-     * changed since the source was last read - the signal behind the "new
-     * data available" indicator, since non-live sources otherwise stay frozen
-     * until reloaded. Fingerprints are tracked per file (not aggregated per
-     * source) specifically so a LOCAL_DIRECTORY source can report exactly
-     * which file changed instead of just "the directory changed". Live
-     * sources always report empty here since they already refresh on their
-     * own. Probing (which can mean a real SFTP connection or HTTP HEAD
-     * request) is itself throttled by a short TTL so frequent polling from
-     * the UI doesn't hammer a remote source just to answer this question.
-     */
     public List<String> changedFiles(LogSource source) {
         if (!source.isEnabled() || source.isLive()) {
             return List.of();
@@ -179,8 +162,8 @@ public class LogIngestionService {
     private List<LogEntry> readSource(LogSource source) {
         try {
             return switch (source.getType()) {
-                case LOCAL_FILE -> readLocalFile(Path.of(source.getPath()), source.getName());
-                case LOCAL_DIRECTORY -> readLocalDirectory(Path.of(source.getPath()), source.getName());
+                case LOCAL_FILE, UPLOAD_FILE -> readLocalFile(Path.of(source.getPath()), source.getName());
+                case LOCAL_DIRECTORY, UPLOAD_DIRECTORY -> readLocalDirectory(Path.of(source.getPath()), source.getName());
                 case SFTP -> readRemoteTail(sftpTailSource(source), source.getName(), basenameOf(source.getPath()));
                 case HTTP -> readRemoteTail(new HttpTailSource(URI.create(source.getPath())), source.getName(), basenameOf(source.getPath()));
             };
@@ -237,11 +220,11 @@ public class LogIngestionService {
     /** One fingerprint per file, keyed by the same file label toEntries() tags entries with. */
     private Map<String, TailSource.Fingerprint> fingerprintOf(LogSource source) throws IOException {
         return switch (source.getType()) {
-            case LOCAL_FILE -> {
+            case LOCAL_FILE, UPLOAD_FILE -> {
                 Path path = Path.of(source.getPath());
                 yield Map.of(path.getFileName().toString(), new LocalTailSource(path).probe());
             }
-            case LOCAL_DIRECTORY -> directoryFingerprints(Path.of(source.getPath()));
+            case LOCAL_DIRECTORY, UPLOAD_DIRECTORY -> directoryFingerprints(Path.of(source.getPath()));
             case SFTP -> Map.of(basenameOf(source.getPath()), sftpTailSource(source).probe());
             case HTTP -> Map.of(basenameOf(source.getPath()), new HttpTailSource(URI.create(source.getPath())).probe());
         };

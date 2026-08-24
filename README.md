@@ -126,17 +126,30 @@ selectable themes.
 
 ### Source management (Sources screen)
 
-- Register log sources of four types: a local file, a local directory (read
+- Register log sources of six types: a local file, a local directory (read
   non-recursively, capped to the 20 most recently modified files), an SFTP
-  remote path, or a plain HTTP(S) URL.
+  remote path, a plain HTTP(S) URL, or an uploaded file/directory from your
+  *browser's* machine (as opposed to every other type, which references a
+  path on the server the backend runs on, or a remote host).
+- **Upload file / Upload directory** — sends file(s) straight from your
+  browser to the server (`POST /api/sources/upload`, multipart), which stores
+  them under `UPLOADS_DIR` and reads them exactly like a local file/directory
+  source from then on. Because it's a one-time snapshot with nothing external
+  left to poll, uploaded sources have no **Live** toggle; use the shared
+  Reload action to re-read the same stored copy (e.g. after a parsing fix) —
+  not to pull in new content, since there is none to pull. Uploaded content
+  can't be replaced in place: delete the source and upload again to change
+  it. Directory uploads inherit the same non-recursive read as
+  `LOCAL_DIRECTORY` above, so files inside a nested subfolder are stored on
+  disk but not ingested — flatten the folder before uploading if you need
+  every file read.
 - **Browse…** — for a local file/directory source, a picker (backed by
   `GET /api/sources/browse`) lists the *server's* filesystem so the path can
   be navigated to rather than typed from memory; a directory source's picker
   only lets you select a folder, a file source's picker only lets you select
   a file. It browses the machine the backend runs on, not the browser's
   machine — the two are the same host in the common single-box/Docker
-  deployment, but not necessarily when frontend and backend are split (see
-  [Known simplifications](#known-simplifications-first-phase)).
+  deployment, but not necessarily when frontend and backend are split
 - Edit, delete, and test connectivity (`UNVERIFIED` / `REACHABLE` /
   `UNREACHABLE`) for any source.
 - **Enable / disable** a source — disabled sources are skipped by ingestion
@@ -174,10 +187,6 @@ bottom of the sidebar to cycle:
 | GANTRY | Bone white + safety orange, light |
 | ABYSSAL | Deep navy + neon cyan, dark |
 | RAVEN | Near-black + hot magenta, dark |
-
-The choice persists in `localStorage`. Fonts (Oxanium / Archivo / IBM Plex
-Mono) load from Google Fonts — see [Known
-simplifications](#known-simplifications-first-phase).
 
 ## Stack
 
@@ -241,6 +250,12 @@ Building the image directly (no compose) works the same way any Dockerfile
 does: `docker build -t logic .` then `docker run -p 8080:8080 -v
 logic-data:/app/data logic`.
 
+## Desktop
+
+A native Linux build (Tauri) is available for running Logic without Docker —
+it bundles the same backend jar with a trimmed JRE and shows the UI in a
+native window. See [`desktop/README.md`](desktop/README.md) for building it.
+
 ## Security
 
 Every API request requires HTTP Basic auth by default — there's no separate
@@ -272,82 +287,13 @@ Observability is configured the same way:
 | --- | --- | --- |
 | `APM_TRACE_URL_TEMPLATE` | *(unset)* | A URL template for the "Open in APM ↗" link (see [Search & Query](#search--query) above), e.g. `https://app.datadoghq.com/apm/trace/{traceId}`. The literal `{traceId}` is replaced with the correlation field's value. Leave unset to hide the link entirely. |
 
-See [Known simplifications](#known-simplifications-first-phase) below for
-what's deliberately still missing (per-user accounts, key-based SFTP auth,
-host key verification, etc.).
+Uploaded sources are configured the same way:
 
-## Known simplifications (first phase)
-
-- Auth is a single shared admin account (HTTP Basic, see
-  [Security](#security)) — no per-user accounts, roles, or audit log.
-- The Sources dialog's file/directory browse endpoint (`GET
-  /api/sources/browse`) isn't sandboxed to a configured root — it lists
-  whatever directory it's pointed at anywhere on the server's filesystem the
-  process can read. This adds no new capability beyond what a source's
-  `path` field already lets an admin name directly (see
-  `LocalFileConnectivityChecker`); it's a convenience for finding a path, not
-  a new trust boundary.
-- SFTP host key verification is disabled (accepts any host key) to simplify
-  connecting to ad-hoc dev servers.
-- Directories are read non-recursively and capped to the 20 most recently
-  modified files; there's no incremental/streaming tail (each read re-fetches
-  the trailing window), and SFTP opens a fresh connection per read rather
-  than pooling one.
-- Log line parsing is heuristic on both ends: the backend's
-  timestamp/level extraction (common timestamp formats, bracketed levels,
-  Apache/Combined access-log style, BSD/RFC-3164 syslog) and the frontend's
-  structured-format detection for the expanded row view (JSON, syslog,
-  access log, logfmt) are both pattern-based, not a full grok/schema engine
-  — neither recognizes every possible format, and CSV is not auto-detected.
-- Change detection for the "new data available" indicator relies on file
-  size/mtime (or an HTTP HEAD's `Content-Length`/`Last-Modified`), not a
-  content hash, and is itself throttled (~5s) so it doesn't hammer a remote
-  source on every poll.
-- The SPL and LogQL query languages are deliberately **scoped subsets**, not
-  full parity with real Splunk/Loki — see [Search &
-  Query](#search--query) above for exactly what each supports. Anything
-  outside that (subsearches, multi-stage pipelines, most LogQL/SPL
-  functions, etc.) isn't recognized.
-- Indexing is near-real-time, not instant: a source's content can take up to
-  `SEARCH_INDEX_INTERVAL_MS` (default 5s) to appear in query-bar/indexed
-  search results after it's read.
-- Aggregation results are capped (top 100 groups for `stats count by`/a
-  grouped numeric stat, up to 500 time buckets for `count_over_time`/`rate`/a
-  time-bucketed numeric stat, defaulting to a 24h window when no explicit
-  time range is given) rather than paginated — a query producing more
-  groups/buckets than that is silently truncated to the cap. A numeric-stats
-  query additionally samples at most 50,000 matching entries' values (reading
-  raw Lucene doc values isn't something the facet-based counting path used by
-  `stats count by` supports, so it's a separate, separately-capped code
-  path) — avg/min/max/sum/percentile are computed over that sample, not
-  necessarily every match.
-- The per-document ID used for idempotent reindexing is derived from
-  `source + file + sha256(timestamp + message)`; two genuinely
-  byte-identical log lines from the same file at the same timestamp are
-  disambiguated by their ordinal position within a single indexing batch,
-  not tracked globally across batches.
-- Search-index fingerprints (used to skip re-reading unchanged files) are
-  held in memory only, not persisted — a backend restart costs one redundant
-  (bounded, cheap) reindex pass per source rather than a correctness issue.
-- Saved Searches have no per-user ownership or ACL — the app has one shared
-  admin account today (see [Security](#security)), so "shareable" means a
-  stable `?savedSearch=<id>` link anyone with API access can open or delete,
-  not a private "my searches" list.
-- Anomaly alerting is a statistical baseline (mean + k·stddev of prior
-  windows), not ML-based anomaly detection.
-- Alert webhooks are the only incident-tool integration — no built-in
-  Slack/PagerDuty/OpsGenie templates (a generic signed-JSON webhook can feed
-  any of those via their own inbound-webhook support) and no
-  automated-remediation/playbook execution.
-- "Metrics", "tracing", and "APM" are all log-native, not independent
-  systems: numeric aggregation runs over structured fields already extracted
-  from log messages (no separate metrics ingestion/storage pipeline, e.g. a
-  Prometheus scrape or OTLP push, decoupled from log content); trace
-  correlation is an exact-match query over a shared ID-shaped field (no real
-  distributed-tracing data model — span ingestion, parent/child waterfalls, a
-  service dependency graph); and the APM link is a stateless URL template
-  (no per-vendor API integration pulling actual trace/span data). Each is a
-  reasonable next phase on its own.
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `UPLOADS_DIR` | `./data/uploads` | Where uploaded source files/directories are stored on disk after upload (see [Source management](#source-management-sources-screen) above). Rebuildable only in the sense that it holds the actual uploaded bytes — unlike the search index, deleting it loses the underlying content itself, not just a derived index. |
+| `UPLOAD_MAX_FILE_SIZE` | `100MB` | Max size of a single uploaded file. |
+| `UPLOAD_MAX_REQUEST_SIZE` | `500MB` | Max size of the whole upload request — matters most for a directory upload, which sends every file in one request. |
 
 These are flagged for hardening in a later phase (per-user auth,
 key-based SFTP auth, known-hosts verification, recursive/streaming

@@ -32,8 +32,11 @@ class LogSourceValidationTest {
     @Mock
     private SearchIndexService searchIndexService;
 
+    @Mock
+    private SourceUploadService uploadService;
+
     private LogSourceService service() {
-        return new LogSourceService(repository, ingestionService, searchIndexService, List.of());
+        return new LogSourceService(repository, ingestionService, searchIndexService, uploadService, List.of());
     }
 
     @Test
@@ -159,6 +162,19 @@ class LogSourceValidationTest {
     }
 
     @Test
+    void setLiveRejectsUploadSources() {
+        LogSource uploadFile = new LogSource(
+                "upload-log", SourceType.UPLOAD_FILE, "/data/uploads/abc/app.log", null, null, null, null);
+        when(repository.findById(1L)).thenReturn(Optional.of(uploadFile));
+
+        assertThatThrownBy(() -> service().setLive(1L, true))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Live mode");
+
+        verify(repository, never()).save(any());
+    }
+
+    @Test
     void listAllSurfacesChangedFilesPerSource() {
         LogSource stale = new LogSource("stale-source", SourceType.LOCAL_FILE, "/var/log/stale.log", null, null, null, null);
         LogSource fresh = new LogSource("fresh-source", SourceType.LOCAL_FILE, "/var/log/fresh.log", null, null, null, null);
@@ -196,5 +212,16 @@ class LogSourceValidationTest {
 
         verify(searchIndexService, never()).purgeSource(any());
         verify(repository, never()).deleteById(any());
+    }
+
+    @Test
+    void deleteCleansUpUploadStorageForUploadSources() {
+        LogSource existing = new LogSource(
+                "upload-log", SourceType.UPLOAD_FILE, "/data/uploads/abc/app.log", null, null, null, null);
+        when(repository.findById(1L)).thenReturn(Optional.of(existing));
+
+        service().delete(1L);
+
+        verify(uploadService).deleteStorage(existing);
     }
 }

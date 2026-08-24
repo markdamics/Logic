@@ -1,0 +1,11 @@
+{
+  "name": "logic-desktop",
+  "private": true,
+  "version": "0.6.0",
+  "scripts": {
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

@@ -1,0 +1,17 @@
+[package]
+name = "logic-desktop"
+version = "0.6.0"
+description = "Desktop wrapper for Logic (log analyzer) - launches the bundled Spring Boot backend and shows its UI in a native window"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[[bin]]
+name = "logic-desktop"
+path = "src/main.rs"

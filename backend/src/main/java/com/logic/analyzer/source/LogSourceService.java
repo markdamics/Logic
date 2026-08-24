@@ -23,13 +23,16 @@ public class LogSourceService {
     private final LogSourceRepository repository;
     private final LogIngestionService ingestionService;
     private final SearchIndexService searchIndexService;
+    private final SourceUploadService uploadService;
     private final Map<SourceType, SourceConnectivityChecker> checkersByType;
 
     public LogSourceService(LogSourceRepository repository, LogIngestionService ingestionService,
-                             SearchIndexService searchIndexService, List<SourceConnectivityChecker> checkers) {
+                             SearchIndexService searchIndexService, SourceUploadService uploadService,
+                             List<SourceConnectivityChecker> checkers) {
         this.repository = repository;
         this.ingestionService = ingestionService;
         this.searchIndexService = searchIndexService;
+        this.uploadService = uploadService;
         this.checkersByType = new EnumMap<>(SourceType.class);
         for (SourceConnectivityChecker checker : checkers) {
             for (SourceType type : checker.supports()) {
@@ -89,6 +92,9 @@ public class LogSourceService {
 
     public LogSourceResponse setLive(Long id, boolean live) {
         LogSource source = repository.findById(id).orElseThrow(() -> new SourceNotFoundException(id));
+        if (live && (source.getType() == SourceType.UPLOAD_FILE || source.getType() == SourceType.UPLOAD_DIRECTORY)) {
+            throw new IllegalArgumentException("Live mode is not supported for uploaded sources");
+        }
         source.setLive(live);
         LogSource saved = repository.save(source);
         log.info("Marked source {} ('{}') as {}", id, saved.getName(), live ? "live" : "not live");
@@ -99,6 +105,7 @@ public class LogSourceService {
         LogSource source = repository.findById(id).orElseThrow(() -> new SourceNotFoundException(id));
         repository.deleteById(id);
         searchIndexService.purgeSource(source);
+        uploadService.deleteStorage(source);
         log.info("Deleted source {}", id);
     }
 
@@ -124,7 +131,7 @@ public class LogSourceService {
 
     private void validateTypeSpecificFields(LogSourceCreateRequest request) {
         switch (request.type()) {
-            case LOCAL_FILE, LOCAL_DIRECTORY -> requireNonBlank(request.path(), "path");
+            case LOCAL_FILE, LOCAL_DIRECTORY, UPLOAD_FILE, UPLOAD_DIRECTORY -> requireNonBlank(request.path(), "path");
             case SFTP -> {
                 requireNonBlank(request.host(), "host");
                 requireNonBlank(request.username(), "username");
