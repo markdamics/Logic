@@ -13,7 +13,7 @@
 
     <groupId>com.logic</groupId>
     <artifactId>log-analyzer-backend</artifactId>
-    <version>0.6.0</version>
+    <version>0.8.0</version>
     <name>log-analyzer-backend</name>
     <description>Log Analyzer backend - Spring Boot API for registering and testing log sources</description>
 
