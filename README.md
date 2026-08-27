@@ -40,7 +40,7 @@ selectable themes.
   above the table when a non-live source has changed, with a one-click
   Reload.
 
-  ![log stream dark](/Screenshots/logstream_dark_1.png)
+  ![log stream dark](/Screenshots/log_stream_20260827_105928.png)
 
 ### Search & Query
 
@@ -85,9 +85,7 @@ selectable themes.
   string (Lucene/SPL/LogQL mode, including its language and aggregation) under
   a name, shown as chips next to the filter bar. Click a saved search to
   re-run it, or use its link icon to copy a `?savedSearch=<id>` URL that
-  reopens straight into that saved search's filters and results — the
-  sharing model is a stable link, not a per-user "my searches" list (see
-  [Known simplifications](#known-simplifications-first-phase)).
+  reopens straight into that saved search's filters and results
 
 ### Alerting
 
@@ -122,7 +120,7 @@ selectable themes.
 - Recent issues feed (latest errors & warnings across all sources).
 - Same live auto-refresh and "new data available" banner as the Log Stream.
 
-  ![dashboard dark](/Screenshots/dashboard_dark_1.png)
+  ![dashboard dark](/Screenshots/dashboard_20260827_105957.png)
 
 ### Source management (Sources screen)
 
@@ -166,7 +164,7 @@ selectable themes.
   inside a directory source), prompting a reload rather than silently going
   stale.
 
-  ![log source dark 1](/Screenshots/sources_dark_1.png)
+  ![log source dark 1](/Screenshots/sources_20260827_105902.png)
 
 ### Shared Reload action
 
