@@ -144,4 +144,52 @@ class SearchIndexServiceTest {
 
         assertThat(totalIndexedDocs()).isEqualTo(1);
     }
+
+    @Test
+    void aFileEmptiedOutCompletelyStillHasItsStaleDocumentsPurged() throws Exception {
+        // Every line in the file got deleted - readForIndexing() now returns zero entries
+        // for it, even though the file still exists on disk (still has a fingerprint).
+        // entriesByFile grouping alone would never visit this file again to purge it.
+        Instant now = Instant.now();
+        when(ingestionService.readForIndexing(testSource)).thenReturn(readOf(500,
+                new LogEntry(1, now, LogLevel.INFO, "events", "app.log", "line one"),
+                new LogEntry(2, now, LogLevel.INFO, "events", "app.log", "line two")));
+
+        service.reindexAll();
+        assertThat(totalIndexedDocs()).isEqualTo(2);
+
+        when(ingestionService.readForIndexing(testSource)).thenReturn(
+                new LogIngestionService.IndexableSourceRead(
+                        List.of(), Map.of("app.log", new TailSource.Fingerprint(0, Instant.now()))));
+
+        service.reindexAll();
+
+        assertThat(totalIndexedDocs()).isEqualTo(0);
+    }
+
+    @Test
+    void aFileDeletedEntirelyFromADirectorySourceStillHasItsStaleDocumentsPurged() throws Exception {
+        // The file is gone from disk entirely (removed from a LOCAL_DIRECTORY source with
+        // other files still present) - it no longer appears in fingerprintsByFile either,
+        // so only the "previously indexed" tracking can catch this one.
+        Instant now = Instant.now();
+        when(ingestionService.readForIndexing(testSource)).thenReturn(new LogIngestionService.IndexableSourceRead(
+                List.of(
+                        new LogEntry(1, now, LogLevel.INFO, "events", "gone.log", "will be deleted"),
+                        new LogEntry(2, now, LogLevel.INFO, "events", "stays.log", "sticks around")),
+                Map.of(
+                        "gone.log", new TailSource.Fingerprint(100, now),
+                        "stays.log", new TailSource.Fingerprint(200, now))));
+
+        service.reindexAll();
+        assertThat(totalIndexedDocs()).isEqualTo(2);
+
+        when(ingestionService.readForIndexing(testSource)).thenReturn(new LogIngestionService.IndexableSourceRead(
+                List.of(new LogEntry(2, now, LogLevel.INFO, "events", "stays.log", "sticks around")),
+                Map.of("stays.log", new TailSource.Fingerprint(200, now))));
+
+        service.reindexAll();
+
+        assertThat(totalIndexedDocs()).isEqualTo(1);
+    }
 }

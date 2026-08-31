@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { fetchLogs, listLogFiles, queryLogs } from "../api/client";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { fetchLogs, listLogFiles, logStreamUrl, queryLogs } from "../api/client";
 import type {
   CreateSavedSearchRequest,
   LogAggregationResult,
@@ -34,7 +35,14 @@ const LEVELS: LogLevel[] = ["ERROR", "WARN", "INFO", "DEBUG"];
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 const DEFAULT_PAGE_SIZE = PAGE_SIZE_OPTIONS[0];
 const SEARCH_DEBOUNCE_MS = 300;
-const LIVE_POLL_INTERVAL_MS = 3000;
+const SSE_RECONNECT_BASE_MS = 1000;
+const SSE_RECONNECT_MAX_MS = 15000;
+// Cap on the in-memory live-tail buffer while streaming (mode=simple, sorted
+// newest-first, page 0) - past this, oldest rows are evicted so a long-running
+// live session doesn't grow memory unbounded. Doesn't apply to paginated/query
+// views, which are already bounded by pageSize.
+const LIVE_BUFFER_MAX = 5000;
+const ROW_ESTIMATED_HEIGHT = 34;
 
 const TIME_RANGES: { value: string; label: string; minutes: number }[] = [
   { value: "15m", label: "Last 15 min", minutes: 15 },
@@ -94,7 +102,7 @@ export function LogStream({
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [liveTick, setLiveTick] = useState(0);
-  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   const [data, setData] = useState<LogQueryResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -109,6 +117,36 @@ export function LogStream({
   const appliedSavedSearchFromUrl = useRef(false);
   const appConfig = useAppConfig();
 
+  const rows = data?.content ?? [];
+
+  // Neither LogEntry.id (a fresh per-query counter, colliding across the initial
+  // fetch and every SSE push) nor entry content (genuinely duplicate log lines are
+  // real - two identical requests hitting the same endpoint in the same second, say)
+  // can be trusted as a unique React key. Assign a synthetic key the first time each
+  // entry *object* is seen and remember it by identity for as long as that same
+  // object stays in the buffer - guaranteed unique regardless of duplicate content,
+  // and stable across re-renders so the virtualizer's row-height cache still tracks
+  // the right row when a live-tail prepend shifts everything else's index.
+  const entryKeysRef = useRef(new WeakMap<LogEntry, string>());
+  const nextRowKeyRef = useRef(0);
+  const rowKeyOf = (entry: LogEntry): string => {
+    let key = entryKeysRef.current.get(entry);
+    if (key === undefined) {
+      key = `row-${nextRowKeyRef.current++}`;
+      entryKeysRef.current.set(entry, key);
+    }
+    return key;
+  };
+
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const rowVirtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => tableScrollRef.current,
+    estimateSize: () => ROW_ESTIMATED_HEIGHT,
+    overscan: 10,
+    getItemKey: (index) => rowKeyOf(rows[index]),
+  });
+
   const sourceNames = useMemo(
     () => Array.from(new Set(sources.filter((s) => s.enabled).map((s) => s.name))).sort(),
     [sources],
@@ -117,14 +155,94 @@ export function LogStream({
   const hasLiveSource = sources.some((s) => s.enabled && s.live);
   const sourcesWithUpdates = sources.filter((s) => s.changedFiles.length > 0);
 
-  // While any source is live, keep polling so the table updates on its own.
+  const viewStateRef = useRef({ sortColumn, sortDirection, page, pageSize });
+  useEffect(() => {
+    viewStateRef.current = { sortColumn, sortDirection, page, pageSize };
+  }, [sortColumn, sortDirection, page, pageSize]);
+
   useEffect(() => {
     if (!hasLiveSource) {
       return;
     }
-    const timer = setInterval(() => setLiveTick((t) => t + 1), LIVE_POLL_INTERVAL_MS);
-    return () => clearInterval(timer);
-  }, [hasLiveSource]);
+
+    let cancelled = false;
+    let source: EventSource | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let backoffMs = SSE_RECONNECT_BASE_MS;
+
+    const url = logStreamUrl({
+      search: mode === "simple" ? debouncedSearch || undefined : undefined,
+      levels: mode === "simple" && severities.size > 0 ? Array.from(severities) : undefined,
+      source: sourceFilter || undefined,
+      file: fileFilter || undefined,
+    });
+
+    const connect = () => {
+      if (cancelled) return;
+      logger.debug("SSE connecting", url);
+      source = new EventSource(url);
+
+      source.onopen = () => {
+        logger.debug("SSE connected", url);
+        backoffMs = SSE_RECONNECT_BASE_MS;
+      };
+
+      source.addEventListener("logs", (event) => {
+        logger.debug("SSE logs event received", (event as MessageEvent).data);
+        let newEntries: LogEntry[];
+        try {
+          newEntries = JSON.parse((event as MessageEvent).data);
+        } catch (e) {
+          logger.warn("Failed to parse SSE log-stream payload", e);
+          return;
+        }
+        if (!newEntries || newEntries.length === 0) return;
+
+        const { sortColumn: col, sortDirection: dir, page: currentPage, pageSize: size } = viewStateRef.current;
+        const isNaturalLiveView = mode === "simple" && col === "time" && dir === "desc" && currentPage === 0;
+        logger.debug("SSE logs event applying", { count: newEntries.length, isNaturalLiveView, mode, col, dir, currentPage });
+
+        if (isNaturalLiveView) {
+          setData((prev) => {
+            if (!prev || prev.aggregation) return prev;
+            const content = [...newEntries, ...prev.content].slice(0, LIVE_BUFFER_MAX);
+            const totalElements = prev.totalElements + newEntries.length;
+            const totalPages = Math.max(1, Math.ceil(totalElements / (prev.size || size)));
+            return { ...prev, content, totalElements, totalPages };
+          });
+        } else {
+          setLiveTick((t) => t + 1);
+        }
+      });
+
+      // The server can't tell us *which* buffered rows are now stale when a line gets
+      // edited/deleted out from under a tailed file (or the file gets rewritten), only
+      // that it happened - so there's nothing to splice here. Force a real refetch
+      // instead, same as any other liveTick-driven refresh, which naturally resets the
+      // live buffer back to whatever the query actually returns now.
+      source.addEventListener("resync", () => {
+        logger.debug("SSE resync event received - forcing refetch");
+        setLiveTick((t) => t + 1);
+      });
+
+      source.onerror = () => {
+        logger.warn("SSE connection error, readyState=", source?.readyState, "reconnecting in", backoffMs, "ms");
+        source?.close();
+        if (cancelled) return;
+        reconnectTimer = setTimeout(connect, backoffMs);
+        backoffMs = Math.min(backoffMs * 2, SSE_RECONNECT_MAX_MS);
+      };
+    };
+
+    connect();
+
+    return () => {
+      logger.debug("SSE effect cleanup - closing connection", url);
+      cancelled = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      source?.close();
+    };
+  }, [hasLiveSource, mode, debouncedSearch, severities, sourceFilter, fileFilter]);
 
   // Refresh the file-filter dropdown whenever the source scope changes, and
   // drop any file selection that's no longer valid for the new scope.
@@ -439,13 +557,13 @@ export function LogStream({
     setPage(0);
   };
 
-  const toggleExpand = (id: number) => {
+  const toggleExpand = (key: string) => {
     setExpandedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
+      if (next.has(key)) {
+        next.delete(key);
       } else {
-        next.add(id);
+        next.add(key);
       }
       return next;
     });
@@ -459,9 +577,9 @@ export function LogStream({
     );
   }
 
-  const rows = data?.content ?? [];
   const totalPages = Math.max(1, data?.totalPages ?? 1);
   const currentPage = data?.page ?? page;
+  const isLiveBuffered = mode === "simple" && sortColumn === "time" && sortDirection === "desc" && page === 0 && hasLiveSource;
 
   return (
     <div className="log-stream">
@@ -664,92 +782,97 @@ export function LogStream({
       ) : (
         <>
           <div className="log-table-wrapper">
-            <table className="log-table entries-table">
-              <colgroup>
-                <col style={{ width: "110px" }} />
-                <col style={{ width: "110px" }} />
-                <col style={{ width: "90px" }} />
-                <col style={{ width: "160px" }} />
-                <col style={{ width: "auto" }} />
-              </colgroup>
-              <thead>
-                <tr>
-                  <th onClick={() => toggleSort("time")}>Date {sortArrow("time")}</th>
-                  <th onClick={() => toggleSort("time")}>Time {sortArrow("time")}</th>
-                  <th onClick={() => toggleSort("level")}>Level {sortArrow("level")}</th>
-                  <th onClick={() => toggleSort("file")}>File {sortArrow("file")}</th>
-                  <th>Message</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((entry) => {
-                  const isExpanded = expandedIds.has(entry.id);
-                  return (
-                    <LogRow
-                      key={entry.id}
-                      entry={entry}
-                      isExpanded={isExpanded}
-                      onToggle={toggleExpand}
-                      onCorrelate={handleCorrelate}
-                      apmTraceUrlTemplate={appConfig?.apmTraceUrlTemplate ?? null}
-                    />
-                  );
-                })}
-                {!loading && rows.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="log-empty">
-                      No log entries match the current filters.
-                    </td>
-                  </tr>
-                )}
-                {loading && (
-                  <tr>
-                    <td colSpan={5} className="log-empty">
-                      Loading…
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="log-pagination">
-            <label className="log-page-size">
-              <span className="text-muted">Rows per page</span>
-              <select
-                className="input"
-                value={pageSize}
-                onChange={(e) => handlePageSizeChange(Number(e.target.value))}
-              >
-                {PAGE_SIZE_OPTIONS.map((size) => (
-                  <option key={size} value={size}>
-                    {size}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="log-pagination-nav">
-              <button
-                type="button"
-                className="btn btn-secondary btn-small"
-                disabled={currentPage <= 0}
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-              >
-                Prev
-              </button>
-              <span className="text-muted">
-                Page {currentPage + 1} of {totalPages}
-              </span>
-              <button
-                type="button"
-                className="btn btn-secondary btn-small"
-                disabled={currentPage + 1 >= totalPages}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                Next
-              </button>
+            <div className="logstream-scroll" ref={tableScrollRef} role="table" aria-rowcount={rows.length}>
+              <div className="logstream-columns logstream-head" role="row">
+                <div role="columnheader" onClick={() => toggleSort("time")}>Date {sortArrow("time")}</div>
+                <div role="columnheader" onClick={() => toggleSort("time")}>Time {sortArrow("time")}</div>
+                <div role="columnheader" onClick={() => toggleSort("level")}>Level {sortArrow("level")}</div>
+                <div role="columnheader" onClick={() => toggleSort("file")}>File {sortArrow("file")}</div>
+                <div role="columnheader">Message</div>
+              </div>
+              {rows.length === 0 ? (
+                <div className="log-empty">{loading ? "Loading…" : "No log entries match the current filters."}</div>
+              ) : (
+                <div style={{ height: rowVirtualizer.getTotalSize(), position: "relative" }} role="rowgroup">
+                  {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                    const entry = rows[virtualRow.index];
+                    const key = rowKeyOf(entry);
+                    const isExpanded = expandedIds.has(key);
+                    return (
+                      <div
+                        key={key}
+                        data-index={virtualRow.index}
+                        ref={rowVirtualizer.measureElement}
+                        style={{
+                          position: "absolute",
+                          top: 0,
+                          left: 0,
+                          width: "100%",
+                          transform: `translateY(${virtualRow.start}px)`,
+                        }}
+                      >
+                        <LogRow
+                          entry={entry}
+                          rowKey={key}
+                          isExpanded={isExpanded}
+                          onToggle={toggleExpand}
+                          onCorrelate={handleCorrelate}
+                          apmTraceUrlTemplate={appConfig?.apmTraceUrlTemplate ?? null}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
+
+          {isLiveBuffered ? (
+            <div className="log-pagination">
+              <span className="live-buffer-status text-muted">
+                Live buffer: {rows.length.toLocaleString()} / {LIVE_BUFFER_MAX.toLocaleString()} rows
+                {rows.length >= LIVE_BUFFER_MAX ? " (oldest rows evicting as new ones arrive)" : ""}
+              </span>
+            </div>
+          ) : (
+            <div className="log-pagination">
+              <label className="log-page-size">
+                <span className="text-muted">Rows per page</span>
+                <select
+                  className="input"
+                  value={pageSize}
+                  onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+                >
+                  {PAGE_SIZE_OPTIONS.map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="log-pagination-nav">
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-small"
+                  disabled={currentPage <= 0}
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                >
+                  Prev
+                </button>
+                <span className="text-muted">
+                  Page {currentPage + 1} of {totalPages}
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-small"
+                  disabled={currentPage + 1 >= totalPages}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
@@ -758,39 +881,39 @@ export function LogStream({
 
 interface LogRowProps {
   entry: LogEntry;
+  rowKey: string;
   isExpanded: boolean;
-  onToggle: (id: number) => void;
+  onToggle: (key: string) => void;
   onCorrelate: (fieldName: string, value: string) => void;
   apmTraceUrlTemplate: string | null;
 }
 
-function LogRow({ entry, isExpanded, onToggle, onCorrelate, apmTraceUrlTemplate }: LogRowProps) {
+function LogRow({ entry, rowKey, isExpanded, onToggle, onCorrelate, apmTraceUrlTemplate }: LogRowProps) {
   return (
-    <>
-      <tr
-        className={`log-row${isExpanded ? " expanded" : ""}`}
-        onClick={() => onToggle(entry.id)}
+    <div>
+      <div
+        className={`logstream-columns logstream-row log-row${isExpanded ? " expanded" : ""}`}
+        role="row"
+        onClick={() => onToggle(rowKey)}
         aria-expanded={isExpanded}
       >
-        <td className="log-date">{new Date(entry.timestamp).toLocaleDateString()}</td>
-        <td className="log-time">{new Date(entry.timestamp).toLocaleTimeString()}</td>
-        <td>
+        <div className="log-date" role="cell">{new Date(entry.timestamp).toLocaleDateString()}</div>
+        <div className="log-time" role="cell">{new Date(entry.timestamp).toLocaleTimeString()}</div>
+        <div role="cell">
           <span className={`level-chip level-${entry.level.toLowerCase()}`}>{entry.level}</span>
-        </td>
-        <td className="log-file">{entry.file ?? "—"}</td>
-        <td className="log-message log-message-truncated">
+        </div>
+        <div className="log-file" role="cell">{entry.file ?? "—"}</div>
+        <div className="log-message log-message-truncated" role="cell">
           <span className="log-expand-chevron">▸</span>
           {entry.message}
-        </td>
-      </tr>
+        </div>
+      </div>
       {isExpanded && (
-        <tr className="log-detail-row">
-          <td colSpan={5}>
-            <LogEntryDetail message={entry.message} onCorrelate={onCorrelate} apmTraceUrlTemplate={apmTraceUrlTemplate} />
-          </td>
-        </tr>
+        <div className="log-detail-row" role="row">
+          <LogEntryDetail message={entry.message} onCorrelate={onCorrelate} apmTraceUrlTemplate={apmTraceUrlTemplate} />
+        </div>
       )}
-    </>
+    </div>
   );
 }
 

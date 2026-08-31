@@ -25,6 +25,12 @@ app:
   alerts:
     # How often (ms) every alert rule is re-evaluated against the search index.
     evaluation-interval-ms: ${ALERT_EVALUATION_INTERVAL_MS:30000}
+  logstream:
+    # How often (ms) each open live-tail (SSE) connection is checked for new
+    # matching entries. Independent of search.index-interval-ms - the SSE
+    # poll can run tighter than the index refresh, but freshness is still
+    # bounded by however often the index itself was last updated.
+    sse-poll-interval-ms: ${LOGSTREAM_SSE_POLL_INTERVAL_MS:1000}
   apm:
     # Optional deep-link template for an external APM/tracing tool - {traceId}
     # is substituted with a correlated field's value (see LogStream's

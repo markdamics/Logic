@@ -34,8 +34,19 @@ selectable themes.
   (all errors, errors & warnings, clear).
 - Sortable columns (time, level, source, file), configurable rows per page
   (10/25/50/100), and backend-side pagination.
-- Auto-refreshes on its own while any live source is in scope; shows a "●
-  LIVE" indicator when doing so.
+- **Live tail (push-based)** — while any live source is in scope (shown by a
+  "● LIVE" indicator), the table updates itself over a server-sent-events
+  stream (`GET /api/logs/stream`) instead of polling on a timer: the server
+  watches for new matching entries and pushes only genuine new arrivals,
+  typically within a few seconds. In the default view (Simple mode, sorted by
+  time descending, first page), new rows are appended directly to a
+  virtualized, capped in-memory buffer (5,000 rows, oldest evicted first) so
+  a long-running session stays smooth without ever refetching the whole
+  result set; a line getting edited or deleted out from under a tailed file
+  triggers a full resync instead of trying to patch around it. Any other view
+  (query mode, a different page/sort) still refreshes automatically, just via
+  a normal refetch rather than a live splice. The connection reconnects with
+  backoff if the server restarts or the network drops.
 - A "new data available" banner (naming the exact file and source) appears
   above the table when a non-live source has changed, with a one-click
   Reload.
@@ -157,8 +168,9 @@ selectable themes.
   everything straight back (no re-ingest wait), unlike removing a source
   entirely, which does purge its indexed data.
 - **Live** toggle — live sources are re-read continuously (~2s) so the Log
-  Stream and Dashboard update on their own; non-live sources are read once and
-  frozen as a fixed snapshot until reloaded.
+  Stream (via push, see [Log Stream](#log-stream) above) and Dashboard (via
+  polling) update on their own; non-live sources are read once and frozen as
+  a fixed snapshot until reloaded.
 - **New data available** indicator — a non-live source whose underlying
   file(s) have changed since it was last read is flagged (per file, even
   inside a directory source), prompting a reload rather than silently going
@@ -278,6 +290,12 @@ The search index is configured the same way:
 | `SEARCH_INDEX_INTERVAL_MS` | `5000` | How often enabled sources are re-scanned and reindexed in the background, independent of the Log Stream's live/non-live cache. |
 | `SEARCH_INDEX_RETENTION_DAYS` | `30` | Max age (days) an indexed entry is kept before the retention sweep purges it; `0` means unlimited. |
 | `SEARCH_INDEX_PURGE_INTERVAL_MS` | `3600000` | How often the retention sweep runs. |
+
+The Log Stream's live-tail push is configured the same way:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `LOGSTREAM_SSE_POLL_INTERVAL_MS` | `1000` | How often each open live-tail connection (`GET /api/logs/stream`) is checked for new matching entries. Independent of `SEARCH_INDEX_INTERVAL_MS` — a tighter SSE poll can't surface anything the index hasn't picked up yet, so end-to-end freshness is bounded by whichever of the two is slower. |
 
 Observability is configured the same way:
 

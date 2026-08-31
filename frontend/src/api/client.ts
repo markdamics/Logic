@@ -8,6 +8,7 @@ import type {
   CreateSourceRequest,
   DashboardSummary,
   DirectoryListing,
+  LogLevel,
   LogQueryLanguageParams,
   LogQueryParams,
   LogQueryResult,
@@ -135,6 +136,16 @@ export function queryLogs(params: LogQueryLanguageParams): Promise<LogQueryResul
   if (params.size !== undefined) query.set("size", String(params.size));
 
   return request<LogQueryResult>(`/logs/query?${query.toString()}`);
+}
+
+/** URL for the push-based live-tail SSE stream, filtered the same way GET /logs is. */
+export function logStreamUrl(params: { search?: string; levels?: LogLevel[]; source?: string; file?: string }): string {
+  const query = new URLSearchParams();
+  if (params.search) query.set("search", params.search);
+  if (params.levels && params.levels.length > 0) query.set("level", params.levels.join(","));
+  if (params.source) query.set("source", params.source);
+  if (params.file) query.set("file", params.file);
+  return `/api/logs/stream?${query.toString()}`;
 }
 
 export function listLogFiles(source?: string): Promise<string[]> {

@@ -25,8 +25,10 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -128,20 +130,42 @@ public class SearchIndexService {
         Map<String, List<LogEntry>> entriesByFile = read.entries().stream()
                 .collect(Collectors.groupingBy(e -> e.file() == null ? "" : e.file(), LinkedHashMap::new, Collectors.toList()));
 
+        // A file that emptied out (every line deleted) or was removed from disk entirely
+        // now contributes zero LogEntry rows, so it would never appear as a key in
+        // entriesByFile above - and without a key there, the loop below would never visit
+        // it again to purge its now-stale indexed documents. Union in every file this
+        // source still has on disk (from fingerprintsByFile, covers "emptied but still
+        // exists") and every file this source has ever indexed before (covers "removed
+        // from disk entirely") so both cases still get visited and cleaned up.
+        Set<String> filesToCheck = new LinkedHashSet<>(entriesByFile.keySet());
+        filesToCheck.addAll(read.fingerprintsByFile().keySet());
+        filesToCheck.addAll(previouslyIndexedFiles(source));
+
         int indexed = 0;
-        for (Map.Entry<String, List<LogEntry>> fileEntries : entriesByFile.entrySet()) {
-            String fingerprintKey = source.getId() + ":" + fileEntries.getKey();
-            TailSource.Fingerprint currentFingerprint = read.fingerprintsByFile().get(fileEntries.getKey());
+        for (String file : filesToCheck) {
+            String fingerprintKey = source.getId() + ":" + file;
+            TailSource.Fingerprint currentFingerprint = read.fingerprintsByFile().get(file);
             if (currentFingerprint != null && currentFingerprint.equals(lastIndexedFingerprint.get(fingerprintKey))) {
                 continue; // unchanged since the last successful index pass - nothing to do
             }
-            indexEntries(source, fileEntries.getKey(), fileEntries.getValue());
+            indexEntries(source, file, entriesByFile.getOrDefault(file, List.of()));
             indexed++;
             if (currentFingerprint != null) {
                 lastIndexedFingerprint.put(fingerprintKey, currentFingerprint);
+            } else {
+                lastIndexedFingerprint.remove(fingerprintKey);
             }
         }
         return indexed;
+    }
+
+    /** Files this source has indexed before, per the fingerprint tracking map - used to notice one disappearing entirely. */
+    private Set<String> previouslyIndexedFiles(LogSource source) {
+        String prefix = source.getId() + ":";
+        return lastIndexedFingerprint.keySet().stream()
+                .filter(key -> key.startsWith(prefix))
+                .map(key -> key.substring(prefix.length()))
+                .collect(Collectors.toSet());
     }
 
     /**

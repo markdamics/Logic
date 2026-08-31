@@ -1223,6 +1223,67 @@ select.input {
   white-space: pre-line; /* preserve real line breaks in multi-line stack traces */
 }
 
+/* Virtualized log stream table (LogStream.tsx). Div/grid based rather than a
+   real <table> so rows can be absolutely positioned by @tanstack/react-virtual;
+   header lives inside the same scroll container (sticky) so its columns stay
+   pixel-aligned with the body without needing to account for scrollbar width
+   separately. */
+.logstream-scroll {
+  overflow-y: auto;
+}
+
+.logstream-columns {
+  display: grid;
+  grid-template-columns: 110px 110px 90px 160px minmax(0, 1fr);
+}
+
+.logstream-columns > [role="cell"],
+.logstream-columns > [role="columnheader"] {
+  padding: var(--space-2) var(--space-4);
+  overflow: hidden;
+}
+
+.logstream-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--color-surface-card);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.logstream-head > [role="columnheader"] {
+  cursor: pointer;
+  user-select: none;
+  color: var(--color-text-muted);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+.logstream-head > [role="columnheader"]:hover {
+  color: var(--color-primary);
+}
+
+.logstream-row {
+  align-items: center;
+  font-size: 13px;
+  border-bottom: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.logstream-row.expanded {
+  background: var(--color-surface-raised);
+  box-shadow: inset 3px 0 0 var(--color-primary);
+  border-bottom-color: transparent;
+}
+
+.logstream-row:hover {
+  background: var(--color-surface-raised);
+}
+
 .entries-table {
   table-layout: fixed;
 }
@@ -1242,8 +1303,7 @@ select.input {
 }
 
 .log-message-truncated {
-  max-width: 0; /* forces ellipsis truncation within a fixed-layout table cell */
-  width: 100%;
+  min-width: 0; /* lets the grid item shrink below its content's intrinsic width so ellipsis truncation applies */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1269,7 +1329,8 @@ select.input {
   transform: rotate(90deg);
 }
 
-.log-detail-row td {
+.log-detail-row td,
+.log-detail-row {
   padding: var(--space-1) var(--space-4) var(--space-4);
   background: var(--color-surface-raised);
   border-bottom: 1px solid var(--color-border);
