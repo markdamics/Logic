@@ -1566,3 +1566,91 @@ select.input {
   font-size: 13px;
   background-position: right var(--space-2) center;
 }
+
+.rate-histogram {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-card);
+  padding: var(--space-3) var(--space-4) var(--space-2);
+}
+
+.rate-histogram-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-2);
+}
+
+.rate-histogram-legend {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-right: auto;
+}
+
+.rate-histogram-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: var(--tr-caps);
+  color: var(--color-text-muted);
+}
+
+.rate-histogram-legend-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-xs);
+}
+
+.rate-histogram-legend-item.level-error .rate-histogram-legend-swatch { background: var(--color-error); }
+.rate-histogram-legend-item.level-warn .rate-histogram-legend-swatch { background: var(--color-warning); }
+.rate-histogram-legend-item.level-info .rate-histogram-legend-swatch { background: var(--color-primary); }
+.rate-histogram-legend-item.level-debug .rate-histogram-legend-swatch { background: var(--color-text-muted); }
+
+.rate-histogram-window {
+  width: auto;
+  padding: var(--space-1) var(--space-2);
+  padding-right: calc(var(--space-2) * 2 + 10px);
+  font-size: 12px;
+  background-position: right var(--space-2) center;
+}
+
+.rate-histogram-canvas-wrap {
+  position: relative;
+}
+
+.rate-histogram-canvas-wrap canvas {
+  display: block;
+  width: 100%;
+  cursor: crosshair;
+}
+
+.rate-histogram-tooltip {
+  position: absolute;
+  margin-top: -8px;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+  font-size: 11px;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: var(--shadow-md);
+  z-index: 1;
+}
+
+.rate-histogram-tooltip-center { transform: translate(-50%, -100%); }
+.rate-histogram-tooltip-left { transform: translate(0, -100%); }
+.rate-histogram-tooltip-right { transform: translate(-100%, -100%); }
+
+.rate-histogram-tooltip-time {
+  color: var(--color-text-muted);
+  margin-bottom: 2px;
+}
+
+.rate-histogram-tooltip-row.level-error { color: var(--color-error); }
+.rate-histogram-tooltip-row.level-warn { color: var(--color-warning); }
+.rate-histogram-tooltip-row.level-info { color: var(--color-primary); }
+.rate-histogram-tooltip-row.level-debug { color: var(--color-text-muted); }

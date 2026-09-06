@@ -124,7 +124,9 @@ selectable themes.
 ### Dashboard
 
 - Stat cards: total/enabled/disabled sources, reachable sources, log entries,
-  errors, and warnings (last 24h).
+  errors, and warnings (last 24h), plus the search index's on-disk size and
+  the oldest entry it still retains (see `SEARCH_INDEX_RETENTION_DAYS` under
+  [Security](#security) below for the retention window that bounds it).
 - "Errors by file" bar chart (top files by error count, last 24h).
 - Source activity table (entries/errors per source, live/enabled/status
   badges).

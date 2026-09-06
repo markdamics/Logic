@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { fetchDashboardSummary } from "../api/client";
 import type { DashboardSummary, LogSource } from "../api/types";
 import { formatRelativeTime } from "../utils/time";
+import { formatBytes } from "../utils/format";
 import { createLogger } from "../utils/logger";
 import { updateMessageFor } from "../utils/source";
 import { BarChart } from "./BarChart";
@@ -132,6 +133,17 @@ export function Dashboard({ sources, reloadSignal, onReload }: DashboardProps) {
             {summary.enabledSources} / {summary.totalSources}
           </div>
           <div className="stat-card-sub">{summary.disabledSources} disabled</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-card-label">Search index size</div>
+          <div className="stat-card-value">{formatBytes(summary.searchIndexSizeBytes)}</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-card-label">Oldest retained entry</div>
+          <div className="stat-card-value">
+            {summary.oldestRetainedEntryAt ? formatRelativeTime(summary.oldestRetainedEntryAt) : "—"}
+          </div>
+          {!summary.oldestRetainedEntryAt && <div className="stat-card-sub">No entries indexed yet</div>}
         </div>
       </div>
 

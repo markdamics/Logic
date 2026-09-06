@@ -2,6 +2,7 @@ package com.logic.analyzer.dashboard;
 
 import com.logic.analyzer.logstream.LogEntry;
 
+import java.time.Instant;
 import java.util.List;
 
 public record DashboardSummary(
@@ -16,6 +17,9 @@ public record DashboardSummary(
         long warningsLast24h,
         List<LogEntry> recentIssues,
         List<SourceActivity> sourceActivity,
-        List<FileActivity> fileActivity
+        List<FileActivity> fileActivity,
+        long searchIndexSizeBytes,
+        /** Null when the search index has no entries yet. */
+        Instant oldestRetainedEntryAt
 ) {
 }

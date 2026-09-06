@@ -232,4 +232,7 @@ export interface DashboardSummary {
   recentIssues: LogEntry[];
   sourceActivity: SourceActivity[];
   fileActivity: FileActivity[];
+  searchIndexSizeBytes: number;
+  /** Null when the search index has no entries yet. */
+  oldestRetainedEntryAt: string | null;
 }

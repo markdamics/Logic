@@ -18,6 +18,7 @@ import { parseMessage } from "../utils/messageParser";
 import { updateMessageFor } from "../utils/source";
 import { BarChart } from "./BarChart";
 import { DeleteIcon } from "./icons";
+import { RateHistogram } from "./RateHistogram";
 
 const logger = createLogger("LogStream");
 
@@ -117,16 +118,26 @@ export function LogStream({
   const appliedSavedSearchFromUrl = useRef(false);
   const appConfig = useAppConfig();
 
-  const rows = data?.content ?? [];
+  const hasLiveSource = sources.some((s) => s.enabled && s.live);
+  const isLiveBuffered = mode === "simple" && sortColumn === "time" && sortDirection === "desc" && page === 0 && hasLiveSource;
 
-  // Neither LogEntry.id (a fresh per-query counter, colliding across the initial
-  // fetch and every SSE push) nor entry content (genuinely duplicate log lines are
-  // real - two identical requests hitting the same endpoint in the same second, say)
-  // can be trusted as a unique React key. Assign a synthetic key the first time each
-  // entry *object* is seen and remember it by identity for as long as that same
-  // object stays in the buffer - guaranteed unique regardless of duplicate content,
-  // and stable across re-renders so the virtualizer's row-height cache still tracks
-  // the right row when a live-tail prepend shifts everything else's index.
+  const liveSearchFilter = isLiveBuffered ? undefined : debouncedSearch || undefined;
+  const liveSeverityFilter = isLiveBuffered ? undefined : severities;
+
+  const matchesLiveFilter = (entry: LogEntry): boolean => {
+    if (severities.size > 0 && !severities.has(entry.level)) return false;
+    const needle = searchInput.trim().toLowerCase();
+    if (needle && !entry.message.toLowerCase().includes(needle)) return false;
+    return true;
+  };
+
+  const bufferedContent = data?.content ?? [];
+  const rows = useMemo(
+    () => (isLiveBuffered ? bufferedContent.filter(matchesLiveFilter) : bufferedContent),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [bufferedContent, isLiveBuffered, searchInput, severities],
+  );
+
   const entryKeysRef = useRef(new WeakMap<LogEntry, string>());
   const nextRowKeyRef = useRef(0);
   const rowKeyOf = (entry: LogEntry): string => {
@@ -152,7 +163,6 @@ export function LogStream({
     [sources],
   );
   const rangeMinutes = TIME_RANGES.find((r) => r.value === timeRange)?.minutes ?? 24 * 60;
-  const hasLiveSource = sources.some((s) => s.enabled && s.live);
   const sourcesWithUpdates = sources.filter((s) => s.changedFiles.length > 0);
 
   const viewStateRef = useRef({ sortColumn, sortDirection, page, pageSize });
@@ -170,9 +180,12 @@ export function LogStream({
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let backoffMs = SSE_RECONNECT_BASE_MS;
 
+    // While naturally live-buffered, search/level filtering happens client-side
+    // (see isLiveBuffered/rows above) - the stream itself carries everything in
+    // scope so typing in the search box never has to tear this connection down.
     const url = logStreamUrl({
-      search: mode === "simple" ? debouncedSearch || undefined : undefined,
-      levels: mode === "simple" && severities.size > 0 ? Array.from(severities) : undefined,
+      search: mode === "simple" ? liveSearchFilter : undefined,
+      levels: mode === "simple" && liveSeverityFilter && liveSeverityFilter.size > 0 ? Array.from(liveSeverityFilter) : undefined,
       source: sourceFilter || undefined,
       file: fileFilter || undefined,
     });
@@ -242,7 +255,7 @@ export function LogStream({
       if (reconnectTimer) clearTimeout(reconnectTimer);
       source?.close();
     };
-  }, [hasLiveSource, mode, debouncedSearch, severities, sourceFilter, fileFilter]);
+  }, [hasLiveSource, mode, sourceFilter, fileFilter, liveSearchFilter, liveSeverityFilter]);
 
   // Refresh the file-filter dropdown whenever the source scope changes, and
   // drop any file selection that's no longer valid for the new scope.
@@ -317,12 +330,16 @@ export function LogStream({
       size: pageSize,
     };
 
+    // While naturally live-buffered, search/level filtering is applied
+    // client-side over the buffer (see isLiveBuffered/rows above) instead of
+    // round-tripping to the server on every keystroke - fetch everything in
+    // scope (source/file/range) and let the client predicate narrow it down.
     const request =
       mode === "query"
         ? queryLogs({ q: debouncedQuery, queryLanguage, ...scope })
         : fetchLogs({
-            search: debouncedSearch || undefined,
-            levels: severities.size > 0 ? Array.from(severities) : undefined,
+            search: liveSearchFilter,
+            levels: liveSeverityFilter && liveSeverityFilter.size > 0 ? Array.from(liveSeverityFilter) : undefined,
             ...scope,
           });
     logger.debug("Querying logs", { mode, ...scope });
@@ -347,10 +364,10 @@ export function LogStream({
   }, [
     sources.length,
     mode,
-    debouncedSearch,
+    liveSearchFilter,
     debouncedQuery,
     queryLanguage,
-    severities,
+    liveSeverityFilter,
     sourceFilter,
     fileFilter,
     rangeMinutes,
@@ -363,8 +380,8 @@ export function LogStream({
   ]);
 
   useEffect(() => {
-    onCountChange?.(data?.totalElements ?? 0);
-  }, [data, onCountChange]);
+    onCountChange?.(isLiveBuffered ? rows.length : data?.totalElements ?? 0);
+  }, [data, isLiveBuffered, rows, onCountChange]);
 
   // Collapse expanded rows whenever the filtered/sorted row set changes
   // underneath them (but not on a live-poll refresh of the same page).
@@ -579,7 +596,6 @@ export function LogStream({
 
   const totalPages = Math.max(1, data?.totalPages ?? 1);
   const currentPage = data?.page ?? page;
-  const isLiveBuffered = mode === "simple" && sortColumn === "time" && sortDirection === "desc" && page === 0 && hasLiveSource;
 
   return (
     <div className="log-stream">
@@ -699,6 +715,8 @@ export function LogStream({
           </span>
         )}
       </div>
+
+      {isLiveBuffered && <RateHistogram entries={bufferedContent} />}
 
       <div className="log-presets">
         <span className="log-presets-label">Presets</span>
@@ -830,8 +848,9 @@ export function LogStream({
           {isLiveBuffered ? (
             <div className="log-pagination">
               <span className="live-buffer-status text-muted">
-                Live buffer: {rows.length.toLocaleString()} / {LIVE_BUFFER_MAX.toLocaleString()} rows
-                {rows.length >= LIVE_BUFFER_MAX ? " (oldest rows evicting as new ones arrive)" : ""}
+                Live buffer: {bufferedContent.length.toLocaleString()} / {LIVE_BUFFER_MAX.toLocaleString()} rows
+                {bufferedContent.length >= LIVE_BUFFER_MAX ? " (oldest rows evicting as new ones arrive)" : ""}
+                {rows.length !== bufferedContent.length ? ` · ${rows.length.toLocaleString()} match filter` : ""}
               </span>
             </div>
           ) : (
