@@ -203,6 +203,24 @@ export interface AlertEvent {
   webhookStatus: number | null;
 }
 
+export interface RedactionRule {
+  id: number;
+  name: string;
+  pattern: string;
+  replacement: string | null;
+  source: string | null;
+  enabled: boolean;
+  createdAt: string;
+}
+
+export interface CreateRedactionRuleRequest {
+  name: string;
+  pattern: string;
+  replacement?: string;
+  source?: string;
+  enabled: boolean;
+}
+
 export interface SourceActivity {
   source: string;
   status: SourceStatus;

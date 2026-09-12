@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import { Alerts } from "./components/Alerts";
 import { Dashboard } from "./components/Dashboard";
 import { LogStream } from "./components/LogStream";
+import { RedactionRules } from "./components/RedactionRules";
 import { Sidebar } from "./components/Sidebar";
 import { SourceDialog } from "./components/SourceDialog";
 import { SourceGrid } from "./components/SourceGrid";
 import { useAlertRules } from "./hooks/useAlertRules";
+import { useRedactionRules } from "./hooks/useRedactionRules";
 import { useSavedSearches } from "./hooks/useSavedSearches";
 import { useSources } from "./hooks/useSources";
 import { ApiError, reloadLogs } from "./api/client";
@@ -56,6 +58,13 @@ function App() {
     toggleMuted: toggleAlertRuleMuted,
     events: fetchAlertEvents,
   } = useAlertRules();
+  const {
+    redactionRules,
+    loading: redactionRulesLoading,
+    create: createRedactionRule,
+    update: updateRedactionRule,
+    remove: removeRedactionRule,
+  } = useRedactionRules();
 
   useEffect(() => {
     document.documentElement.dataset.theme = mode;
@@ -209,6 +218,17 @@ function App() {
               onDelete={removeAlertRule}
               onToggleMuted={toggleAlertRuleMuted}
               onFetchEvents={fetchAlertEvents}
+            />
+          )}
+
+          {screen === "redaction" && (
+            <RedactionRules
+              sources={sources}
+              redactionRules={redactionRules}
+              loading={redactionRulesLoading}
+              onCreate={createRedactionRule}
+              onUpdate={updateRedactionRule}
+              onDelete={removeRedactionRule}
             />
           )}
         </div>

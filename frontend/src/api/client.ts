@@ -4,6 +4,7 @@ import type {
   AppConfig,
   ConnectionTestResult,
   CreateAlertRuleRequest,
+  CreateRedactionRuleRequest,
   CreateSavedSearchRequest,
   CreateSourceRequest,
   DashboardSummary,
@@ -13,6 +14,7 @@ import type {
   LogQueryParams,
   LogQueryResult,
   LogSource,
+  RedactionRule,
   SavedSearch,
 } from "./types";
 import { createLogger } from "../utils/logger";
@@ -218,4 +220,26 @@ export function testAlertWebhook(id: number): Promise<void> {
 
 export function getAppConfig(): Promise<AppConfig> {
   return request<AppConfig>("/config");
+}
+
+export function listRedactionRules(): Promise<RedactionRule[]> {
+  return request<RedactionRule[]>("/redaction/rules");
+}
+
+export function createRedactionRule(req: CreateRedactionRuleRequest): Promise<RedactionRule> {
+  return request<RedactionRule>("/redaction/rules", {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
+}
+
+export function updateRedactionRule(id: number, req: CreateRedactionRuleRequest): Promise<RedactionRule> {
+  return request<RedactionRule>(`/redaction/rules/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(req),
+  });
+}
+
+export function deleteRedactionRule(id: number): Promise<void> {
+  return request<void>(`/redaction/rules/${id}`, { method: "DELETE" });
 }

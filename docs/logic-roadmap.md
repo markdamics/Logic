@@ -125,7 +125,7 @@ Nothing currently caps how much ingested log data accumulates.
   missing half: `SearchIndexStatsService` (index size on disk + oldest
   indexed entry's timestamp) surfaced as two new Dashboard stat cards.
 
-### LOGIC-106 — PII masking/redaction on ingest
+### LOGIC-106 — PII masking/redaction on ingest - done
 
 SFTP/HTTP credentials are already encrypted (EncryptedStringConverter);
 message content isn't touched.
@@ -136,6 +136,14 @@ message content isn't touched.
 - AC: a log line matching a configured pattern is stored/displayed with the
   match masked; raw value never persisted.
 - Effort: M
+- Note: new `RedactionRule` entity/repository/service/controller (CRUD at
+  `/api/redaction/rules`, scoped like AlertRule's `source` field - null =
+  global), a Flyway `V4__create_redaction_rule.sql` migration, and a
+  Redaction sidebar screen for managing rules. `LogIngestionService` compiles
+  applicable rules once per source read (not per line) and masks each
+  parsed message before a `LogEntry` is ever constructed, so the raw value
+  never reaches the cache, the durable search index, or the UI. A fresh
+  install ships with zero rules, so nothing is masked until one is added.
 
 ### LOGIC-107 — Natural language → query language
 

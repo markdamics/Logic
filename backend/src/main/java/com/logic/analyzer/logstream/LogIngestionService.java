@@ -6,6 +6,7 @@ import com.logic.analyzer.logstream.ingest.LogLineParser;
 import com.logic.analyzer.logstream.ingest.LogTailReader;
 import com.logic.analyzer.logstream.ingest.SftpTailSource;
 import com.logic.analyzer.logstream.ingest.TailSource;
+import com.logic.analyzer.redaction.RedactionRuleService;
 import com.logic.analyzer.source.LogSource;
 import com.logic.analyzer.source.LogSourceRepository;
 import org.slf4j.Logger;
@@ -54,11 +55,13 @@ public class LogIngestionService {
     private static final int DEFAULT_SFTP_PORT = 22;
 
     private final LogSourceRepository sourceRepository;
+    private final RedactionRuleService redactionRuleService;
     private final Map<Long, CachedEntries> cache = new ConcurrentHashMap<>();
     private final Map<Long, ProbeResult> probeCache = new ConcurrentHashMap<>();
 
-    public LogIngestionService(LogSourceRepository sourceRepository) {
+    public LogIngestionService(LogSourceRepository sourceRepository, RedactionRuleService redactionRuleService) {
         this.sourceRepository = sourceRepository;
+        this.redactionRuleService = redactionRuleService;
     }
 
     public List<LogEntry> collectEntries() {
@@ -161,11 +164,12 @@ public class LogIngestionService {
 
     private List<LogEntry> readSource(LogSource source) {
         try {
+            List<RedactionRuleService.CompiledRule> redactionRules = redactionRuleService.rulesFor(source.getName());
             return switch (source.getType()) {
-                case LOCAL_FILE, UPLOAD_FILE -> readLocalFile(Path.of(source.getPath()), source.getName());
-                case LOCAL_DIRECTORY, UPLOAD_DIRECTORY -> readLocalDirectory(Path.of(source.getPath()), source.getName());
-                case SFTP -> readRemoteTail(sftpTailSource(source), source.getName(), basenameOf(source.getPath()));
-                case HTTP -> readRemoteTail(new HttpTailSource(URI.create(source.getPath())), source.getName(), basenameOf(source.getPath()));
+                case LOCAL_FILE, UPLOAD_FILE -> readLocalFile(Path.of(source.getPath()), source.getName(), redactionRules);
+                case LOCAL_DIRECTORY, UPLOAD_DIRECTORY -> readLocalDirectory(Path.of(source.getPath()), source.getName(), redactionRules);
+                case SFTP -> readRemoteTail(sftpTailSource(source), source.getName(), basenameOf(source.getPath()), redactionRules);
+                case HTTP -> readRemoteTail(new HttpTailSource(URI.create(source.getPath())), source.getName(), basenameOf(source.getPath()), redactionRules);
             };
         } catch (Exception e) {
             log.warn("Failed to read log source {} ('{}'): {}", source.getId(), source.getName(), e.getMessage());
@@ -178,15 +182,15 @@ public class LogIngestionService {
         return new SftpTailSource(source.getHost(), port, source.getUsername(), source.getPassword(), source.getPath());
     }
 
-    private List<LogEntry> readLocalFile(Path path, String sourceName) throws IOException {
+    private List<LogEntry> readLocalFile(Path path, String sourceName, List<RedactionRuleService.CompiledRule> redactionRules) throws IOException {
         if (!Files.isRegularFile(path)) {
             return List.of(errorEntry(sourceName, "not a regular file: " + path));
         }
         List<String> lines = LogTailReader.readLastLines(new LocalTailSource(path), MAX_TAIL_BYTES, MAX_LINES_PER_FILE);
-        return toEntries(lines, sourceName, path.getFileName().toString());
+        return toEntries(lines, sourceName, path.getFileName().toString(), redactionRules);
     }
 
-    private List<LogEntry> readLocalDirectory(Path dir, String sourceName) throws IOException {
+    private List<LogEntry> readLocalDirectory(Path dir, String sourceName, List<RedactionRuleService.CompiledRule> redactionRules) throws IOException {
         if (!Files.isDirectory(dir)) {
             return List.of(errorEntry(sourceName, "not a directory: " + dir));
         }
@@ -194,7 +198,7 @@ public class LogIngestionService {
         List<LogEntry> entries = new ArrayList<>();
         for (Path file : selectDirectoryFiles(dir)) {
             List<String> lines = LogTailReader.readLastLines(new LocalTailSource(file), MAX_TAIL_BYTES, MAX_LINES_PER_FILE);
-            entries.addAll(toEntries(lines, sourceName, file.getFileName().toString()));
+            entries.addAll(toEntries(lines, sourceName, file.getFileName().toString(), redactionRules));
         }
         return entries;
     }
@@ -238,15 +242,16 @@ public class LogIngestionService {
         return fingerprints;
     }
 
-    private List<LogEntry> readRemoteTail(TailSource tailSource, String sourceName, String fileLabel) throws IOException {
+    private List<LogEntry> readRemoteTail(TailSource tailSource, String sourceName, String fileLabel, List<RedactionRuleService.CompiledRule> redactionRules) throws IOException {
         List<String> lines = LogTailReader.readLastLines(tailSource, MAX_TAIL_BYTES, MAX_LINES_PER_FILE);
-        return toEntries(lines, sourceName, fileLabel);
+        return toEntries(lines, sourceName, fileLabel, redactionRules);
     }
 
-    private List<LogEntry> toEntries(List<String> lines, String sourceName, String fileLabel) {
+    private List<LogEntry> toEntries(List<String> lines, String sourceName, String fileLabel, List<RedactionRuleService.CompiledRule> redactionRules) {
         List<LogEntry> entries = new ArrayList<>();
         for (LogLineParser.ParsedLine parsed : LogLineParser.parse(lines)) {
-            entries.add(new LogEntry(0, parsed.timestamp(), parsed.level(), sourceName, fileLabel, parsed.message()));
+            String message = RedactionRuleService.redact(parsed.message(), redactionRules);
+            entries.add(new LogEntry(0, parsed.timestamp(), parsed.level(), sourceName, fileLabel, message));
         }
         return entries;
     }

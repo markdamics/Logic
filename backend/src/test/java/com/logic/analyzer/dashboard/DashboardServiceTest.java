@@ -5,6 +5,7 @@ import com.logic.analyzer.logstream.LogIngestionService;
 import com.logic.analyzer.logstream.LogLevel;
 import com.logic.analyzer.source.LogSource;
 import com.logic.analyzer.source.LogSourceRepository;
+import com.logic.analyzer.search.index.SearchIndexStatsService;
 import com.logic.analyzer.source.SourceStatus;
 import com.logic.analyzer.source.SourceType;
 import org.junit.jupiter.api.Test;
@@ -28,8 +29,11 @@ class DashboardServiceTest {
     @Mock
     private LogIngestionService ingestionService;
 
+    @Mock
+    private SearchIndexStatsService searchIndexStatsService;
+
     private DashboardService service() {
-        return new DashboardService(sourceRepository, ingestionService);
+        return new DashboardService(sourceRepository, ingestionService, searchIndexStatsService);
     }
 
     private LogSource source(String name, SourceStatus status) {

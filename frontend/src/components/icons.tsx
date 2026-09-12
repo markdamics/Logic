@@ -63,6 +63,15 @@ export function AlertsIcon({ size = 17 }: IconProps) {
   );
 }
 
+export function RedactionIcon({ size = 17 }: IconProps) {
+  return (
+    <svg width={size} height={size} {...common}>
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
+      <line x1="4" y1="4" x2="20" y2="20" />
+    </svg>
+  );
+}
+
 export function EditIcon({ size = 13 }: IconProps) {
   return (
     <svg width={size} height={size} {...common}>

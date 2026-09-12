@@ -1,5 +1,6 @@
 package com.logic.analyzer.logstream;
 
+import com.logic.analyzer.redaction.RedactionRuleService;
 import com.logic.analyzer.source.LogSource;
 import com.logic.analyzer.source.LogSourceRepository;
 import com.logic.analyzer.source.SourceType;
@@ -13,8 +14,11 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -24,11 +28,15 @@ class LogIngestionServiceTest {
     @Mock
     private LogSourceRepository repository;
 
+    @Mock
+    private RedactionRuleService redactionRuleService;
+
     @TempDir
     Path tempDir;
 
     private LogIngestionService service() {
-        return new LogIngestionService(repository);
+        lenient().when(redactionRuleService.rulesFor(any())).thenReturn(List.of());
+        return new LogIngestionService(repository, redactionRuleService);
     }
 
     @Test
@@ -242,6 +250,21 @@ class LogIngestionServiceTest {
         Files.writeString(tempDir.resolve("b.log"), "2026-08-06 08:00:00,000 [INFO] X - from B\nmore content\n");
 
         assertThat(service.changedFiles(source)).containsExactly("b.log");
+    }
+
+    @Test
+    void appliesRedactionRulesToMessagesBeforeTheyBecomeLogEntries() throws IOException {
+        Path file = tempDir.resolve("app.log");
+        Files.writeString(file, "2026-08-06 08:00:00,000 [INFO] X - contact jane@example.com for help\n");
+        LogSource source = new LogSource("redacted-source", SourceType.LOCAL_FILE, file.toString(), null, null, null, null);
+        when(repository.findAll()).thenReturn(List.of(source));
+        LogIngestionService service = service();
+        when(redactionRuleService.rulesFor("redacted-source")).thenReturn(List.of(
+                new RedactionRuleService.CompiledRule(Pattern.compile("[\\w.+-]+@[\\w-]+\\.[\\w.-]+"), "***")));
+
+        List<LogEntry> entries = service.collectEntries();
+
+        assertThat(entries.get(0).message()).doesNotContain("jane@example.com").contains("***");
     }
 
     @Test

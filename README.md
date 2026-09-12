@@ -121,6 +121,17 @@ selectable themes.
   threshold) and a last-evaluated timestamp for visibility into whether a
   rule is actually running.
 
+### Redaction
+
+- Regex-based masking rules applied to message content at ingest time,
+  before an entry is ever cached, indexed, or displayed — the raw matched
+  text is never persisted. Off by default: a fresh install has no rules, so
+  nothing is masked until one is added.
+- Each rule has a pattern, an optional custom mask (defaults to `***`), and
+  an optional source scope (blank applies globally, same informal-reference
+  scoping as an Alert rule's source). Rules can be toggled enabled/disabled
+  without deleting them.
+
 ### Dashboard
 
 - Stat cards: total/enabled/disabled sources, reachable sources, log entries,
