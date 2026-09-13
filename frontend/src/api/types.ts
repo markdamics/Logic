@@ -116,6 +116,24 @@ export interface LogQueryLanguageParams {
   size?: number;
 }
 
+export interface NlQueryTranslateRequest {
+  prompt: string;
+  queryLanguage: QueryLanguage;
+}
+
+/**
+ * Result of POST /logs/query/translate - matched=false means no template
+ * recognized the prompt (or the generated candidate failed validation);
+ * query/rangeMinutes are null in that case and message explains why.
+ */
+export interface NlQueryTranslateResponse {
+  matched: boolean;
+  queryLanguage: QueryLanguage;
+  query: string | null;
+  rangeMinutes: number | null;
+  message: string | null;
+}
+
 /** Adds SIMPLE (a snapshot of the plain-filter UI) to the query-bar languages, for SavedSearch only. */
 export type SavedSearchLanguage = QueryLanguage | "SIMPLE";
 

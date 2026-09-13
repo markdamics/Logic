@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { fetchLogs, listLogFiles, logStreamUrl, queryLogs } from "../api/client";
+import { fetchLogs, listLogFiles, logStreamUrl, queryLogs, translateNlQuery } from "../api/client";
 import type {
   CreateSavedSearchRequest,
   LogAggregationResult,
@@ -93,10 +93,18 @@ export function LogStream({
   const [queryInput, setQueryInput] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [queryLanguage, setQueryLanguage] = useState<QueryLanguage>("LUCENE");
+  const [nlPrompt, setNlPrompt] = useState("");
+  const [nlTranslating, setNlTranslating] = useState(false);
+  const [nlMessage, setNlMessage] = useState<string | null>(null);
+  const [nlError, setNlError] = useState<string | null>(null);
   const [sourceFilter, setSourceFilter] = useState("");
   const [fileFilter, setFileFilter] = useState("");
   const [fileOptions, setFileOptions] = useState<string[]>([]);
   const [timeRange, setTimeRange] = useState("0");
+  // Set when a translated prompt's time window doesn't line up with one of the
+  // fixed TIME_RANGES presets (e.g. "last 3 hours") - takes precedence over
+  // the dropdown's own minutes until the admin picks a preset themselves.
+  const [customRangeMinutes, setCustomRangeMinutes] = useState<number | null>(null);
   const [severities, setSeverities] = useState<Set<LogLevel>>(new Set());
   const [sortColumn, setSortColumn] = useState<SortColumn>("time");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
@@ -162,7 +170,7 @@ export function LogStream({
     () => Array.from(new Set(sources.filter((s) => s.enabled).map((s) => s.name))).sort(),
     [sources],
   );
-  const rangeMinutes = TIME_RANGES.find((r) => r.value === timeRange)?.minutes ?? 24 * 60;
+  const rangeMinutes = customRangeMinutes ?? TIME_RANGES.find((r) => r.value === timeRange)?.minutes ?? 24 * 60;
   const sourcesWithUpdates = sources.filter((s) => s.changedFiles.length > 0);
 
   const viewStateRef = useRef({ sortColumn, sortDirection, page, pageSize });
@@ -496,6 +504,39 @@ export function LogStream({
     }
   };
 
+  const handleTranslateNlQuery = async (e: FormEvent) => {
+    e.preventDefault();
+    const prompt = nlPrompt.trim();
+    if (!prompt) {
+      return;
+    }
+    setNlTranslating(true);
+    setNlError(null);
+    setNlMessage(null);
+    try {
+      const response = await translateNlQuery({ prompt, queryLanguage });
+      if (!response.matched || response.query === null) {
+        setNlError(response.message ?? "Couldn't translate that prompt.");
+        return;
+      }
+      // Filled into the editable query bar, never run automatically - the
+      // admin still reviews/edits before it executes like any other query.
+      setQueryInput(response.query);
+      setDebouncedQuery(response.query);
+      if (response.rangeMinutes !== null) {
+        const preset = TIME_RANGES.find((r) => r.minutes === response.rangeMinutes);
+        setTimeRange(preset?.value ?? timeRange);
+        setCustomRangeMinutes(preset ? null : response.rangeMinutes);
+      }
+      setNlMessage(response.message);
+    } catch (e) {
+      logger.warn("Failed to translate NL query", e);
+      setNlError(e instanceof Error ? e.message : "Failed to translate prompt");
+    } finally {
+      setNlTranslating(false);
+    }
+  };
+
   const handleSaveCurrentSearch = async (e: FormEvent) => {
     e.preventDefault();
     const name = saveName.trim();
@@ -687,6 +728,7 @@ export function LogStream({
           value={timeRange}
           onChange={(e) => {
             setTimeRange(e.target.value);
+            setCustomRangeMinutes(null);
             setPage(0);
           }}
         >
@@ -715,6 +757,22 @@ export function LogStream({
           </span>
         )}
       </div>
+
+      {mode === "query" && (
+        <form className="log-nl-query" onSubmit={handleTranslateNlQuery}>
+          <input
+            className="input log-nl-query-input"
+            placeholder="Ask in plain English… e.g. show me errors from payments-api in the last hour"
+            value={nlPrompt}
+            onChange={(e) => setNlPrompt(e.target.value)}
+          />
+          <button type="submit" className="btn btn-secondary btn-small" disabled={!nlPrompt.trim() || nlTranslating}>
+            {nlTranslating ? "Translating…" : "Translate"}
+          </button>
+          {nlMessage && <span className="log-nl-query-message">{nlMessage}</span>}
+          {nlError && <span className="log-nl-query-error">{nlError}</span>}
+        </form>
+      )}
 
       {isLiveBuffered && <RateHistogram entries={bufferedContent} />}
 

@@ -148,15 +148,36 @@ message content isn't touched.
 ### LOGIC-107 — Natural language → query language
 
 Three query languages already exist (Lucene/SPL/LogQL); add a plain-English
-entry point that compiles to one of them.
+entry point that compiles to one of them. Hybrid design, not a pure "LLM
+writes a query and runs it": a deterministic template layer in front of the
+existing QueryParser/QueryLanguage stack, with an optional LLM fallback for
+prompts the templates don't cover.
 
-- New endpoint or client-side call to translate a NL prompt into the
-  currently-selected QueryLanguage, shown to the user as an editable query
-  before running (never auto-executed blind).
+- Phase 1 - deterministic template translator (no LLM dependency):
+  - Extract structured intent from the prompt (source, level, time window,
+    free-text terms) with pattern/keyword matching for common phrasings
+    ("errors from X in the last hour", "warnings from Y since 2pm", "failed
+    login attempts in the last 24h").
+  - Map extracted intent to the currently-selected QueryLanguage's syntax
+    (reusing QueryNode/QueryCompiler semantics, not a new mini-language).
+  - New endpoint (e.g. POST /api/logs/query/translate) takes
+    { prompt, queryLanguage } and returns a candidate query string.
+- Every candidate (template or LLM-produced) is validated by that language's
+  existing QueryParser before being returned - invalid output never reaches
+  the query bar; on validation failure, return a clear "couldn't translate"
+  result rather than a broken query.
+- Frontend: a plain-English input next to the query bar in LogStream.tsx that
+  calls the endpoint and fills the (editable) query bar - never auto-executed
+  blind, matching every other query-bar entry point.
+- Phase 2 (optional, later) - LLM fallback only for prompts the templates
+  can't cover: thin adapter behind the same validate-before-showing gate,
+  provider/key handling and cost scoped separately when/if this phase is
+  picked up.
 - AC: "show me errors from payments-api in the last hour" produces a correct,
-  editable Lucene/SPL/LogQL query.
-- Effort: M/L (depends on LLM provider/cost decision — needs scoping before
-  estimating further)
+  editable Lucene/SPL/LogQL query via the template layer alone (no LLM call
+  required for this AC).
+- Effort: M for Phase 1 (template translator + validation + UI); LLM fallback
+  (Phase 2) is a separate, later effort once provider/cost is decided.
 
 ### LOGIC-108 — Cross-source correlation on a log line
 

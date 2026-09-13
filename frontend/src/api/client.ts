@@ -14,6 +14,8 @@ import type {
   LogQueryParams,
   LogQueryResult,
   LogSource,
+  NlQueryTranslateRequest,
+  NlQueryTranslateResponse,
   RedactionRule,
   SavedSearch,
 } from "./types";
@@ -138,6 +140,14 @@ export function queryLogs(params: LogQueryLanguageParams): Promise<LogQueryResul
   if (params.size !== undefined) query.set("size", String(params.size));
 
   return request<LogQueryResult>(`/logs/query?${query.toString()}`);
+}
+
+/** Translates a plain-English prompt into a candidate query-bar string - never auto-executed, just filled into the (editable) query bar. */
+export function translateNlQuery(req: NlQueryTranslateRequest): Promise<NlQueryTranslateResponse> {
+  return request<NlQueryTranslateResponse>("/logs/query/translate", {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
 }
 
 /** URL for the push-based live-tail SSE stream, filtered the same way GET /logs is. */
