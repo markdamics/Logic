@@ -184,7 +184,8 @@ public class LogIngestionService {
 
     private List<LogEntry> readLocalFile(Path path, String sourceName, List<RedactionRuleService.CompiledRule> redactionRules) throws IOException {
         if (!Files.isRegularFile(path)) {
-            return List.of(errorEntry(sourceName, "not a regular file: " + path));
+            String reason = Files.exists(path) ? "not a regular file: " + path : "file not found: " + path;
+            return List.of(errorEntry(sourceName, reason));
         }
         List<String> lines = LogTailReader.readLastLines(new LocalTailSource(path), MAX_TAIL_BYTES, MAX_LINES_PER_FILE);
         return toEntries(lines, sourceName, path.getFileName().toString(), redactionRules);
@@ -192,7 +193,8 @@ public class LogIngestionService {
 
     private List<LogEntry> readLocalDirectory(Path dir, String sourceName, List<RedactionRuleService.CompiledRule> redactionRules) throws IOException {
         if (!Files.isDirectory(dir)) {
-            return List.of(errorEntry(sourceName, "not a directory: " + dir));
+            String reason = Files.exists(dir) ? "not a directory: " + dir : "directory not found: " + dir;
+            return List.of(errorEntry(sourceName, reason));
         }
 
         List<LogEntry> entries = new ArrayList<>();

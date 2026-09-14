@@ -747,6 +747,18 @@ body,
   color: var(--color-error);
 }
 
+/* Sparkline */
+
+.sparkline {
+  display: block;
+  vertical-align: middle;
+}
+
+.sparkline rect {
+  fill: var(--color-primary);
+  opacity: 0.85;
+}
+
 /* Modal */
 
 .modal-overlay {

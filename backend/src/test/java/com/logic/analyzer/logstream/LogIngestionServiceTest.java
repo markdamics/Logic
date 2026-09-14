@@ -99,8 +99,49 @@ class LogIngestionServiceTest {
 
         assertThat(entries).hasSize(1);
         assertThat(entries.get(0).level()).isEqualTo(LogLevel.ERROR);
-        assertThat(entries.get(0).message()).contains("Failed to read log source");
+        assertThat(entries.get(0).message()).contains("Failed to read log source", "file not found");
         assertThat(entries.get(0).file()).isNull();
+    }
+
+    @Test
+    void distinguishesAnExistingWrongTypePathFromAMissingOneForAFileSource() throws IOException {
+        // The configured path exists, but as a directory rather than a file - a different
+        // problem from "nothing there at all", and the error message should say so.
+        Files.createDirectory(tempDir.resolve("actually-a-dir"));
+        LogSource source = new LogSource(
+                "wrong-type", SourceType.LOCAL_FILE, tempDir.resolve("actually-a-dir").toString(), null, null, null, null);
+        when(repository.findAll()).thenReturn(List.of(source));
+
+        List<LogEntry> entries = service().collectEntries();
+
+        assertThat(entries).hasSize(1);
+        assertThat(entries.get(0).message()).contains("not a regular file").doesNotContain("not found");
+    }
+
+    @Test
+    void producesAnErrorEntryWhenADirectorySourcePathDoesNotExist() {
+        LogSource source = new LogSource(
+                "missing-dir", SourceType.LOCAL_DIRECTORY, tempDir.resolve("nope").toString(), null, null, null, null);
+        when(repository.findAll()).thenReturn(List.of(source));
+
+        List<LogEntry> entries = service().collectEntries();
+
+        assertThat(entries).hasSize(1);
+        assertThat(entries.get(0).message()).contains("directory not found");
+    }
+
+    @Test
+    void distinguishesAnExistingWrongTypePathFromAMissingOneForADirectorySource() throws IOException {
+        Path file = tempDir.resolve("actually-a-file.log");
+        Files.writeString(file, "2026-08-06 08:00:00,000 [INFO] X - hi\n");
+        LogSource source = new LogSource(
+                "wrong-type-dir", SourceType.LOCAL_DIRECTORY, file.toString(), null, null, null, null);
+        when(repository.findAll()).thenReturn(List.of(source));
+
+        List<LogEntry> entries = service().collectEntries();
+
+        assertThat(entries).hasSize(1);
+        assertThat(entries.get(0).message()).contains("not a directory").doesNotContain("not found");
     }
 
     @Test

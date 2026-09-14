@@ -221,6 +221,20 @@ export interface CreateRedactionRuleRequest {
   enabled: boolean;
 }
 
+export interface LogTemplate {
+  id: number;
+  source: string;
+  templateText: string;
+  occurrenceCount: number;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  sampleRawLine: string | null;
+  /** Per-minute occurrence counts, oldest first - backs the trend sparkline. */
+  history: number[];
+}
+
+export type TemplateSort = "volume" | "recent";
+
 export interface SourceActivity {
   source: string;
   status: SourceStatus;

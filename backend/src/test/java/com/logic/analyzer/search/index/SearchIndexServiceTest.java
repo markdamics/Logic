@@ -6,6 +6,8 @@ import com.logic.analyzer.logstream.LogLevel;
 import com.logic.analyzer.logstream.ingest.TailSource;
 import com.logic.analyzer.source.LogSource;
 import com.logic.analyzer.source.LogSourceRepository;
+import com.logic.analyzer.template.LogTemplateRepository;
+import com.logic.analyzer.template.TemplateMiningService;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.facet.FacetsConfig;
 import org.apache.lucene.index.IndexWriter;
@@ -48,6 +50,7 @@ class SearchIndexServiceTest {
 
     private final FacetsConfig facetsConfig = new FacetsConfig();
     private final LogDocumentBuilder documentBuilder = new LogDocumentBuilder(facetsConfig);
+    private final TemplateMiningService templateMiningService = new TemplateMiningService(mock(LogTemplateRepository.class));
     private final LogSource testSource = mock(LogSource.class);
 
     private Directory directory;
@@ -64,7 +67,7 @@ class SearchIndexServiceTest {
         writer = new IndexWriter(directory, new IndexWriterConfig(new StandardAnalyzer()));
         searcherManager = new SearcherManager(writer, false, false, null);
         when(sourceRepository.findAll()).thenReturn(List.of(testSource));
-        service = new SearchIndexService(sourceRepository, ingestionService, writer, searcherManager, documentBuilder);
+        service = new SearchIndexService(sourceRepository, ingestionService, writer, searcherManager, documentBuilder, templateMiningService);
     }
 
     @AfterEach

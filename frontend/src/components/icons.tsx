@@ -72,6 +72,17 @@ export function RedactionIcon({ size = 17 }: IconProps) {
   );
 }
 
+export function PatternsIcon({ size = 17 }: IconProps) {
+  return (
+    <svg width={size} height={size} {...common}>
+      <rect x="3" y="4" width="7" height="7" rx="1" />
+      <rect x="14" y="4" width="7" height="7" rx="1" />
+      <rect x="8.5" y="14" width="7" height="7" rx="1" />
+      <path d="M6.5 11v3M17.5 11v3M6.5 14h5M17.5 14h-5" />
+    </svg>
+  );
+}
+
 export function EditIcon({ size = 13 }: IconProps) {
   return (
     <svg width={size} height={size} {...common}>

@@ -5,6 +5,7 @@ import com.logic.analyzer.logstream.LogIngestionService;
 import com.logic.analyzer.logstream.ingest.TailSource;
 import com.logic.analyzer.source.LogSource;
 import com.logic.analyzer.source.LogSourceRepository;
+import com.logic.analyzer.template.TemplateMiningService;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.Term;
@@ -61,15 +62,18 @@ public class SearchIndexService {
     private final IndexWriter indexWriter;
     private final SearcherManager searcherManager;
     private final LogDocumentBuilder documentBuilder;
+    private final TemplateMiningService templateMiningService;
     private final Map<String, TailSource.Fingerprint> lastIndexedFingerprint = new ConcurrentHashMap<>();
 
     public SearchIndexService(LogSourceRepository sourceRepository, LogIngestionService ingestionService,
-                               IndexWriter indexWriter, SearcherManager searcherManager, LogDocumentBuilder documentBuilder) {
+                               IndexWriter indexWriter, SearcherManager searcherManager, LogDocumentBuilder documentBuilder,
+                               TemplateMiningService templateMiningService) {
         this.sourceRepository = sourceRepository;
         this.ingestionService = ingestionService;
         this.indexWriter = indexWriter;
         this.searcherManager = searcherManager;
         this.documentBuilder = documentBuilder;
+        this.templateMiningService = templateMiningService;
     }
 
     @Scheduled(fixedDelayString = "${app.search.index-interval-ms:5000}")
@@ -116,6 +120,7 @@ public class SearchIndexService {
                     source.getId(), source.getName(), e.getMessage());
         }
         lastIndexedFingerprint.keySet().removeIf(key -> key.startsWith(source.getId() + ":"));
+        templateMiningService.forgetSource(source);
     }
 
     private int indexSource(LogSource source) {
@@ -154,6 +159,7 @@ public class SearchIndexService {
                 lastIndexedFingerprint.put(fingerprintKey, currentFingerprint);
             } else {
                 lastIndexedFingerprint.remove(fingerprintKey);
+                templateMiningService.forgetFile(source, file);
             }
         }
         return indexed;
@@ -204,6 +210,12 @@ public class SearchIndexService {
             } catch (IOException e) {
                 log.warn("Failed to index an entry for source {} ('{}'): {}", source.getId(), source.getName(), e.getMessage());
             }
+        }
+
+        try {
+            templateMiningService.mine(source, file, entries);
+        } catch (Exception e) {
+            log.warn("Template mining failed for source {} ('{}') file '{}': {}", source.getId(), source.getName(), file, e.getMessage());
         }
     }
 

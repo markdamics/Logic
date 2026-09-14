@@ -14,8 +14,10 @@ import type {
   LogQueryParams,
   LogQueryResult,
   LogSource,
+  LogTemplate,
   RedactionRule,
   SavedSearch,
+  TemplateSort,
 } from "./types";
 import { createLogger } from "../utils/logger";
 
@@ -242,4 +244,11 @@ export function updateRedactionRule(id: number, req: CreateRedactionRuleRequest)
 
 export function deleteRedactionRule(id: number): Promise<void> {
   return request<void>(`/redaction/rules/${id}`, { method: "DELETE" });
+}
+
+export function listTemplates(source?: string, sort: TemplateSort = "volume"): Promise<LogTemplate[]> {
+  const query = new URLSearchParams();
+  if (source) query.set("source", source);
+  query.set("sort", sort);
+  return request<LogTemplate[]>(`/templates?${query.toString()}`);
 }

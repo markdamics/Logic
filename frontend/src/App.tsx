@@ -2,16 +2,18 @@ import { useEffect, useState } from "react";
 import { Alerts } from "./components/Alerts";
 import { Dashboard } from "./components/Dashboard";
 import { LogStream } from "./components/LogStream";
+import { Patterns } from "./components/Patterns";
 import { RedactionRules } from "./components/RedactionRules";
 import { Sidebar } from "./components/Sidebar";
 import { SourceDialog } from "./components/SourceDialog";
 import { SourceGrid } from "./components/SourceGrid";
 import { useAlertRules } from "./hooks/useAlertRules";
+import { usePatterns } from "./hooks/usePatterns";
 import { useRedactionRules } from "./hooks/useRedactionRules";
 import { useSavedSearches } from "./hooks/useSavedSearches";
 import { useSources } from "./hooks/useSources";
 import { ApiError, reloadLogs } from "./api/client";
-import type { LogSource } from "./api/types";
+import type { LogSource, TemplateSort } from "./api/types";
 import type { Screen } from "./screens";
 import { SCREEN_TITLES } from "./screens";
 import { TestIcon } from "./components/icons";
@@ -65,6 +67,9 @@ function App() {
     update: updateRedactionRule,
     remove: removeRedactionRule,
   } = useRedactionRules();
+  const [patternsSource, setPatternsSource] = useState<string | undefined>(undefined);
+  const [patternsSort, setPatternsSort] = useState<TemplateSort>("volume");
+  const { templates, loading: templatesLoading } = usePatterns(patternsSource, patternsSort);
 
   useEffect(() => {
     document.documentElement.dataset.theme = mode;
@@ -229,6 +234,18 @@ function App() {
               onCreate={createRedactionRule}
               onUpdate={updateRedactionRule}
               onDelete={removeRedactionRule}
+            />
+          )}
+
+          {screen === "patterns" && (
+            <Patterns
+              sources={sources}
+              templates={templates}
+              loading={templatesLoading}
+              source={patternsSource}
+              sort={patternsSort}
+              onSourceChange={setPatternsSource}
+              onSortChange={setPatternsSort}
             />
           )}
         </div>
