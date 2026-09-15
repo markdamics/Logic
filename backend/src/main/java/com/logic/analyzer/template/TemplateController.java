@@ -21,7 +21,8 @@ public class TemplateController {
     @GetMapping
     public List<TemplateResponse> list(
             @RequestParam(required = false) String source,
+            @RequestParam(required = false) String file,
             @RequestParam(required = false, defaultValue = "volume") String sort) {
-        return service.list(source, sort);
+        return service.list(source, file, sort);
     }
 }

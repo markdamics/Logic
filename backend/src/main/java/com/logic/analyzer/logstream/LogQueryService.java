@@ -62,7 +62,7 @@ public class LogQueryService {
 
     private QueryNode toQueryNode(LogQueryParams params) {
         List<QueryNode> clauses = new ArrayList<>(
-                QueryNode.scopeClauses(params.source(), params.file(), params.rangeMinutes(), disabledSourceNames()));
+                QueryNode.scopeClauses(params.source(), params.file(), params.rangeMinutes(), params.templateId(), disabledSourceNames()));
 
         if (params.levels() != null && !params.levels().isEmpty()) {
             List<QueryNode> levelClauses = params.levels().stream()

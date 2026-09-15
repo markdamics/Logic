@@ -7,6 +7,8 @@ public record LogQueryParams(
         Set<LogLevel> levels,
         String source,
         String file,
+        /** Scopes to entries pattern-mining assigned to this template id (LOGIC-117 drill-down); null means unscoped. */
+        Long templateId,
         long rangeMinutes,
         String sortBy,
         String sortDir,

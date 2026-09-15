@@ -5,7 +5,7 @@ import { createLogger } from "../utils/logger";
 
 const logger = createLogger("usePatterns");
 
-export function usePatterns(source: string | undefined, sort: TemplateSort) {
+export function usePatterns(source: string | undefined, file: string | undefined, sort: TemplateSort) {
   const [templates, setTemplates] = useState<LogTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -14,7 +14,7 @@ export function usePatterns(source: string | undefined, sort: TemplateSort) {
     setLoading(true);
     setError(null);
     try {
-      const data = await listTemplates(source, sort);
+      const data = await listTemplates(source, file, sort);
       setTemplates(data);
       logger.debug(`Loaded ${data.length} template(s)`);
     } catch (e) {
@@ -23,7 +23,7 @@ export function usePatterns(source: string | undefined, sort: TemplateSort) {
     } finally {
       setLoading(false);
     }
-  }, [source, sort]);
+  }, [source, file, sort]);
 
   useEffect(() => {
     refresh();

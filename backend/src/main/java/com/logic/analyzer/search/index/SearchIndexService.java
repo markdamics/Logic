@@ -103,6 +103,18 @@ public class SearchIndexService {
     }
 
     /**
+     * Clears just this source's fingerprint entries so its next scheduled pass fully
+     * reprocesses every file, bypassing the "unchanged since last pass" skip in
+     * {@link #indexSource}. Without this, enabling a per-source opt-in that piggybacks on
+     * indexEntries (like pattern mining) would stay silent on already-indexed, unchanged
+     * content until a file next changes - it would only ever see genuinely new lines, not
+     * the content already on disk when the feature was turned on.
+     */
+    public void forceReindexSource(LogSource source) {
+        lastIndexedFingerprint.keySet().removeIf(key -> key.startsWith(source.getId() + ":"));
+    }
+
+    /**
      * Removes every indexed document for a source - a deleted source is
      * never in {@link #reindexAll}'s source list again, so unlike a file
      * whose content changes (reconciled on its next reindex pass, see
@@ -199,23 +211,32 @@ public class SearchIndexService {
                     source.getId(), source.getName(), file, e.getMessage());
         }
 
+        // Mine before indexing (not after) so every entry below can be stamped with its
+        // template id in the same pass - drill-down (LOGIC-117) needs every document tagged,
+        // not just the ones that contributed a newly-counted occurrence.
+        Map<String, Long> templateIdByMessage = Map.of();
+        if (source.isPatternMiningEnabled()) {
+            try {
+                Map<String, Long> mined = templateMiningService.mine(source, file, entries);
+                if (mined != null) {
+                    templateIdByMessage = mined;
+                }
+            } catch (Exception e) {
+                log.warn("Template mining failed for source {} ('{}') file '{}': {}", source.getId(), source.getName(), file, e.getMessage());
+            }
+        }
+
         Map<String, Integer> duplicateOrdinals = new HashMap<>();
         for (LogEntry entry : entries) {
             String contentKey = source.getId() + "|" + entry.file() + "|" + entry.timestamp().toEpochMilli() + "|" + entry.message();
             int ordinal = duplicateOrdinals.merge(contentKey, 1, Integer::sum) - 1;
             String docId = sha256(contentKey) + "::" + ordinal;
             try {
-                Document document = documentBuilder.build(source, entry, docId);
+                Document document = documentBuilder.build(source, entry, docId, templateIdByMessage.get(entry.message()));
                 indexWriter.addDocument(document);
             } catch (IOException e) {
                 log.warn("Failed to index an entry for source {} ('{}'): {}", source.getId(), source.getName(), e.getMessage());
             }
-        }
-
-        try {
-            templateMiningService.mine(source, file, entries);
-        } catch (Exception e) {
-            log.warn("Template mining failed for source {} ('{}') file '{}': {}", source.getId(), source.getName(), file, e.getMessage());
         }
     }
 

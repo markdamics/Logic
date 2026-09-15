@@ -66,6 +66,14 @@ const PRESETS: Preset[] = [
   { id: "clear", label: "Clear filters", severities: [], search: "" },
 ];
 
+/** A Patterns "View matching lines" click-through - pre-filters Log Stream to one template's entries. */
+export interface PatternDrilldownFilter {
+  source: string;
+  file: string | null;
+  templateId: number;
+  templateText: string;
+}
+
 interface LogStreamProps {
   sources: LogSource[];
   onCountChange?: (count: number) => void;
@@ -75,6 +83,10 @@ interface LogStreamProps {
   savedSearchesLoading: boolean;
   onCreateSavedSearch: (req: CreateSavedSearchRequest) => Promise<SavedSearch>;
   onDeleteSavedSearch: (id: number) => Promise<void>;
+  /** Set only when navigated here from Patterns - Log Stream is unmounted/remounted on every
+   * screen switch (see App.tsx's screen === "logs" conditional render), so this only needs to
+   * seed initial state, not react to later prop changes. */
+  initialPatternFilter?: PatternDrilldownFilter | null;
 }
 
 export function LogStream({
@@ -86,6 +98,7 @@ export function LogStream({
   savedSearchesLoading,
   onCreateSavedSearch,
   onDeleteSavedSearch,
+  initialPatternFilter,
 }: LogStreamProps) {
   const [mode, setMode] = useState<FilterMode>("simple");
   const [searchInput, setSearchInput] = useState("");
@@ -93,8 +106,10 @@ export function LogStream({
   const [queryInput, setQueryInput] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [queryLanguage, setQueryLanguage] = useState<QueryLanguage>("LUCENE");
-  const [sourceFilter, setSourceFilter] = useState("");
-  const [fileFilter, setFileFilter] = useState("");
+  const [sourceFilter, setSourceFilter] = useState(() => initialPatternFilter?.source ?? "");
+  const [fileFilter, setFileFilter] = useState(() => initialPatternFilter?.file ?? "");
+  const [templateIdFilter, setTemplateIdFilter] = useState<number | null>(() => initialPatternFilter?.templateId ?? null);
+  const [patternFilterLabel, setPatternFilterLabel] = useState<string | null>(() => initialPatternFilter?.templateText ?? null);
   const [fileOptions, setFileOptions] = useState<string[]>([]);
   const [timeRange, setTimeRange] = useState("0");
   const [severities, setSeverities] = useState<Set<LogLevel>>(new Set());
@@ -188,6 +203,7 @@ export function LogStream({
       levels: mode === "simple" && liveSeverityFilter && liveSeverityFilter.size > 0 ? Array.from(liveSeverityFilter) : undefined,
       source: sourceFilter || undefined,
       file: fileFilter || undefined,
+      templateId: mode === "simple" ? templateIdFilter ?? undefined : undefined,
     });
 
     const connect = () => {
@@ -255,7 +271,7 @@ export function LogStream({
       if (reconnectTimer) clearTimeout(reconnectTimer);
       source?.close();
     };
-  }, [hasLiveSource, mode, sourceFilter, fileFilter, liveSearchFilter, liveSeverityFilter]);
+  }, [hasLiveSource, mode, sourceFilter, fileFilter, templateIdFilter, liveSearchFilter, liveSeverityFilter]);
 
   // Refresh the file-filter dropdown whenever the source scope changes, and
   // drop any file selection that's no longer valid for the new scope.
@@ -334,12 +350,16 @@ export function LogStream({
     // client-side over the buffer (see isLiveBuffered/rows above) instead of
     // round-tripping to the server on every keystroke - fetch everything in
     // scope (source/file/range) and let the client predicate narrow it down.
+    // The pattern-drilldown templateId filter only applies in simple mode -
+    // switching to the query bar is a deliberate escape to a different filter
+    // mechanism, not something templateId should silently keep narrowing.
     const request =
       mode === "query"
         ? queryLogs({ q: debouncedQuery, queryLanguage, ...scope })
         : fetchLogs({
             search: liveSearchFilter,
             levels: liveSeverityFilter && liveSeverityFilter.size > 0 ? Array.from(liveSeverityFilter) : undefined,
+            templateId: templateIdFilter ?? undefined,
             ...scope,
           });
     logger.debug("Querying logs", { mode, ...scope });
@@ -370,6 +390,7 @@ export function LogStream({
     liveSeverityFilter,
     sourceFilter,
     fileFilter,
+    templateIdFilter,
     rangeMinutes,
     sortColumn,
     sortDirection,
@@ -402,7 +423,14 @@ export function LogStream({
     pageSize,
   ]);
 
+  const clearPatternFilter = () => {
+    setTemplateIdFilter(null);
+    setPatternFilterLabel(null);
+    setPage(0);
+  };
+
   const applySavedSearch = (saved: SavedSearch) => {
+    clearPatternFilter();
     if (saved.queryLanguage === "SIMPLE") {
       setMode("simple");
       setSearchInput(saved.search ?? "");
@@ -427,6 +455,7 @@ export function LogStream({
   // indexes, not a real distributed-tracing span lookup.
   const handleCorrelate = (fieldName: string, value: string) => {
     const query = `field.${fieldName}:"${value}"`;
+    clearPatternFilter();
     setMode("query");
     setQueryLanguage("LUCENE");
     setQueryInput(query);
@@ -657,6 +686,7 @@ export function LogStream({
           onChange={(e) => {
             setSourceFilter(e.target.value);
             setFileFilter("");
+            clearPatternFilter();
             setPage(0);
           }}
         >
@@ -672,6 +702,7 @@ export function LogStream({
           value={fileFilter}
           onChange={(e) => {
             setFileFilter(e.target.value);
+            clearPatternFilter();
             setPage(0);
           }}
         >
@@ -715,6 +746,17 @@ export function LogStream({
           </span>
         )}
       </div>
+
+      {patternFilterLabel && (
+        <div className="pattern-filter-chip">
+          <span>
+            Filtered by pattern: <code>{patternFilterLabel}</code>
+          </span>
+          <button type="button" className="btn btn-icon btn-ghost" title="Clear pattern filter" onClick={clearPatternFilter}>
+            ×
+          </button>
+        </div>
+      )}
 
       {isLiveBuffered && <RateHistogram entries={bufferedContent} />}
 

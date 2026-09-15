@@ -81,6 +81,14 @@
             <artifactId>spring-boot-starter-webmvc-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- @DataJpaTest: a real EntityManager/transaction for repository-level regression
+             tests, without booting the full app context (Lucene IndexWriter and all) the
+             way @SpringBootTest does. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-data-jpa-test</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

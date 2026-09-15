@@ -28,4 +28,30 @@ class TemplateTokenizerTest {
         assertThat(TemplateTokenizer.tokenize("")).isEmpty();
         assertThat(TemplateTokenizer.tokenize(null)).isEmpty();
     }
+
+    @Test
+    void splitsOnCommasSoAnUnspacedCsvRowTokenizesPerColumn() {
+        List<String> tokens = TemplateTokenizer.tokenize(
+                "1001,Liu,Brown,liu.brown1@example.com,BR,enterprise,2026-01-15");
+
+        assertThat(tokens).containsExactly("<NUM>", "Liu", "Brown", "<EMAIL>", "BR", "enterprise", "<DATE>");
+    }
+
+    @Test
+    void commaSpaceInOrdinaryProseIsTreatedAsOneDelimiter() {
+        assertThat(TemplateTokenizer.tokenize("Payment failed for order 48291, amount 129.99"))
+                .containsExactly("Payment", "failed", "for", "order", "<NUM>", "amount", "<NUM>");
+    }
+
+    @Test
+    void masksEmailAddresses() {
+        assertThat(TemplateTokenizer.tokenize("contact jane.doe+test@example.co.uk for help"))
+                .containsExactly("contact", "<EMAIL>", "for", "help");
+    }
+
+    @Test
+    void masksIsoDatesAndTimestamps() {
+        assertThat(TemplateTokenizer.tokenize("expires 2026-01-15")).containsExactly("expires", "<DATE>");
+        assertThat(TemplateTokenizer.tokenize("logged 2026-01-15T10:30:00Z")).containsExactly("logged", "<DATE>");
+    }
 }

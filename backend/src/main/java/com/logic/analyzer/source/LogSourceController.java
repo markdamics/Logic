@@ -83,6 +83,16 @@ public class LogSourceController {
         return service.setLive(id, false);
     }
 
+    @PostMapping("/{id}/enable-patterns")
+    public LogSourceResponse enablePatterns(@PathVariable Long id) {
+        return service.setPatternMiningEnabled(id, true);
+    }
+
+    @PostMapping("/{id}/disable-patterns")
+    public LogSourceResponse disablePatterns(@PathVariable Long id) {
+        return service.setPatternMiningEnabled(id, false);
+    }
+
     /** Backs the Sources dialog's file/directory picker for LOCAL_FILE/LOCAL_DIRECTORY. Omit {@code path} to start at the server's home directory. */
     @GetMapping("/browse")
     public DirectoryListing browse(@RequestParam(required = false) String path) {

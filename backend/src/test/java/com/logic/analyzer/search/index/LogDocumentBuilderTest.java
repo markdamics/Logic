@@ -28,7 +28,7 @@ class LogDocumentBuilderTest {
     void indexesAPlainUnstructuredMessage() throws Exception {
         LogEntry entry = new LogEntry(1, Instant.now(), LogLevel.INFO, "svc", "app.log", "just some text");
 
-        Document doc = builder.build(testSource(), entry, "doc-1");
+        Document doc = builder.build(testSource(), entry, "doc-1", null);
 
         assertThat(doc.get("message")).isEqualTo("just some text");
         assertThat(doc.get("format")).isEqualTo("unstructured");
@@ -39,7 +39,7 @@ class LogDocumentBuilderTest {
         LogEntry entry = new LogEntry(1, Instant.now(), LogLevel.INFO, "svc", "app.log",
                 "{\"user\": \"\", \"service\": \"payments\"}");
 
-        Document doc = builder.build(testSource(), entry, "doc-1");
+        Document doc = builder.build(testSource(), entry, "doc-1", null);
 
         assertThat(doc.get("field.user")).isEqualTo("");
         assertThat(doc.get("field.service")).isEqualTo("payments");
@@ -49,7 +49,7 @@ class LogDocumentBuilderTest {
     void doesNotThrowForAnEmptyFileLabel() throws Exception {
         LogEntry entry = new LogEntry(1, Instant.now(), LogLevel.INFO, "svc", null, "no file for this entry");
 
-        Document doc = builder.build(testSource(), entry, "doc-1");
+        Document doc = builder.build(testSource(), entry, "doc-1", null);
 
         assertThat(doc.get("file")).isEqualTo("");
     }
@@ -64,11 +64,29 @@ class LogDocumentBuilderTest {
         json.append('}');
         LogEntry entry = new LogEntry(1, Instant.now(), LogLevel.INFO, "svc", "app.log", json.toString());
 
-        Document doc = builder.build(testSource(), entry, "doc-1");
+        Document doc = builder.build(testSource(), entry, "doc-1", null);
 
         long dynamicFieldCount = doc.getFields().stream()
                 .filter(f -> f.name().startsWith("field.") && !f.name().endsWith("#num"))
                 .count();
         assertThat(dynamicFieldCount).isEqualTo(32);
+    }
+
+    @Test
+    void stampsTheAssignedTemplateIdWhenPresent() throws Exception {
+        LogEntry entry = new LogEntry(1, Instant.now(), LogLevel.INFO, "svc", "app.log", "user logged in");
+
+        Document doc = builder.build(testSource(), entry, "doc-1", 42L);
+
+        assertThat(doc.get("templateId")).isEqualTo("42");
+    }
+
+    @Test
+    void omitsTheTemplateIdFieldEntirelyWhenNotAssigned() throws Exception {
+        LogEntry entry = new LogEntry(1, Instant.now(), LogLevel.INFO, "svc", "app.log", "user logged in");
+
+        Document doc = builder.build(testSource(), entry, "doc-1", null);
+
+        assertThat(doc.get("templateId")).isNull();
     }
 }

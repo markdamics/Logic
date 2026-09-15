@@ -81,6 +81,7 @@ public class SavedSearchService {
                     savedSearch.getLevels(),
                     savedSearch.getSource(),
                     savedSearch.getFile(),
+                    null,
                     savedSearch.getRangeMinutes(),
                     savedSearch.getSortBy(),
                     savedSearch.getSortDir(),

@@ -14,7 +14,7 @@ class LogTemplateTest {
     @Test
     void newTemplateSeedsHistoryWithItsInitialOccurrenceCount() {
         Instant now = Instant.ofEpochMilli(10 * BUCKET_MS);
-        LogTemplate template = new LogTemplate("src", "hello *", 2, now, "hello world", 3);
+        LogTemplate template = new LogTemplate("src", "app.log", "hello *", 2, now, "hello world", 3);
 
         assertThat(template.getHistoryCounts()).containsExactly(3L);
     }
@@ -22,7 +22,7 @@ class LogTemplateTest {
     @Test
     void anOccurrenceInTheSameBucketIncrementsTheLastEntry() {
         Instant now = Instant.ofEpochMilli(10 * BUCKET_MS);
-        LogTemplate template = new LogTemplate("src", "hello *", 2, now, "hello world", 1);
+        LogTemplate template = new LogTemplate("src", "app.log", "hello *", 2, now, "hello world", 1);
 
         template.recordOccurrence(now.plusMillis(BUCKET_MS / 2), "hello world", 2);
 
@@ -32,7 +32,7 @@ class LogTemplateTest {
     @Test
     void anOccurrenceInTheNextBucketAppendsANewEntry() {
         Instant now = Instant.ofEpochMilli(10 * BUCKET_MS);
-        LogTemplate template = new LogTemplate("src", "hello *", 2, now, "hello world", 1);
+        LogTemplate template = new LogTemplate("src", "app.log", "hello *", 2, now, "hello world", 1);
 
         template.recordOccurrence(now.plusMillis(BUCKET_MS), "hello world", 4);
 
@@ -42,7 +42,7 @@ class LogTemplateTest {
     @Test
     void aGapOfSeveralBucketsIsFilledWithZeros() {
         Instant now = Instant.ofEpochMilli(10 * BUCKET_MS);
-        LogTemplate template = new LogTemplate("src", "hello *", 2, now, "hello world", 1);
+        LogTemplate template = new LogTemplate("src", "app.log", "hello *", 2, now, "hello world", 1);
 
         template.recordOccurrence(now.plusMillis(3 * BUCKET_MS), "hello world", 5);
 
@@ -52,7 +52,7 @@ class LogTemplateTest {
     @Test
     void historyIsCappedAtTheConfiguredLength() {
         Instant now = Instant.ofEpochMilli(10 * BUCKET_MS);
-        LogTemplate template = new LogTemplate("src", "hello *", 2, now, "hello world", 1);
+        LogTemplate template = new LogTemplate("src", "app.log", "hello *", 2, now, "hello world", 1);
 
         for (int i = 1; i <= LogTemplate.HISTORY_LENGTH + 5; i++) {
             template.recordOccurrence(now.plusMillis((long) i * BUCKET_MS), "hello world", 1);

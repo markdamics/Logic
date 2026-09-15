@@ -29,7 +29,11 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -47,6 +51,8 @@ class SearchIndexServiceTest {
     private LogSourceRepository sourceRepository;
     @Mock
     private LogIngestionService ingestionService;
+    @Mock
+    private TemplateMiningService mockMiningService;
 
     private final FacetsConfig facetsConfig = new FacetsConfig();
     private final LogDocumentBuilder documentBuilder = new LogDocumentBuilder(facetsConfig);
@@ -194,5 +200,31 @@ class SearchIndexServiceTest {
         service.reindexAll();
 
         assertThat(totalIndexedDocs()).isEqualTo(1);
+    }
+
+    @Test
+    void templateMiningIsSkippedWhenNotEnabledOnTheSource() throws Exception {
+        when(testSource.isPatternMiningEnabled()).thenReturn(false);
+        when(ingestionService.readForIndexing(testSource)).thenReturn(readOf(500,
+                new LogEntry(1, Instant.now(), LogLevel.INFO, "events", "app.log", "line one")));
+        SearchIndexService serviceWithMockMining = new SearchIndexService(
+                sourceRepository, ingestionService, writer, searcherManager, documentBuilder, mockMiningService);
+
+        serviceWithMockMining.reindexAll();
+
+        verifyNoInteractions(mockMiningService);
+    }
+
+    @Test
+    void templateMiningRunsWhenEnabledOnTheSource() throws Exception {
+        when(testSource.isPatternMiningEnabled()).thenReturn(true);
+        when(ingestionService.readForIndexing(testSource)).thenReturn(readOf(500,
+                new LogEntry(1, Instant.now(), LogLevel.INFO, "events", "app.log", "line one")));
+        SearchIndexService serviceWithMockMining = new SearchIndexService(
+                sourceRepository, ingestionService, writer, searcherManager, documentBuilder, mockMiningService);
+
+        serviceWithMockMining.reindexAll();
+
+        verify(mockMiningService).mine(eq(testSource), eq("app.log"), anyList());
     }
 }

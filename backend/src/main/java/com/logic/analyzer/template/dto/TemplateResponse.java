@@ -8,6 +8,7 @@ import java.util.List;
 public record TemplateResponse(
         Long id,
         String source,
+        String file,
         String templateText,
         long occurrenceCount,
         Instant firstSeenAt,
@@ -19,6 +20,7 @@ public record TemplateResponse(
         return new TemplateResponse(
                 template.getId(),
                 template.getSource(),
+                template.getFile(),
                 template.getTemplateText(),
                 template.getOccurrenceCount(),
                 template.getFirstSeenAt(),

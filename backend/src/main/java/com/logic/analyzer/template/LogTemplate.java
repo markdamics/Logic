@@ -12,26 +12,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/**
- * A clustered "shape" of log message mined by {@link TemplateMiningService} -
- * see that class for the tokenize/mask/merge algorithm. {@code templateText}
- * is a space-joined sequence of masked tokens and "*" wildcards (positions
- * that have been observed to vary across occurrences); {@code tokenCount}
- * mirrors its length and is stored separately purely so the mining service
- * can bucket candidate lines by token count without re-splitting templateText
- * on every comparison.
- *
- * {@code source} is a name copy (not a foreign key), matching {@link
- * com.logic.analyzer.redaction.RedactionRule}'s scoping convention - unlike
- * that entity, every template is scoped to exactly one source (there is no
- * global bucket), since a template tree is inherently per-source.
- *
- * {@code history}/{@code historyBucketStartMillis} back the "trend
- * sparkline" the roadmap calls for: a fixed-length ring of per-minute
- * occurrence counts, oldest first, rolled forward incrementally in {@link
- * #recordOccurrence} rather than computed from a full occurrence log (which
- * this entity never keeps - only a running count and one recent sample line).
- */
 @Entity
 @Table(name = "log_template")
 public class LogTemplate {
@@ -45,6 +25,9 @@ public class LogTemplate {
 
     @Column(nullable = false)
     private String source;
+
+    @Column(length = 255)
+    private String file;
 
     @Column(nullable = false, length = 2000)
     private String templateText;
@@ -73,8 +56,9 @@ public class LogTemplate {
         // JPA
     }
 
-    public LogTemplate(String source, String templateText, int tokenCount, Instant seenAt, String sampleRawLine, long occurrenceCount) {
+    public LogTemplate(String source, String file, String templateText, int tokenCount, Instant seenAt, String sampleRawLine, long occurrenceCount) {
         this.source = source;
+        this.file = file;
         this.templateText = templateText;
         this.tokenCount = tokenCount;
         this.occurrenceCount = occurrenceCount;
@@ -145,6 +129,10 @@ public class LogTemplate {
 
     public String getSource() {
         return source;
+    }
+
+    public String getFile() {
+        return file;
     }
 
     public String getTemplateText() {

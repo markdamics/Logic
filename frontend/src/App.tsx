@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Alerts } from "./components/Alerts";
 import { Dashboard } from "./components/Dashboard";
 import { LogStream } from "./components/LogStream";
+import type { PatternDrilldownFilter } from "./components/LogStream";
 import { Patterns } from "./components/Patterns";
 import { RedactionRules } from "./components/RedactionRules";
 import { Sidebar } from "./components/Sidebar";
@@ -13,7 +14,7 @@ import { useRedactionRules } from "./hooks/useRedactionRules";
 import { useSavedSearches } from "./hooks/useSavedSearches";
 import { useSources } from "./hooks/useSources";
 import { ApiError, reloadLogs } from "./api/client";
-import type { LogSource, TemplateSort } from "./api/types";
+import type { LogSource, LogTemplate, TemplateSort } from "./api/types";
 import type { Screen } from "./screens";
 import { SCREEN_TITLES } from "./screens";
 import { TestIcon } from "./components/icons";
@@ -44,7 +45,19 @@ function App() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [reloadSignal, setReloadSignal] = useState(0);
   const [reloading, setReloading] = useState(false);
-  const { sources, loading, error, create, update, upload, remove, check, toggleEnabled, toggleLive } = useSources();
+  const {
+    sources,
+    loading,
+    error,
+    create,
+    update,
+    upload,
+    remove,
+    check,
+    toggleEnabled,
+    toggleLive,
+    togglePatternMining,
+  } = useSources();
   const {
     savedSearches,
     loading: savedSearchesLoading,
@@ -68,8 +81,14 @@ function App() {
     remove: removeRedactionRule,
   } = useRedactionRules();
   const [patternsSource, setPatternsSource] = useState<string | undefined>(undefined);
+  const [patternsFile, setPatternsFile] = useState<string | undefined>(undefined);
   const [patternsSort, setPatternsSort] = useState<TemplateSort>("volume");
-  const { templates, loading: templatesLoading } = usePatterns(patternsSource, patternsSort);
+  const { templates, loading: templatesLoading, refresh: refreshPatterns } = usePatterns(
+    patternsSource,
+    patternsFile,
+    patternsSort,
+  );
+  const [patternDrilldown, setPatternDrilldown] = useState<PatternDrilldownFilter | null>(null);
 
   useEffect(() => {
     document.documentElement.dataset.theme = mode;
@@ -120,6 +139,31 @@ function App() {
     }
   };
 
+  const handleTogglePatternMining = async (id: number, enabled: boolean) => {
+    setActionError(null);
+    try {
+      await togglePatternMining(id, enabled);
+    } catch (e) {
+      logger.warn(`Failed to ${enabled ? "enable" : "disable"} pattern mining for source ${id}`, e);
+      setActionError(
+        e instanceof ApiError ? e.message : `Failed to ${enabled ? "enable" : "disable"} pattern mining`,
+      );
+    }
+  };
+
+  // Navigating anywhere via the sidebar is a fresh visit, not a continuation of a Patterns
+  // drill-down - clear it so switching to Logs later doesn't silently reapply a stale template
+  // filter. handleViewMatchingLines below sets the screen itself and deliberately bypasses this.
+  const handleNavigate = (nextScreen: Screen) => {
+    setPatternDrilldown(null);
+    setScreen(nextScreen);
+  };
+
+  const handleViewMatchingLines = (template: LogTemplate) => {
+    setPatternDrilldown({ source: template.source, file: template.file, templateId: template.id, templateText: template.templateText });
+    setScreen("logs");
+  };
+
   const handleReload = async () => {
     setActionError(null);
     setReloading(true);
@@ -138,7 +182,7 @@ function App() {
     <div className="shell">
       <Sidebar
         screen={screen}
-        onNavigate={setScreen}
+        onNavigate={handleNavigate}
         collapsed={sidebarCollapsed}
         onToggleCollapsed={() => setSidebarCollapsed((c) => !c)}
         mode={mode}
@@ -192,6 +236,7 @@ function App() {
               onDelete={handleDelete}
               onToggleEnabled={handleToggleEnabled}
               onToggleLive={handleToggleLive}
+              onTogglePatternMining={handleTogglePatternMining}
               onAdd={() => setDialogState({ mode: "add" })}
             />
           )}
@@ -206,6 +251,7 @@ function App() {
               savedSearchesLoading={savedSearchesLoading}
               onCreateSavedSearch={createSavedSearch}
               onDeleteSavedSearch={removeSavedSearch}
+              initialPatternFilter={patternDrilldown}
             />
           )}
 
@@ -243,9 +289,16 @@ function App() {
               templates={templates}
               loading={templatesLoading}
               source={patternsSource}
+              file={patternsFile}
               sort={patternsSort}
-              onSourceChange={setPatternsSource}
+              onSourceChange={(nextSource) => {
+                setPatternsSource(nextSource);
+                setPatternsFile(undefined);
+              }}
+              onFileChange={setPatternsFile}
               onSortChange={setPatternsSort}
+              onRefresh={refreshPatterns}
+              onViewMatchingLines={handleViewMatchingLines}
             />
           )}
         </div>

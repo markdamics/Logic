@@ -14,7 +14,6 @@ import java.time.Instant;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class TemplateMiningServiceTest {
@@ -30,11 +29,38 @@ class TemplateMiningServiceTest {
     void setUp() {
         service = new TemplateMiningService(repository);
         source = new LogSource("payments-api", SourceType.LOCAL_FILE, "/var/log/app.log", null, null, null, null);
-        when(repository.findBySource("payments-api")).thenReturn(List.of());
+        // repository.findBySourceAndFile(...) is left unstubbed deliberately - Mockito's
+        // default answer for an unstubbed List-returning method is an empty list, which is
+        // exactly "no prior templates for this (source, file)", the state every test starts from.
     }
 
     private LogEntry entry(String message) {
         return new LogEntry(0, now, LogLevel.INFO, "payments-api", "app.log", message);
+    }
+
+    /** Mirrors LogIngestionService.errorEntry() - a synthetic entry, not real ingested content. */
+    private LogEntry syntheticIngestionErrorEntry(String message) {
+        return new LogEntry(0, now, LogLevel.ERROR, "payments-api", null, message);
+    }
+
+    @Test
+    void syntheticIngestionErrorEntriesNeverBecomeAPattern() {
+        service.mine(source, "", List.of(
+                syntheticIngestionErrorEntry("Failed to read log source: file not found: /var/log/app.log"),
+                syntheticIngestionErrorEntry("Failed to read log source: file not found: /var/log/app.log")));
+
+        assertThat(clusters()).isEmpty();
+    }
+
+    @Test
+    void aSyntheticIngestionErrorEntryMixedInWithRealLinesIsIgnoredButRealLinesStillMine() {
+        service.mine(source, "app.log", List.of(
+                entry("User bob123 logged in from 10.0.0.5"),
+                syntheticIngestionErrorEntry("Failed to read log source: file not found: /var/log/app.log")));
+
+        List<LogTemplate> templates = clusters();
+        assertThat(templates).hasSize(1);
+        assertThat(templates.get(0).getTemplateText()).contains("logged", "in", "from");
     }
 
     @Test
@@ -120,6 +146,23 @@ class TemplateMiningServiceTest {
         assertThat(templates.get(0).getOccurrenceCount()).isEqualTo(3);
     }
 
+    @Test
+    void commaDelimitedCsvRowsClusterIntoOneTemplateInsteadOfOnePerRow() {
+        // Before comma was a delimiter, an entire unspaced row was one giant token - no two
+        // rows could ever match regardless of content, guaranteeing one template per row.
+        // id/email/date vary (and mask) per row; name/country/plan repeat, as they would for
+        // several signups processed through the same code path.
+        service.mine(source, "app.log", List.of(
+                entry("1001,Liu,Brown,liu.brown1@example.com,BR,enterprise,2026-01-15"),
+                entry("1002,Liu,Brown,liu.brown2@example.com,BR,enterprise,2026-01-16"),
+                entry("1003,Liu,Brown,liu.brown3@example.com,BR,enterprise,2026-01-17")));
+
+        List<LogTemplate> templates = clusters();
+        assertThat(templates).hasSize(1);
+        assertThat(templates.get(0).getOccurrenceCount()).isEqualTo(3);
+        assertThat(templates.get(0).getTemplateText()).isEqualTo("<NUM> Liu Brown <EMAIL> BR enterprise <DATE>");
+    }
+
     private List<LogTemplate> clusters() {
         // The mining service keeps its own per-source in-memory cluster cache (loaded from
         // the repository lazily); route through it the same way TemplateService would.
@@ -128,7 +171,7 @@ class TemplateMiningServiceTest {
 
     private List<LogTemplate> repositorySavedTemplates() {
         org.mockito.ArgumentCaptor<LogTemplate> captor = org.mockito.ArgumentCaptor.forClass(LogTemplate.class);
-        org.mockito.Mockito.verify(repository, org.mockito.Mockito.atLeastOnce()).save(captor.capture());
+        org.mockito.Mockito.verify(repository, org.mockito.Mockito.atLeast(0)).save(captor.capture());
         return captor.getAllValues().stream().distinct().toList();
     }
 

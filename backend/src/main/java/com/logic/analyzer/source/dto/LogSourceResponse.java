@@ -19,6 +19,7 @@ public record LogSourceResponse(
         SourceStatus status,
         boolean enabled,
         boolean live,
+        boolean patternMiningEnabled,
         List<String> changedFiles,
         Instant createdAt,
         Instant lastCheckedAt
@@ -40,6 +41,7 @@ public record LogSourceResponse(
                 source.getStatus(),
                 source.isEnabled(),
                 source.isLive(),
+                source.isPatternMiningEnabled(),
                 changedFiles,
                 source.getCreatedAt(),
                 source.getLastCheckedAt()

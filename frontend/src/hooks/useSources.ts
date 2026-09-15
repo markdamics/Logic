@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
-import { createSource, deleteSource, listSources, setSourceEnabled, setSourceLive, testConnection, updateSource, uploadSource } from "../api/client";
+import {
+  createSource,
+  deleteSource,
+  listSources,
+  setSourceEnabled,
+  setSourceLive,
+  setSourcePatternMiningEnabled,
+  testConnection,
+  updateSource,
+  uploadSource,
+} from "../api/client";
 import type { CreateSourceRequest, LogSource } from "../api/types";
 import { createLogger } from "../utils/logger";
 
@@ -96,5 +106,24 @@ export function useSources() {
     setSources((prev) => prev.map((s) => (s.id === id ? updated : s)));
   }, []);
 
-  return { sources, loading, error, refresh, create, update, upload, remove, check, toggleEnabled, toggleLive };
+  const togglePatternMining = useCallback(async (id: number, enabled: boolean) => {
+    const updated = await setSourcePatternMiningEnabled(id, enabled);
+    logger.info(`${enabled ? "Enabled" : "Disabled"} pattern mining for source ${id}`);
+    setSources((prev) => prev.map((s) => (s.id === id ? updated : s)));
+  }, []);
+
+  return {
+    sources,
+    loading,
+    error,
+    refresh,
+    create,
+    update,
+    upload,
+    remove,
+    check,
+    toggleEnabled,
+    toggleLive,
+    togglePatternMining,
+  };
 }

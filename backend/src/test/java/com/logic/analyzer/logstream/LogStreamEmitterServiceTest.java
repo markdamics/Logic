@@ -53,7 +53,7 @@ class LogStreamEmitterServiceTest {
     void baselineIsPrimedWithoutSendingAnything() {
         when(queryService.query(any())).thenReturn(resultOf(entry(10, "already here")));
 
-        SseEmitter emitter = service.subscribe(null, Set.of(), null, null);
+        SseEmitter emitter = service.subscribe(null, Set.of(), null, null, null);
         service.pollAll();
 
         assertThat(service.emitters).hasSize(1);
@@ -67,7 +67,7 @@ class LogStreamEmitterServiceTest {
         LogEntry fresh = entry(1, "brand new");
 
         when(queryService.query(any())).thenReturn(resultOf(existing));
-        service.subscribe(null, Set.of(), null, null);
+        service.subscribe(null, Set.of(), null, null, null);
 
         when(queryService.query(any())).thenReturn(resultOf(fresh, existing));
         service.pollAll();
@@ -85,7 +85,7 @@ class LogStreamEmitterServiceTest {
         // about the underlying log line changed. Dedup must not be fooled by that.
         LogEntry firstRead = new LogEntry(0, Instant.now(), LogLevel.INFO, "source-a", "app.log", "app started");
         when(queryService.query(any())).thenReturn(resultOf(firstRead));
-        service.subscribe(null, Set.of(), null, null);
+        service.subscribe(null, Set.of(), null, null, null);
 
         LogEntry rereadWithNewTimestamp = new LogEntry(0, Instant.now().plusSeconds(5), LogLevel.INFO, "source-a", "app.log", "app started");
         when(queryService.query(any())).thenReturn(resultOf(rereadWithNewTimestamp));
@@ -105,7 +105,7 @@ class LogStreamEmitterServiceTest {
         LogEntry first = entry(10, "first");
         LogEntry second = entry(5, "second");
         when(queryService.query(any())).thenReturn(resultOf(second, first));
-        service.subscribe(null, Set.of(), null, null);
+        service.subscribe(null, Set.of(), null, null, null);
 
         when(queryService.query(any())).thenReturn(resultOf(first));
         service.pollAll();
@@ -120,7 +120,7 @@ class LogStreamEmitterServiceTest {
         LogEntry existing = entry(10, "already here");
         when(queryService.query(any())).thenReturn(resultOf(existing));
 
-        service.subscribe(null, Set.of(), null, null);
+        service.subscribe(null, Set.of(), null, null, null);
         service.pollAll();
         service.pollAll();
 

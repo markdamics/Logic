@@ -36,18 +36,19 @@ public class LogStreamController {
             @RequestParam(required = false) Set<LogLevel> level,
             @RequestParam(required = false) String source,
             @RequestParam(required = false) String file,
+            @RequestParam(required = false) Long templateId,
             @RequestParam(defaultValue = "0") long rangeMinutes,
             @RequestParam(defaultValue = "time") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDir,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
-        log.info("GET /api/logs search='{}' level={} source='{}' file='{}' rangeMinutes={} sortBy={} sortDir={} page={} size={}",
-                search, level, source, file, rangeMinutes, sortBy, sortDir, page, size);
+        log.info("GET /api/logs search='{}' level={} source='{}' file='{}' templateId={} rangeMinutes={} sortBy={} sortDir={} page={} size={}",
+                search, level, source, file, templateId, rangeMinutes, sortBy, sortDir, page, size);
 
         Set<LogLevel> levels = level == null ? Set.of() : level;
         LogQueryResult result = queryService.query(
-                new LogQueryParams(search, levels, source, file, rangeMinutes, sortBy, sortDir, page, size));
+                new LogQueryParams(search, levels, source, file, templateId, rangeMinutes, sortBy, sortDir, page, size));
 
         log.debug("GET /api/logs -> {} of {} total", result.content().size(), result.totalElements());
         return result;
@@ -59,11 +60,12 @@ public class LogStreamController {
             @RequestParam(required = false) String search,
             @RequestParam(required = false) Set<LogLevel> level,
             @RequestParam(required = false) String source,
-            @RequestParam(required = false) String file
+            @RequestParam(required = false) String file,
+            @RequestParam(required = false) Long templateId
     ) {
-        log.info("GET /api/logs/stream search='{}' level={} source='{}' file='{}'", search, level, source, file);
+        log.info("GET /api/logs/stream search='{}' level={} source='{}' file='{}' templateId={}", search, level, source, file, templateId);
         Set<LogLevel> levels = level == null ? Set.of() : level;
-        return emitterService.subscribe(search, levels, source, file);
+        return emitterService.subscribe(search, levels, source, file, templateId);
     }
 
     @GetMapping("/files")
