@@ -60,6 +60,11 @@ public class LogSource {
     @ColumnDefault("false")
     private boolean live = false;
 
+    /** Off by default (LOGIC-107 follow-up): template mining has an ingest-path cost, so it's opt-in per source. */
+    @Column(nullable = false)
+    @ColumnDefault("false")
+    private boolean patternMiningEnabled = false;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -140,6 +145,14 @@ public class LogSource {
 
     public void setLive(boolean live) {
         this.live = live;
+    }
+
+    public boolean isPatternMiningEnabled() {
+        return patternMiningEnabled;
+    }
+
+    public void setPatternMiningEnabled(boolean patternMiningEnabled) {
+        this.patternMiningEnabled = patternMiningEnabled;
     }
 
     public Instant getCreatedAt() {

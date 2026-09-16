@@ -26,6 +26,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -82,9 +83,13 @@ class LogQueryServiceTest {
     }
 
     private void seed(List<LogEntry> entries) throws Exception {
+        seed(entries, Map.of());
+    }
+
+    private void seed(List<LogEntry> entries, Map<Long, Long> templateIdByEntryId) throws Exception {
         for (LogEntry entry : entries) {
             String docId = "doc-" + entry.id();
-            Document doc = documentBuilder.build(testSource, entry, docId);
+            Document doc = documentBuilder.build(testSource, entry, docId, templateIdByEntryId.get(entry.id()));
             writer.updateDocument(new Term("docId", docId), doc);
         }
         writer.commit();
@@ -106,7 +111,7 @@ class LogQueryServiceTest {
         seed(sample());
 
         LogQueryResult result = service().query(new LogQueryParams(
-                "failure", Set.of(LogLevel.ERROR), "source-a", null, 60, "time", "desc", 0, 10));
+                "failure", Set.of(LogLevel.ERROR), "source-a", null, null, 60, "time", "desc", 0, 10));
 
         assertThat(result.totalElements()).isEqualTo(1);
         assertThat(result.content().get(0).message()).contains("boom failure");
@@ -117,7 +122,7 @@ class LogQueryServiceTest {
         seed(sample());
 
         LogQueryResult result = service().query(new LogQueryParams(
-                null, Set.of(), null, null, 60, "time", "desc", 0, 10));
+                null, Set.of(), null, null, null, 60, "time", "desc", 0, 10));
 
         assertThat(result.totalElements()).isEqualTo(3);
         assertThat(result.content()).extracting(LogEntry::message).doesNotContain("ancient failure");
@@ -128,7 +133,7 @@ class LogQueryServiceTest {
         seed(sample());
 
         LogQueryResult result = service().query(new LogQueryParams(
-                null, Set.of(), null, null, 0, "time", "desc", 0, 10));
+                null, Set.of(), null, null, null, 0, "time", "desc", 0, 10));
 
         assertThat(result.totalElements()).isEqualTo(4);
         assertThat(result.content()).extracting(LogEntry::message).contains("ancient failure");
@@ -139,7 +144,7 @@ class LogQueryServiceTest {
         seed(sample());
 
         LogQueryResult result = service().query(new LogQueryParams(
-                null, Set.of(), null, null, 60, "level", "asc", 0, 10));
+                null, Set.of(), null, null, null, 60, "level", "asc", 0, 10));
 
         assertThat(result.content()).extracting(LogEntry::level)
                 .containsExactly(LogLevel.ERROR, LogLevel.WARN, LogLevel.INFO);
@@ -150,7 +155,7 @@ class LogQueryServiceTest {
         seed(sample());
 
         LogQueryResult result = service().query(new LogQueryParams(
-                null, Set.of(), null, null, 60, "source", "asc", 0, 10));
+                null, Set.of(), null, null, null, 60, "source", "asc", 0, 10));
 
         assertThat(result.content()).extracting(LogEntry::source)
                 .containsExactly("source-a", "source-a", "source-b");
@@ -160,8 +165,8 @@ class LogQueryServiceTest {
     void paginatesResults() throws Exception {
         seed(sample());
 
-        LogQueryResult page0 = service().query(new LogQueryParams(null, Set.of(), null, null, 60, "time", "desc", 0, 2));
-        LogQueryResult page1 = service().query(new LogQueryParams(null, Set.of(), null, null, 60, "time", "desc", 1, 2));
+        LogQueryResult page0 = service().query(new LogQueryParams(null, Set.of(), null, null, null, 60, "time", "desc", 0, 2));
+        LogQueryResult page1 = service().query(new LogQueryParams(null, Set.of(), null, null, null, 60, "time", "desc", 1, 2));
 
         assertThat(page0.content()).hasSize(2);
         assertThat(page0.totalElements()).isEqualTo(3);
@@ -174,7 +179,7 @@ class LogQueryServiceTest {
         seed(sample());
 
         LogQueryResult result = service().query(new LogQueryParams(
-                null, Set.of(), null, "web.log", 60, "time", "desc", 0, 10));
+                null, Set.of(), null, "web.log", null, 60, "time", "desc", 0, 10));
 
         assertThat(result.totalElements()).isEqualTo(1);
         assertThat(result.content().get(0).message()).isEqualTo("all good");
@@ -185,7 +190,7 @@ class LogQueryServiceTest {
         seed(sample());
 
         LogQueryResult result = service().query(new LogQueryParams(
-                "web.log", Set.of(), null, null, 60, "time", "desc", 0, 10));
+                "web.log", Set.of(), null, null, null, 60, "time", "desc", 0, 10));
 
         assertThat(result.totalElements()).isEqualTo(1);
         assertThat(result.content().get(0).message()).isEqualTo("all good");
@@ -196,7 +201,7 @@ class LogQueryServiceTest {
         seed(sample());
 
         LogQueryResult result = service().query(new LogQueryParams(
-                null, Set.of(), null, null, 60, "file", "asc", 0, 10));
+                null, Set.of(), null, null, null, 60, "file", "asc", 0, 10));
 
         assertThat(result.content()).extracting(LogEntry::file)
                 .containsExactly("app.log", "app.log", "web.log");
@@ -225,7 +230,7 @@ class LogQueryServiceTest {
         seed(sample());
         disable("source-a");
 
-        LogQueryResult result = service().query(new LogQueryParams(null, Set.of(), null, null, 60, "time", "desc", 0, 10));
+        LogQueryResult result = service().query(new LogQueryParams(null, Set.of(), null, null, null, 60, "time", "desc", 0, 10));
 
         assertThat(result.totalElements()).isEqualTo(1);
         assertThat(result.content()).extracting(LogEntry::source).containsOnly("source-b");
@@ -239,6 +244,18 @@ class LogQueryServiceTest {
         List<String> files = service().listFiles(null);
 
         assertThat(files).containsExactly("web.log");
+    }
+
+    @Test
+    void filtersByTemplateId() throws Exception {
+        // entries 1 and 3 were clustered into template 100, entry 2 into a different template -
+        // drill-down from a Patterns row must show exactly the entries assigned to it.
+        seed(sample(), Map.of(1L, 100L, 2L, 200L, 3L, 100L));
+
+        LogQueryResult result = service().query(new LogQueryParams(null, Set.of(), null, null, 100L, 0, "time", "desc", 0, 10));
+
+        assertThat(result.totalElements()).isEqualTo(2);
+        assertThat(result.content()).extracting(LogEntry::message).containsExactlyInAnyOrder("boom failure", "careful now");
     }
 
     private void disable(String sourceName) {

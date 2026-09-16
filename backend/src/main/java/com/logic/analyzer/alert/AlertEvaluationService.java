@@ -126,7 +126,7 @@ public class AlertEvaluationService {
     private Query compileScope(AlertRule rule, long rangeMinutes) {
         if (rule.getQueryLanguage() == QueryLanguage.SIMPLE) {
             return logQueryService.compile(new LogQueryParams(
-                    rule.getSearch(), rule.getLevels(), rule.getSource(), rule.getFile(), rangeMinutes,
+                    rule.getSearch(), rule.getLevels(), rule.getSource(), rule.getFile(), null, rangeMinutes,
                     "time", "desc", 0, 0));
         }
         return searchQueryService.compile(rule.getQuery(), rule.getQueryLanguage(), rule.getSource(), rule.getFile(), rangeMinutes);

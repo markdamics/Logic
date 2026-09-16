@@ -27,9 +27,12 @@ import java.util.regex.Pattern;
  * reconciles a file's documents by deleting and re-adding per pass, not by
  * upserting on this field), the source/level/file
  * fixed fields (both a stored exact-match copy and a sortable DocValues copy),
- * a numeric timestamp (for range filtering and sorting), the raw message, and
- * a composite "_all" field powering bare-keyword search - the indexed
- * equivalent of LogQueryService's old concatenate-and-.contains() scan.
+ * an optional "templateId" exact-match field (present only when pattern mining
+ * assigned this entry to a {@link com.logic.analyzer.template.LogTemplate} -
+ * backs the Patterns "View matching lines" drill-down), a numeric timestamp
+ * (for range filtering and sorting), the raw message, and a composite "_all"
+ * field powering bare-keyword search - the indexed equivalent of
+ * LogQueryService's old concatenate-and-.contains() scan.
  *
  * On top of that, {@link MessageFieldExtractor} detects a structured shape
  * (JSON/syslog/access-log/logfmt) in the message and each of its fields
@@ -61,7 +64,8 @@ public class LogDocumentBuilder {
         this.facetsConfig = facetsConfig;
     }
 
-    public Document build(LogSource source, LogEntry entry, String docId) throws IOException {
+    /** @param templateId the pattern-mining template this entry was assigned to, or null if mining is off/didn't cluster it. */
+    public Document build(LogSource source, LogEntry entry, String docId, Long templateId) throws IOException {
         Document doc = new Document();
 
         doc.add(new StringField("docId", docId, Field.Store.YES));
@@ -76,6 +80,15 @@ public class LogDocumentBuilder {
         doc.add(new StringField("file", file, Field.Store.YES));
         doc.add(new SortedDocValuesField("file", new BytesRef(file)));
         doc.add(new SortedSetDocValuesFacetField("file", file.isEmpty() ? "—" : file));
+
+        // Absent entirely (not an empty-string field) when unset, same treatment as "docId"
+        // has no dynamic-field analog - so LOGIC-117 drill-down's exact-match filter only ever
+        // matches entries that were actually clustered, never coincidentally matches an unset one.
+        if (templateId != null) {
+            String templateIdValue = String.valueOf(templateId);
+            doc.add(new StringField("templateId", templateIdValue, Field.Store.YES));
+            doc.add(new SortedDocValuesField("templateId", new BytesRef(templateIdValue)));
+        }
 
         doc.add(new StringField("level", entry.level().name(), Field.Store.YES));
         doc.add(new NumericDocValuesField("levelOrdinal", entry.level().ordinal()));
@@ -106,16 +119,6 @@ public class LogDocumentBuilder {
             if (NUMERIC.matcher(field.value()).matches()) {
                 double numericValue = Double.parseDouble(field.value());
                 doc.add(new DoublePoint(fieldName + "#num", numericValue));
-                // A distinct field name (not "#num" reused) is required here: a Lucene index's
-                // per-field schema (including doc-values type) is fixed by whichever segment
-                // wrote it first, so adding doc values under the existing "#num" name breaks on
-                // any index with documents written before this field existed ("cannot change
-                // field ... from doc values type=NONE to inconsistent doc values type=NUMERIC").
-                // "#numdv" is a fresh field name, so it's absent (not NONE) on old documents -
-                // LuceneQueryExecutor just treats those as unsampled for numeric-stats purposes,
-                // no reindex/migration required. The double is packed via NumericUtils'
-                // sortable-bits conversion (symmetric with sortableLongToDouble on read) since
-                // NumericDocValuesField only stores longs.
                 doc.add(new NumericDocValuesField(fieldName + "#numdv", NumericUtils.doubleToSortableLong(numericValue)));
             }
             dynamicFieldCount++;

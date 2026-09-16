@@ -67,6 +67,10 @@ public sealed interface QueryNode {
      * which ANDs this with whatever its query-language parser produced. Kept
      * here rather than duplicated so both stay in lockstep.
      *
+     * @param templateId scopes to entries pattern-mining assigned to this template
+     *                    (LOGIC-117 "View matching lines" drill-down) - null means no
+     *                    template scoping, the case every entry point except the
+     *                    simple-filter Log Stream/SSE path uses.
      * @param excludedSources names of currently-disabled sources - a MUST_NOT
      *                        clause per name, so a disabled source's already-indexed
      *                        entries stop showing up everywhere (Log Stream, query-bar,
@@ -74,7 +78,7 @@ public sealed interface QueryNode {
      *                        from the index (re-enabling is then instant, not a
      *                        from-scratch re-ingest).
      */
-    static List<QueryNode> scopeClauses(String source, String file, long rangeMinutes, List<String> excludedSources) {
+    static List<QueryNode> scopeClauses(String source, String file, long rangeMinutes, Long templateId, List<String> excludedSources) {
         List<QueryNode> clauses = new ArrayList<>();
 
         // rangeMinutes <= 0 means "all time" - no cutoff - rather than an empty window.
@@ -87,6 +91,9 @@ public sealed interface QueryNode {
         }
         if (file != null && !file.isBlank()) {
             clauses.add(new FieldMatchNode("file", file, true));
+        }
+        if (templateId != null) {
+            clauses.add(new FieldMatchNode("templateId", String.valueOf(templateId), true));
         }
         for (String excluded : excludedSources) {
             clauses.add(new NotNode(new FieldMatchNode("source", excluded, true)));

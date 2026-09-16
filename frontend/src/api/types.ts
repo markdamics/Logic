@@ -18,6 +18,7 @@ export interface LogSource {
   status: SourceStatus;
   enabled: boolean;
   live: boolean;
+  patternMiningEnabled: boolean;
   changedFiles: string[];
   createdAt: string;
   lastCheckedAt: string | null;
@@ -95,6 +96,8 @@ export interface LogQueryParams {
   levels?: LogLevel[];
   source?: string;
   file?: string;
+  /** Scopes to entries pattern-mining assigned to this template (Patterns' "View matching lines" drill-down). */
+  templateId?: number;
   rangeMinutes?: number;
   sortBy?: "time" | "level" | "source" | "file";
   sortDir?: "asc" | "desc";
@@ -220,6 +223,21 @@ export interface CreateRedactionRuleRequest {
   source?: string;
   enabled: boolean;
 }
+
+export interface LogTemplate {
+  id: number;
+  source: string;
+  file: string | null;
+  templateText: string;
+  occurrenceCount: number;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  sampleRawLine: string | null;
+  /** Per-minute occurrence counts, oldest first - backs the trend sparkline. */
+  history: number[];
+}
+
+export type TemplateSort = "volume" | "recent";
 
 export interface SourceActivity {
   source: string;

@@ -46,8 +46,8 @@ public class LogStreamEmitterService {
         this.queryService = queryService;
     }
 
-    public SseEmitter subscribe(String search, Set<LogLevel> levels, String source, String file) {
-        LogQueryParams params = new LogQueryParams(search, levels, source, file, 0, "time", "desc", 0, POLL_WINDOW_SIZE);
+    public SseEmitter subscribe(String search, Set<LogLevel> levels, String source, String file, Long templateId) {
+        LogQueryParams params = new LogQueryParams(search, levels, source, file, templateId, 0, "time", "desc", 0, POLL_WINDOW_SIZE);
         SseEmitter emitter = newEmitter();
         Subscription subscription = new Subscription(emitter, params);
 

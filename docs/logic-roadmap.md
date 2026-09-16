@@ -31,18 +31,19 @@ isn't built for, so they're intentionally excluded below.
 
 **P2 — Worth doing, bigger lift**
 
-7. Natural-language → query-language translation
-8. Cross-source correlation ("also happened" for a selected log line)
-9. Admin audit trail (config/alert-rule changes)
+7. Repeat/pattern clustering for noisy log lines (log template mining)
+8. Natural-language → query-language translation
+9. Cross-source correlation ("also happened" for a selected log line)
+10. Admin audit trail (config/alert-rule changes)
 
 **P3 — From the feature survey, not yet scoped**
 
-10. Custom dashboard builder (drag-and-drop time-series/heatmap/pie panels)
-11. Ingest-time log sampling for volume control
-12. ML-based anomaly detection (replacing/augmenting the std-dev baseline)
-13. Automatic cross-service root-cause correlation
-14. Predictive capacity/failure analytics
-15. Public API for third-party integrations
+11. Custom dashboard builder (drag-and-drop time-series/heatmap/pie panels)
+12. Ingest-time log sampling for volume control
+13. ML-based anomaly detection (replacing/augmenting the std-dev baseline)
+14. Automatic cross-service root-cause correlation
+15. Predictive capacity/failure analytics
+16. Public API for third-party integrations
 
 Out of scope for now: RBAC, SIEM/MITRE mapping, tiered storage,
 cost/cardinality management, plugin ecosystem, correlation with external
@@ -145,7 +146,84 @@ message content isn't touched.
   never reaches the cache, the durable search index, or the UI. A fresh
   install ships with zero rules, so nothing is masked until one is added.
 
-### LOGIC-107 — Natural language → query language
+### LOGIC-107 — Repeat/pattern clustering for noisy log lines (template mining) - done
+
+MessageFieldExtractor (search/extract) classifies and extracts fields from
+one line at a time (JSON/syslog/access-log/logfmt) but never compares lines
+to each other. There's no way today to see "these 4,000 lines are the same
+underlying event" or to notice a genuinely new error shape without manually
+grepping and eyeballing counts — the unit of analysis is a single LogEntry,
+and there's no trace/request-id in most ingested sources to group by instead.
+
+- Priority note: this is a prerequisite mental model for LOGIC-109
+  (cross-source correlation) and LOGIC-114 (root-cause correlation) — both
+  assume you've already collapsed repeats by hand before clicking a
+  representative line. Sequencing it ahead of those (and ahead of
+  LOGIC-108's NL query layer, which is more useful once there's a
+  de-noised set of patterns to query over) is why it's placed here.
+- Incremental streaming template miner (Drain-style), not a full grok/ML
+  engine: tokenize each message, mask high-cardinality tokens (numbers,
+  UUIDs, IPs, timestamps, quoted strings — reuse MessageFieldExtractor's
+  structured fields where a format was already detected instead of
+  re-deriving them), then match against a per-LogSource template tree within
+  a similarity threshold; no match mints a new template.
+- Run on the ingest path (LogIngestionService) or as an async pass right
+  behind it, so it never blocks the live SSE tail (LOGIC-101).
+- Persist templates per LogSource with an occurrence count, first/last-seen
+  timestamp, and one sample raw line; expose via a new TemplateService/
+  endpoint rather than overloading LogQueryService.
+- Must degrade gracefully across a deploy that changes a source's log shape:
+  matching is token/similarity-based, not a fixed per-source regex, so a
+  line with an added/removed field either still matches the closest existing
+  template loosely or forks a new template going forward — either way every
+  line lands in exactly one template, never silently falls into an
+  "unstructured, ungrouped" bucket the way a rigid schema would.
+- Template counts should age out under the existing retention policy
+  (LOGIC-105) rather than growing unbounded, and should run after redaction
+  (LOGIC-106) so sample lines don't retain PII.
+- UI: new "Patterns" view listing templates as collapsed groups (template
+  text + occurrence count + trend sparkline), sortable by volume or
+  most-recently-new-template — this is the primary surface that replaces the
+  manual grep loop.
+- AC: ingesting a source with 3 distinct message shapes at varying
+  frequencies clusters into exactly 3 templates with correct counts;
+  introducing a 4th shape mid-stream (simulating a deploy that alters the log
+  format) produces a 4th template rather than crashing or dropping those
+  lines into an unstructured catch-all.
+- Effort: L (needs scoping — algorithm/threshold choice, storage schema,
+  ingest-path performance impact under load)
+- Depends on: LOGIC-105 (retention/eviction of template counts); should land
+  after LOGIC-106 (redaction) so template samples stay PII-safe.
+- Note: new `com.logic.analyzer.template` package (`LogTemplate`
+  entity/repository, `TemplateTokenizer`, `TemplateMiningService`,
+  `TemplateService`/`TemplateController` at `/api/templates`,
+  `TemplateRetentionJob`), a Flyway `V5__create_log_template.sql` migration,
+  and a "Patterns" sidebar screen (table + inline SVG trend sparkline). The
+  tokenizer masks numbers/UUIDs/IPs/hex blobs/quoted strings/mixed
+  alphanumeric ids to fixed placeholders; the miner then buckets per-source
+  templates by token count and folds a candidate in via a >=50% token
+  similarity threshold, widening any differing position to a wildcard on
+  merge (a simplified Drain). `SearchIndexService` calls the miner once per
+  (source, file) reindex pass rather than per LogEntry, because that pass
+  re-adds a file's *entire* current tail window every time its fingerprint
+  changes, not just newly appended lines - so occurrence counts come from
+  diffing each distinct message text's count against the previous pass's for
+  that file and mining only the positive delta, which correctly handles both
+  "same tail window reprocessed" (delta 0, no inflation) and "N genuinely
+  repeated identical lines newly appended" (delta N, not collapsed to one).
+  History for the trend sparkline is a capped 20-entry ring of per-minute
+  occurrence counts rolled forward incrementally on the entity itself.
+  Retention reuses `app.search.retention-days`/`purge-interval-ms` rather
+  than a new config key, deleting templates by `lastSeenAt` and invalidating
+  the miner's in-memory per-source cluster cache so it can't silently
+  update-into a since-deleted row.
+- Follow-up: review flagged that this doesn't yet replace a manual grep loop
+  end to end - no drill-down from a pattern to its matching lines, no
+  new-pattern alerting, no manual merge/split correction, and no config/load
+  validation of the mining thresholds. Planned as LOGIC-117 through
+  LOGIC-120 in `docs/logic-pattern-drilldown-plan.md`.
+
+### LOGIC-108 — Natural language → query language
 
 Three query languages already exist (Lucene/SPL/LogQL); add a plain-English
 entry point that compiles to one of them.
@@ -158,7 +236,7 @@ entry point that compiles to one of them.
 - Effort: M/L (depends on LLM provider/cost decision — needs scoping before
   estimating further)
 
-### LOGIC-108 — Cross-source correlation on a log line
+### LOGIC-109 — Cross-source correlation on a log line
 
 No way today to see "what else happened around this event" across sources.
 
@@ -168,7 +246,7 @@ No way today to see "what else happened around this event" across sources.
   sources in the same window.
 - Effort: M
 
-### LOGIC-109 — Admin action audit trail
+### LOGIC-110 — Admin action audit trail
 
 Single-admin model still benefits from an audit log for accountability (config
 drift, who changed an alert rule and when).
@@ -180,7 +258,7 @@ drift, who changed an alert rule and when).
   values; audit log itself isn't editable via the API.
 - Effort: S/M
 
-### LOGIC-110 — Custom dashboard builder
+### LOGIC-111 — Custom dashboard builder
 
 Dashboard.tsx currently renders a single fixed layout (source/status list +
 BarChart); no way to add, remove, or rearrange panels.
@@ -193,7 +271,7 @@ BarChart); no way to add, remove, or rearrange panels.
   source/status overview ships as a default panel set.
 - Effort: L
 
-### LOGIC-111 — Ingest-time log sampling
+### LOGIC-112 — Ingest-time log sampling
 
 LogIngestionService persists every ingested entry; high-volume sources have no
 way to cap storage/index growth short of full retention deletion.
@@ -206,7 +284,7 @@ way to cap storage/index growth short of full retention deletion.
   sampled-out count is visible on the Dashboard/source card.
 - Effort: M
 
-### LOGIC-112 — ML-based anomaly detection
+### LOGIC-113 — ML-based anomaly detection
 
 AlertRule ANOMALY type currently flags a window when it exceeds mean +
 k*stddev of prior windows (AlertEvaluationService); this misses patterns a
@@ -220,9 +298,9 @@ fixed baseline can't capture (seasonality, slow drift).
 - Effort: L
 - Depends on: LOGIC-105 (enough retained history to baseline against)
 
-### LOGIC-113 — Automatic root-cause correlation
+### LOGIC-114 — Automatic root-cause correlation
 
-LOGIC-108 surfaces nearby events only when the admin selects a log line;
+LOGIC-109 surfaces nearby events only when the admin selects a log line;
 there's no automatic "this alert firing is probably caused by that" signal.
 
 - When an AlertRule fires, automatically query other sources/files in the same
@@ -232,9 +310,9 @@ there's no automatic "this alert firing is probably caused by that" signal.
 - AC: a fired alert event shows a ranked "likely related" list from other
   sources without any manual interaction.
 - Effort: L
-- Depends on: LOGIC-108
+- Depends on: LOGIC-109
 
-### LOGIC-114 — Predictive capacity/failure analytics
+### LOGIC-115 — Predictive capacity/failure analytics
 
 No forward-looking view exists today — Dashboard only summarizes the last 24h
 (DashboardService).
@@ -249,7 +327,7 @@ No forward-looking view exists today — Dashboard only summarizes the last 24h
 - Effort: L (needs scoping — model choice, minimum history required)
 - Depends on: LOGIC-105
 
-### LOGIC-115 — Public API for third-party integrations
+### LOGIC-116 — Public API for third-party integrations
 
 Existing REST endpoints (LogStreamController, AlertRuleController, etc.) are
 consumed only by the bundled frontend; no stable/documented surface exists for

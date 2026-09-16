@@ -72,7 +72,7 @@ public class SearchQueryService {
     }
 
     private Query compileScope(QueryNode filter, String source, String file, long rangeMinutes) {
-        List<QueryNode> clauses = new ArrayList<>(QueryNode.scopeClauses(source, file, rangeMinutes, disabledSourceNames()));
+        List<QueryNode> clauses = new ArrayList<>(QueryNode.scopeClauses(source, file, rangeMinutes, null, disabledSourceNames()));
         clauses.add(filter);
         QueryNode combined = clauses.size() == 1 ? clauses.get(0) : new QueryNode.AndNode(clauses);
         return queryCompiler.compile(combined);

@@ -112,7 +112,7 @@ class AlertEvaluationServiceTest {
     private void seed(String source, LogLevel level, String message, Instant timestamp) throws Exception {
         LogEntry entry = new LogEntry(1, timestamp, level, source, "app.log", message);
         String docId = "doc-" + source + "-" + timestamp.toEpochMilli() + "-" + Math.random();
-        Document doc = documentBuilder.build(testSource, entry, docId);
+        Document doc = documentBuilder.build(testSource, entry, docId, null);
         writer.updateDocument(new Term("docId", docId), doc);
         writer.commit();
         searcherManager.maybeRefresh();

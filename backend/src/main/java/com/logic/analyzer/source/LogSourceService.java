@@ -101,6 +101,20 @@ public class LogSourceService {
         return LogSourceResponse.from(saved);
     }
 
+    public LogSourceResponse setPatternMiningEnabled(Long id, boolean enabled) {
+        LogSource source = repository.findById(id).orElseThrow(() -> new SourceNotFoundException(id));
+        source.setPatternMiningEnabled(enabled);
+        LogSource saved = repository.save(source);
+        if (enabled) {
+            // Otherwise content already on disk (indexed before this was turned on) stays
+            // unmined until a file next changes - the fingerprint gate would skip it as
+            // "unchanged since last pass" forever.
+            searchIndexService.forceReindexSource(saved);
+        }
+        log.info("{} pattern mining for source {} ('{}')", enabled ? "Enabled" : "Disabled", id, saved.getName());
+        return LogSourceResponse.from(saved);
+    }
+
     public void delete(Long id) {
         LogSource source = repository.findById(id).orElseThrow(() -> new SourceNotFoundException(id));
         repository.deleteById(id);

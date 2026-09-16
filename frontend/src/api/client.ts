@@ -14,8 +14,10 @@ import type {
   LogQueryParams,
   LogQueryResult,
   LogSource,
+  LogTemplate,
   RedactionRule,
   SavedSearch,
+  TemplateSort,
 } from "./types";
 import { createLogger } from "../utils/logger";
 
@@ -98,6 +100,12 @@ export function setSourceLive(id: number, live: boolean): Promise<LogSource> {
   });
 }
 
+export function setSourcePatternMiningEnabled(id: number, enabled: boolean): Promise<LogSource> {
+  return request<LogSource>(`/sources/${id}/${enabled ? "enable-patterns" : "disable-patterns"}`, {
+    method: "POST",
+  });
+}
+
 /** Backs the Sources dialog's file/directory picker. Omit `path` to start at the server's home directory. */
 export function browseDirectory(path?: string): Promise<DirectoryListing> {
   const query = new URLSearchParams();
@@ -116,6 +124,7 @@ export function fetchLogs(params: LogQueryParams): Promise<LogQueryResult> {
   if (params.levels && params.levels.length > 0) query.set("level", params.levels.join(","));
   if (params.source) query.set("source", params.source);
   if (params.file) query.set("file", params.file);
+  if (params.templateId !== undefined) query.set("templateId", String(params.templateId));
   if (params.rangeMinutes !== undefined) query.set("rangeMinutes", String(params.rangeMinutes));
   if (params.sortBy) query.set("sortBy", params.sortBy);
   if (params.sortDir) query.set("sortDir", params.sortDir);
@@ -141,12 +150,19 @@ export function queryLogs(params: LogQueryLanguageParams): Promise<LogQueryResul
 }
 
 /** URL for the push-based live-tail SSE stream, filtered the same way GET /logs is. */
-export function logStreamUrl(params: { search?: string; levels?: LogLevel[]; source?: string; file?: string }): string {
+export function logStreamUrl(params: {
+  search?: string;
+  levels?: LogLevel[];
+  source?: string;
+  file?: string;
+  templateId?: number;
+}): string {
   const query = new URLSearchParams();
   if (params.search) query.set("search", params.search);
   if (params.levels && params.levels.length > 0) query.set("level", params.levels.join(","));
   if (params.source) query.set("source", params.source);
   if (params.file) query.set("file", params.file);
+  if (params.templateId !== undefined) query.set("templateId", String(params.templateId));
   return `/api/logs/stream?${query.toString()}`;
 }
 
@@ -242,4 +258,12 @@ export function updateRedactionRule(id: number, req: CreateRedactionRuleRequest)
 
 export function deleteRedactionRule(id: number): Promise<void> {
   return request<void>(`/redaction/rules/${id}`, { method: "DELETE" });
+}
+
+export function listTemplates(source?: string, file?: string, sort: TemplateSort = "volume"): Promise<LogTemplate[]> {
+  const query = new URLSearchParams();
+  if (source) query.set("source", source);
+  if (file) query.set("file", file);
+  query.set("sort", sort);
+  return request<LogTemplate[]>(`/templates?${query.toString()}`);
 }

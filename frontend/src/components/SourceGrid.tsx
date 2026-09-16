@@ -32,10 +32,20 @@ interface SourceGridProps {
   onDelete: (id: number) => Promise<unknown>;
   onToggleEnabled: (id: number, enabled: boolean) => Promise<unknown>;
   onToggleLive: (id: number, live: boolean) => Promise<unknown>;
+  onTogglePatternMining: (id: number, enabled: boolean) => Promise<unknown>;
   onAdd: () => void;
 }
 
-export function SourceGrid({ sources, onTest, onEdit, onDelete, onToggleEnabled, onToggleLive, onAdd }: SourceGridProps) {
+export function SourceGrid({
+  sources,
+  onTest,
+  onEdit,
+  onDelete,
+  onToggleEnabled,
+  onToggleLive,
+  onTogglePatternMining,
+  onAdd,
+}: SourceGridProps) {
   const [busyId, setBusyId] = useState<number | null>(null);
 
   const withBusy = async (id: number, action: () => Promise<unknown>) => {
@@ -134,6 +144,28 @@ export function SourceGrid({ sources, onTest, onEdit, onDelete, onToggleEnabled,
                 <span className="switch-row-label">Live</span>
               </label>
             )}
+            <label
+              className="switch-row"
+              title={
+                source.patternMiningEnabled
+                  ? "Stop clustering repeated log lines into patterns for this source"
+                  : "Cluster repeated log lines into patterns (Patterns screen) for this source"
+              }
+              onClick={(e) => e.stopPropagation()}
+            >
+              <span className="switch">
+                <input
+                  type="checkbox"
+                  checked={source.patternMiningEnabled}
+                  disabled={busyId === source.id}
+                  onChange={() =>
+                    withBusy(source.id, () => onTogglePatternMining(source.id, !source.patternMiningEnabled))
+                  }
+                />
+                <span className="switch-slider" />
+              </span>
+              <span className="switch-row-label">Patterns</span>
+            </label>
           </div>
         </div>
       ))}

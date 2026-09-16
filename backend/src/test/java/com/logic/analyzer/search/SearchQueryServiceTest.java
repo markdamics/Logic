@@ -88,7 +88,7 @@ class SearchQueryServiceTest {
     private void seed(List<LogEntry> entries) throws Exception {
         for (LogEntry entry : entries) {
             String docId = "doc-" + entry.id();
-            Document doc = documentBuilder.build(testSource, entry, docId);
+            Document doc = documentBuilder.build(testSource, entry, docId, null);
             writer.updateDocument(new Term("docId", docId), doc);
         }
         writer.commit();

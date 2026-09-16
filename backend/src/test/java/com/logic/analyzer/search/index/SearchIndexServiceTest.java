@@ -6,6 +6,8 @@ import com.logic.analyzer.logstream.LogLevel;
 import com.logic.analyzer.logstream.ingest.TailSource;
 import com.logic.analyzer.source.LogSource;
 import com.logic.analyzer.source.LogSourceRepository;
+import com.logic.analyzer.template.LogTemplateRepository;
+import com.logic.analyzer.template.TemplateMiningService;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.facet.FacetsConfig;
 import org.apache.lucene.index.IndexWriter;
@@ -27,7 +29,11 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -45,9 +51,12 @@ class SearchIndexServiceTest {
     private LogSourceRepository sourceRepository;
     @Mock
     private LogIngestionService ingestionService;
+    @Mock
+    private TemplateMiningService mockMiningService;
 
     private final FacetsConfig facetsConfig = new FacetsConfig();
     private final LogDocumentBuilder documentBuilder = new LogDocumentBuilder(facetsConfig);
+    private final TemplateMiningService templateMiningService = new TemplateMiningService(mock(LogTemplateRepository.class));
     private final LogSource testSource = mock(LogSource.class);
 
     private Directory directory;
@@ -64,7 +73,7 @@ class SearchIndexServiceTest {
         writer = new IndexWriter(directory, new IndexWriterConfig(new StandardAnalyzer()));
         searcherManager = new SearcherManager(writer, false, false, null);
         when(sourceRepository.findAll()).thenReturn(List.of(testSource));
-        service = new SearchIndexService(sourceRepository, ingestionService, writer, searcherManager, documentBuilder);
+        service = new SearchIndexService(sourceRepository, ingestionService, writer, searcherManager, documentBuilder, templateMiningService);
     }
 
     @AfterEach
@@ -191,5 +200,31 @@ class SearchIndexServiceTest {
         service.reindexAll();
 
         assertThat(totalIndexedDocs()).isEqualTo(1);
+    }
+
+    @Test
+    void templateMiningIsSkippedWhenNotEnabledOnTheSource() throws Exception {
+        when(testSource.isPatternMiningEnabled()).thenReturn(false);
+        when(ingestionService.readForIndexing(testSource)).thenReturn(readOf(500,
+                new LogEntry(1, Instant.now(), LogLevel.INFO, "events", "app.log", "line one")));
+        SearchIndexService serviceWithMockMining = new SearchIndexService(
+                sourceRepository, ingestionService, writer, searcherManager, documentBuilder, mockMiningService);
+
+        serviceWithMockMining.reindexAll();
+
+        verifyNoInteractions(mockMiningService);
+    }
+
+    @Test
+    void templateMiningRunsWhenEnabledOnTheSource() throws Exception {
+        when(testSource.isPatternMiningEnabled()).thenReturn(true);
+        when(ingestionService.readForIndexing(testSource)).thenReturn(readOf(500,
+                new LogEntry(1, Instant.now(), LogLevel.INFO, "events", "app.log", "line one")));
+        SearchIndexService serviceWithMockMining = new SearchIndexService(
+                sourceRepository, ingestionService, writer, searcherManager, documentBuilder, mockMiningService);
+
+        serviceWithMockMining.reindexAll();
+
+        verify(mockMiningService).mine(eq(testSource), eq("app.log"), anyList());
     }
 }
