@@ -15,91 +15,74 @@ from a spiking pattern to the actual lines, get paged when a genuinely new
 shape shows up, or correct a cluster that merged (or split) badly. These are
 the four follow-ups identified in review.
 
-**Recommended order:** LOGIC-117 first — it's the one that actually replaces
-the grep loop (see a pattern, see its lines), and it's a prerequisite for the
-split half of LOGIC-119. LOGIC-118 and LOGIC-120 are independent and can land
-in any order relative to the others.
+**Status:** all four follow-ups (LOGIC-117 through LOGIC-120) are done.
 
-### LOGIC-117 — Drill down from a pattern to its matching log lines
+### LOGIC-117 — Drill down from a pattern to its matching log lines — done
 
-Patterns currently shows an aggregate count + one sample raw line per
-template. There's no way to pivot from "this template spiked" to "show me
-those lines" — `LogTemplate` keeps no per-line reference, only running
-counts, and the Lucene index has no notion of which template a document
-belongs to. This is the single biggest gap keeping Patterns from replacing a
-manual grep loop.
+Patterns previously showed only an aggregate count + one sample raw line per
+template, with no way to pivot from "this template spiked" to "show me those
+lines". Shipped as designed:
 
-**Design**
-
-1. **Stamp a `templateId` onto every indexed document.** Today
-   `TemplateMiningService.mine(source, file, entries)` only computes a
-   per-*distinct-message* delta count and mines the positive delta (see its
-   class comment for why — a reindex pass re-adds a file's whole tail
-   window, not just new lines). Drill-down needs every entry tagged with its
-   template regardless of whether that occurrence was newly counted. Split
-   the existing lookup out of the counting logic: add
-   `Map<String, Long> assignTemplates(LogSource source, Collection<String> distinctMessages)`
-   that runs the same tokenize/mask/similarity-match against
-   `clustersFor(source.getName())` for every distinct message text in the
-   pass (creating a template for an unmatched one, exactly like today), and
-   returns `message -> templateId`. `mine()` becomes a thin wrapper: compute
-   `assignTemplates` once, do delta-counting against the returned ids, and
-   hand the same map back to the caller.
-2. **`SearchIndexService.indexEntries()`** calls `assignTemplates` once per
-   (source, file) pass (right where it already calls `mine`), then passes
-   each entry's assigned id into
+1. **`templateId` stamped onto every indexed document.**
+   `TemplateMiningService.mine()` is now a thin wrapper around
+   `assignTemplateEntities`, which tags every distinct message in a pass with
+   its template regardless of whether that occurrence was newly counted;
+   `assignTemplates(source, file, distinctMessages)` exposes the same lookup
+   standalone (used by the LOGIC-119 split path once that lands).
+2. **`SearchIndexService.indexEntries()`** mines once per (source, file) pass
+   and passes each entry's assigned id into
    `documentBuilder.build(source, entry, docId, templateId)`.
 3. **`LogDocumentBuilder`** adds `templateId` as a `StringField` (stored,
-   exact-match filterable) + `SortedDocValuesField`, the same shape as the
-   existing `source`/`file` fields — no new indexing pattern to invent.
-4. **Query layer:** add an optional `templateId` filter to
-   `LogQueryParams`, `LogQueryService`, and the Lucene query builder
-   (identical treatment to the existing `source`/`file` exact-match
-   filters), and thread it through `GET /api/logs` and the SSE stream's
-   params.
-5. **Frontend:** `fetchLogs`/`LogQueryParams` gain `templateId`; a "View
-   matching lines" action on each Patterns row navigates to Log Stream
-   pre-filtered to `source` + `templateId` (check `Dashboard.tsx`'s
-   recent-issues click-through, if any, for an existing deep-link
-   convention to mirror rather than inventing a new one). Log Stream shows a
-   small "Filtered by pattern: `<template text>` ×" chip with a clear
-   affordance when active.
+   exact-match filterable) + `SortedDocValuesField` — present only when
+   mining assigned one, same shape as the existing `source`/`file` fields.
+4. **Query layer:** `LogQueryParams`/`LogQueryService`/`QueryNode.scopeClauses`
+   carry an optional `templateId` filter (identical treatment to `source`/
+   `file`), threaded through `GET /api/logs` and the SSE stream's params.
+5. **Frontend:** `fetchLogs`/`LogQueryParams` carry `templateId`; each
+   Patterns row's "View matching lines" action navigates to Log Stream
+   pre-filtered to `source` + `templateId`. Log Stream shows a dismissible
+   "Filtered by pattern: `<template text>`" chip while active.
 
 **AC:** clicking "View matching lines" on a template with N occurrences
 shows exactly those N lines in Log Stream, newest-first, further filterable
 by the existing search/level controls.
 
-**Effort:** M — touches indexing, the query layer, and two screens, but
-every piece mirrors an existing filter mechanism (`source`/`file`) rather
-than inventing new mechanics.
+**Effort:** M — touched indexing, the query layer, and two screens, mirroring
+the existing `source`/`file` filter mechanism throughout.
 
 **Cost note:** assigning a template to every entry every pass costs more
 than today's delta-only counting, but the comparison is per *distinct
 message text* within a pass (already deduplicated), not per raw line — it
 scales with shape cardinality, not line volume.
 
-### LOGIC-118 — Alert on a newly appeared template
+### LOGIC-118 — Alert on a newly appeared template — done
 
 LOGIC-107's own motivating case — "notice a genuinely new error shape
-without eyeballing" — isn't wired to alerting. `LogTemplate.firstSeenAt`
-already exists; nothing watches it.
+without eyeballing" — is now wired to alerting.
 
-**Design**
-
-- Add a new `AlertRuleType` value, e.g. `NEW_PATTERN`, alongside the
-  existing `THRESHOLD`/`ANOMALY`. Unlike those, it needs no query/search/
-  level fields — just the existing `source` scope field (required, since
-  templates are always per-source) and a window.
-- `AlertEvaluationService` gets a matching evaluation path: query
-  `LogTemplateRepository.findBySource(source)` filtered to `firstSeenAt`
-  falling inside the rule's evaluation window, fire an `AlertEvent` if any
-  exist (or more than a configurable count, for noisy sources).
-- Webhook payload includes the new template's text + sample line, reusing
-  the existing generic `AlertEvent`/webhook delivery path — no new delivery
-  mechanism needed.
-- UI: `AlertRuleDialog` gains a "New pattern appeared" option; hides the
-  query/level fields that don't apply to it, same way the dialog already
-  branches between THRESHOLD and ANOMALY fields.
+- New `AlertRuleType.NEW_PATTERN`. Needs no query/search/level/metric
+  fields — just the shared `source` scope field (required, validated in
+  `AlertRuleService.validate()`) and `windowMinutes`; `AlertRuleDialog` hides
+  the inapplicable fields the same way it already branches between THRESHOLD
+  and ANOMALY.
+- `AlertEvaluationService.evaluate()` branches to `evaluateNewPattern(rule)`
+  instead of the count/bucket path. It queries
+  `LogTemplateRepository.findBySourceAndFirstSeenAtAfter`/
+  `findBySourceAndFileAndFirstSeenAtAfter` (new derived finders) with a
+  cutoff of `max(now - windowMinutes, rule.getCreatedAt())` — the `createdAt`
+  floor is what keeps pre-existing templates from retroactively firing, not
+  the window alone. Each candidate template fires at most once ever, deduped
+  via a new `AlertEvent.templateId` column and
+  `AlertEventRepository.existsByAlertRuleIdAndTemplateId` — this replaces the
+  in-memory `triggeredState` edge-trigger THRESHOLD/ANOMALY use, since a
+  newly appeared template is a discrete one-shot event with no "resolve"
+  side, not an ongoing condition to debounce.
+- `AlertEvent` gained `templateId`/`templateText`/`sampleRawLine` columns
+  (migration `V7__new_pattern_alert_event_fields.sql`), surfaced through
+  `AlertEventResponse` and the Alerts screen's event history table. Webhook
+  delivery reuses the existing signed-POST mechanism via a new
+  `WebhookNotifier.notifyNewPatternAsync`/`sendNewPattern`, carrying
+  `templateId`/`templateText`/`sampleRawLine` instead of a metric value.
 
 **AC:** a source that starts emitting a message shape never seen before
 fires exactly one `AlertEvent` per newly appeared template per evaluation
@@ -108,57 +91,74 @@ retroactively fire.
 
 **Effort:** M. Independent of LOGIC-117.
 
-### LOGIC-119 — Manual template management (delete now, split gated on LOGIC-117)
+### LOGIC-119 — Manual template management (delete now, split unblocked by LOGIC-117) — done
 
-Mining is fully automatic. If two distinct events collide into one
-over-generalized template, there's currently no manual escape hatch.
+Mining is fully automatic; this adds the manual escape hatch for when two
+distinct events collide into one over-generalized template.
 
-**Design**
-
-- **Delete** (ship first): `DELETE /api/templates/{id}` removes the row and
-  evicts it from `TemplateMiningService`'s in-memory per-source cluster
-  cache (extend `invalidateCache()` to take an optional source, or just
-  clear the whole cache the way `TemplateRetentionJob` already does — cheap
-  at the expected call frequency of a manual admin action). Deleting a
-  template does not retroactively reclassify already-counted history; the
-  next occurrence of that shape simply mints a fresh template. Surface that
-  distinction in the UI copy so it isn't mistaken for "hide this forever."
-- **Split** (gate on LOGIC-117): before `templateId` is stamped per
-  document, a template has no retained members to redistribute — there's
-  nothing to split. Once LOGIC-117 ships, `POST /api/templates/{id}/split`
-  can re-run `assignTemplates`-style clustering (with a stricter threshold,
-  or the tokenizer's next-best alternate grouping) over just the documents
-  currently tagged `templateId=X`, replacing that one template with several
-  and re-stamping the affected documents.
+- **Delete:** `DELETE /api/templates/{id}` (`TemplateService.delete`) removes
+  the row and calls `TemplateMiningService.invalidateCache()` — the same
+  whole-cache-clear `TemplateRetentionJob` already uses for its bulk purge,
+  cheap at the expected call frequency of a manual admin action. Does not
+  retroactively reclassify already-counted history; the next occurrence of
+  that shape simply mints a fresh template. The Patterns row's "Delete"
+  button and its expanded-detail copy both say so, so it isn't mistaken for
+  "hide this forever."
+- **Split:** `POST /api/templates/{id}/split` (`TemplateService.split`)
+  fetches the template's currently-indexed lines via `LogQueryService`
+  scoped by LOGIC-117's `templateId` filter (capped at `MAX_SPLIT_SAMPLE` =
+  5000, newest-first), then calls
+  `TemplateMiningService.recluster(distinctMessages, threshold)` — a new
+  method that groups messages using the same tokenize/similarity/merge logic
+  as normal mining, but against a fresh, empty, unpersisted template tree
+  and at a stricter threshold (0.85 vs. mining's normal 0.5) — isolated from
+  this (source, file)'s real templates so the very template being split
+  can't immediately re-absorb its own former members at 100% similarity. If
+  reclustering yields only one group (nothing actually separates even at the
+  stricter threshold) or no lines are currently indexed at all (they scrolled
+  out of the tail window), it fails with a 400 rather than a silent no-op.
+  Otherwise the original row is deleted and one new `LogTemplate` is created
+  per group — `occurrenceCount`/`firstSeenAt`/`lastSeenAt`/`sampleRawLine`
+  are a recount from the currently-indexed member lines, not a partition of
+  the original historical aggregate (occurrences that already scrolled out
+  of the window have no member lines left to redistribute) — followed by
+  `SearchIndexService.forceReindexSource()` so the next scheduled pass
+  re-stamps those lines' `templateId` against the new cluster set, rather
+  than manually rewriting Lucene documents in place.
 
 **AC (delete, first phase):** deleting a template removes it from the
 Patterns list; the next occurrence of that message shape creates a new
 template rather than resurrecting the deleted one.
 
-**Effort:** S (delete) / L (split — and only after LOGIC-117).
+**Effort:** S (delete) / L (split).
 
-### LOGIC-120 — Tunable mining thresholds + load validation
+### LOGIC-120 — Tunable mining thresholds + load validation — done
 
-The similarity threshold (fixed at 0.5) and the masking regex set are
+The similarity threshold (fixed at 0.5) and the masking regex set were
 hardcoded, and the ingest-path performance impact under real volume/shape
 cardinality was flagged as an open scoping risk in LOGIC-107 and never
 actually measured.
 
-**Design**
-
-- Promote `TemplateMiningService.SIMILARITY_THRESHOLD` to a config value
-  (e.g. `app.template-mining.similarity-threshold`, default 0.5), following
-  the existing `@Value`-per-constant pattern already used for retention/
-  index-interval settings.
-- Add a bulk-ingest benchmark (a throwaway script or a JMH-lite test)
-  feeding a high-cardinality synthetic source (tens of thousands of lines,
-  thousands of distinct shapes) through `SearchIndexService.reindexAll()`
-  and measuring the mining pass's wall-clock and memory specifically,
-  rather than guessing.
-- Only if that benchmark shows a real problem: consider a cheaper
-  first-level index for `clustersFor(source)` (e.g. hashing the first few
-  masked tokens before the linear similarity scan) — don't build this
-  speculatively ahead of a measured need.
+- `TemplateMiningService.SIMILARITY_THRESHOLD` is now a constructor-injected
+  `@Value("${app.template-mining.similarity-threshold:0.5}")` field
+  (`TEMPLATE_MINING_SIMILARITY_THRESHOLD` env override), same pattern as the
+  existing retention/index-interval settings. The masking regex set
+  (`TemplateTokenizer`) was left hardcoded - the benchmark below found no
+  performance case for touching it, and it has no equivalent open design
+  question the way the threshold did.
+- `TemplateMiningBenchmarkTest` (`@Disabled`, manual - see its class
+  javadoc) feeds `TemplateMiningService.mine()` a deliberately pathological
+  synthetic load: every shape sharing the same token count, so the
+  `tokenCount` pre-filter in `clustersFor()` never eliminates a candidate
+  and every distinct message does a full linear similarity scan over every
+  cluster minted so far. Results (wall-clock, JVM heap delta) across
+  2,000-200,000 distinct shapes are recorded in `roadmap.md`'s LOGIC-120
+  entry: realistic volumes (thousands of shapes, tens of thousands of
+  lines) mine in under 2 seconds; the O(n²) scan cost only becomes visible
+  north of ~100k fully-distinct, identically-sized shapes in a single pass
+  - a scenario far outside what a real source would produce. No first-level
+  index was built on top of `clustersFor()`, per the AC's "only if it
+  reveals a problem" gate - it didn't.
 
 **AC:** benchmark results are documented; if they surface a problem, a fix
 ships alongside them — if not, the config exposure ships alone.

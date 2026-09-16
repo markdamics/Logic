@@ -267,3 +267,12 @@ export function listTemplates(source?: string, file?: string, sort: TemplateSort
   query.set("sort", sort);
   return request<LogTemplate[]>(`/templates?${query.toString()}`);
 }
+
+export function deleteTemplate(id: number): Promise<void> {
+  return request<void>(`/templates/${id}`, { method: "DELETE" });
+}
+
+/** Breaks one over-generalized template into several, re-clustering its currently indexed lines at a stricter threshold. */
+export function splitTemplate(id: number): Promise<LogTemplate[]> {
+  return request<LogTemplate[]>(`/templates/${id}/split`, { method: "POST" });
+}

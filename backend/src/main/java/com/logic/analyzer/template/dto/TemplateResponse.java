@@ -14,7 +14,9 @@ public record TemplateResponse(
         Instant firstSeenAt,
         Instant lastSeenAt,
         String sampleRawLine,
-        List<Long> history
+        List<Long> history,
+        /** Set only when this template was created by a LOGIC-119 split; null otherwise. */
+        String splitFromTemplateText
 ) {
     public static TemplateResponse from(LogTemplate template) {
         return new TemplateResponse(
@@ -26,6 +28,7 @@ public record TemplateResponse(
                 template.getFirstSeenAt(),
                 template.getLastSeenAt(),
                 template.getSampleRawLine(),
-                template.getHistoryCounts());
+                template.getHistoryCounts(),
+                template.getSplitFromTemplateText());
     }
 }

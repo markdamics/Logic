@@ -74,6 +74,28 @@ class AlertRuleServiceTest {
     }
 
     @Test
+    void rejectsANewPatternRuleMissingSource() {
+        AlertRuleCreateRequest request = new AlertRuleCreateRequest("bad", QueryLanguage.SIMPLE, null, null, null,
+                null, null, AlertRuleType.NEW_PATTERN, 5, AlertMetric.COUNT, null, null, null, null, null, null);
+
+        assertThatThrownBy(() -> service().create(request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("source");
+    }
+
+    @Test
+    void acceptsAValidNewPatternRule() {
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        AlertRuleCreateRequest request = new AlertRuleCreateRequest("new shapes", QueryLanguage.SIMPLE, null, null, null,
+                "svc", null, AlertRuleType.NEW_PATTERN, 5, AlertMetric.COUNT, null, null, null, null, null, null);
+
+        var response = service().create(request);
+
+        assertThat(response.ruleType()).isEqualTo(AlertRuleType.NEW_PATTERN);
+        assertThat(response.source()).isEqualTo("svc");
+    }
+
+    @Test
     void acceptsAValidThresholdRule() {
         when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 

@@ -83,6 +83,17 @@ export function PatternsIcon({ size = 17 }: IconProps) {
   );
 }
 
+/** One pattern forking into several - marks a template created by splitting an over-generalized one (see Patterns' "Split" action). */
+export function SplitIcon({ size = 13 }: IconProps) {
+  return (
+    <svg width={size} height={size} {...common}>
+      <path d="M12 4v5" />
+      <path d="M12 9L6 17" />
+      <path d="M12 9l6 8" />
+    </svg>
+  );
+}
+
 export function EditIcon({ size = 13 }: IconProps) {
   return (
     <svg width={size} height={size} {...common}>

@@ -54,10 +54,10 @@ became real tickets: LOGIC-129 (native alert channels) and LOGIC-130
 | LOGIC-107 | Pattern clustering (template mining) | P2 | done | L |
 | LOGIC-109 | Cross-source correlation on a log line | P2 | open | M |
 | LOGIC-110 | Admin action audit trail | P2 | open | S/M |
-| LOGIC-117 | Drill down from pattern → matching lines | P2.1 | open | M |
-| LOGIC-118 | Alert on a newly appeared template | P2.1 | open | M |
-| LOGIC-119 | Manual template management (delete/split) | P2.1 | open | S/L |
-| LOGIC-120 | Tunable mining thresholds + load validation | P2.1 | open | S + S/M |
+| LOGIC-117 | Drill down from pattern → matching lines | P2.1 | done | M |
+| LOGIC-118 | Alert on a newly appeared template | P2.1 | done | M |
+| LOGIC-119 | Manual template management (delete/split) | P2.1 | done | S/L |
+| LOGIC-120 | Tunable mining thresholds + load validation | P2.1 | done | S + S/M |
 | LOGIC-111 | Custom dashboard builder | P3 | open | L |
 | LOGIC-112 | Ingest-time log sampling | P3 | open | M |
 | LOGIC-113 | ML-based anomaly detection | P3 | open | L |
@@ -164,50 +164,103 @@ Single-admin model still benefits from an audit log for accountability
 
 ## P2.1 — Patterns drill-down follow-ups (closing the LOGIC-107 gap)
 
-Recommended order: **117 first** (it's what actually replaces the grep loop,
-and is a prerequisite for the split half of 119); 118 and 120 are independent
-and can land in any order relative to the others. All depend on LOGIC-107
-(done). Full designs: [`roadmap-designs.md`](roadmap-designs.md#patterns-drilldown-follow-ups).
+All four (LOGIC-117 through LOGIC-120) are done. All depend on LOGIC-107
+(done). Full designs:
+[`roadmap-designs.md`](roadmap-designs.md#patterns-drilldown-follow-ups).
 
-### LOGIC-117 — Drill down from a pattern to its matching log lines **[design →]**
+### LOGIC-117 — Drill down from a pattern to its matching log lines — done
 
-Stamp a `templateId` onto every indexed document so a Patterns row can link
-to Log Stream pre-filtered to that pattern. Touches indexing, the query
-layer, and two screens, but mirrors the existing `source`/`file` filter
-mechanism throughout.
+Every indexed document is stamped with its `templateId`
+(`TemplateMiningService.mine`/`assignTemplates` + `LogDocumentBuilder`), filterable
+end-to-end through `LogQueryParams`/`LogQueryService`/`QueryNode.scopeClauses` and
+exposed on both `GET /api/logs` and the SSE stream. Patterns' "View matching
+lines" action navigates to Log Stream pre-filtered to `source` + `templateId`,
+which shows a dismissible "Filtered by pattern: `<template text>`" chip.
 
 - **AC:** clicking "View matching lines" on a template with N occurrences
   shows exactly those N lines in Log Stream, newest-first, further
   filterable by existing controls.
 - **Effort:** M
 
-### LOGIC-118 — Alert on a newly appeared template **[design →]**
+### LOGIC-118 — Alert on a newly appeared template — done
 
 Wires LOGIC-107's own motivating case — notice a genuinely new error shape —
-to alerting. New `AlertRuleType.NEW_PATTERN`, evaluated against
-`LogTemplate.firstSeenAt` falling inside the rule's window.
+to alerting. New `AlertRuleType.NEW_PATTERN`, evaluated in
+`AlertEvaluationService.evaluateNewPattern()` against `LogTemplate.firstSeenAt`
+falling after the later of (rule creation time, now - window), deduped via a
+new `AlertEvent.templateId` column (`AlertEventRepository.existsByAlertRuleIdAndTemplateId`)
+so a template only ever fires once per rule, no "resolve" concept needed since
+each appearance is a discrete event rather than an ongoing condition. Webhook
+payload carries `templateId`/`templateText`/`sampleRawLine` via a new
+`WebhookNotifier.notifyNewPatternAsync`. `AlertRuleDialog` gains a "New pattern
+appeared" option that hides the query/search/level/metric fields inapplicable
+to it.
 
 - **AC:** a source emitting a never-seen message shape fires exactly one
   `AlertEvent` per newly appeared template per window; pre-existing templates
   don't retroactively fire.
 - **Effort:** M
 
-### LOGIC-119 — Manual template management (delete now, split gated on 117) **[design →]**
+### LOGIC-119 — Manual template management (delete now, split unblocked by 117) — done
 
-Delete ships first (`DELETE /api/templates/{id}`, evicts the miner's cache).
-Split (`POST /api/templates/{id}/split`) needs LOGIC-117's per-document
-`templateId` to have members to redistribute.
+`DELETE /api/templates/{id}` removes the row and calls
+`TemplateMiningService.invalidateCache()`, same cache-eviction idiom
+`TemplateRetentionJob` already used for its bulk purge; doesn't retroactively
+reclassify already-counted history, so the next occurrence of that shape
+mints a fresh template. `POST /api/templates/{id}/split` re-clusters the
+template's currently-indexed lines (via LOGIC-117's `templateId` filter,
+queried through `LogQueryService`) against a fresh, isolated template tree
+(`TemplateMiningService.recluster()`) at a stricter threshold than normal
+mining — isolated so the very template being split can't immediately
+re-absorb its own former members. Replaces the one row with several, seeded
+from a recount of what's currently indexed (not a partition of the original
+historical aggregate, since scrolled-out-of-window occurrences have no
+member lines left to redistribute), then calls
+`SearchIndexService.forceReindexSource()` so the next scheduled pass
+re-stamps those lines' `templateId` against the new cluster set. Patterns
+gained per-row "Split"/"Delete" actions with UI copy clarifying neither
+retroactively touches history.
 
 - **AC (delete phase):** deleting a template removes it from the Patterns
   list; the next occurrence of that shape mints a fresh template rather than
   resurrecting the deleted one.
-- **Effort:** S (delete) / L (split, gated on LOGIC-117)
+- **Effort:** S (delete) / L (split)
 
-### LOGIC-120 — Tunable mining thresholds + load validation **[design →]**
+### LOGIC-120 — Tunable mining thresholds + load validation — done
 
-The similarity threshold (fixed at 0.5) and masking regex set are hardcoded;
-ingest-path performance under real volume was flagged in LOGIC-107 but never
-measured.
+`TemplateMiningService.SIMILARITY_THRESHOLD` is now
+`app.template-mining.similarity-threshold` (`TEMPLATE_MINING_SIMILARITY_THRESHOLD`,
+default 0.5, unchanged) — a constructor-injected `@Value` field, same pattern
+as the existing retention/index-interval settings.
+
+**Benchmark** (`TemplateMiningBenchmarkTest`, `@Disabled` - see its class
+javadoc for how to re-run): a JMH-lite wall-clock + heap-delta measurement of
+`mine()` against the deliberately pathological case - every synthetic shape
+sharing the same token count, so the `tokenCount` pre-filter (the only thing
+keeping a real, naturally length-varied source cheap) never eliminates a
+single candidate and every distinct message does a full linear similarity
+scan over every cluster minted so far:
+
+| Distinct shapes | Total lines | Time | Heap delta |
+|---|---|---|---|
+| 2,000 | 50,000 | 1.47s | ~93 MB |
+| 5,000 | 50,000 | 1.50s | ~63 MB |
+| 10,000 | 50,000 | 1.49s | ~61 MB |
+| 20,000 | 20,000 | 0.95s | ~35 MB |
+| 50,000 | 50,000 | 1.57s | ~118 MB |
+| 100,000 | 100,000 | 2.55s | ~152 MB |
+| 200,000 | 200,000 | 4.34s | ~393 MB |
+
+Total line/shape volume dominates cost more than raw shape cardinality in
+the realistic range (thousands of shapes, tens of thousands of lines): all
+comfortably under 2 seconds, well inside the default 5s reindex interval.
+The O(n²) shape of the linear scan only becomes visible once shape count
+alone climbs past ~100k *fully distinct, identically-sized* shapes in a
+single tail-window pass - a source producing 100k+ genuinely distinct
+message shapes (not just high line volume) in one 5-second window would be
+an extraordinarily chaotic logging setup already causing problems well
+beyond pattern mining. No fix shipped alongside this: the config exposure
+ships alone, per the AC, since no realistic-scale problem was found.
 
 - **AC:** benchmark results are documented; if they surface a problem, a fix
   ships alongside them — if not, the config exposure ships alone.

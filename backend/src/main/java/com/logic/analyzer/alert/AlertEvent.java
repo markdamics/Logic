@@ -41,6 +41,17 @@ public class AlertEvent {
     /** HTTP status from the webhook delivery attempt, or null if no webhook was configured or the request failed outright. */
     private Integer webhookStatus;
 
+    /** NEW_PATTERN only - the {@link com.logic.analyzer.template.LogTemplate} that fired this event, also doubling as the dedup key so a template never fires twice for the same rule. */
+    private Long templateId;
+
+    /** NEW_PATTERN only - snapshot of the template's text at trigger time, in case the template merges/widens later. */
+    @Column(length = 2000)
+    private String templateText;
+
+    /** NEW_PATTERN only - a sample raw line, same purpose as {@link com.logic.analyzer.template.LogTemplate#getSampleRawLine()}. */
+    @Column(length = 2000)
+    private String sampleRawLine;
+
     protected AlertEvent() {
         // JPA
     }
@@ -50,6 +61,16 @@ public class AlertEvent {
         this.triggeredAt = triggeredAt;
         this.metricValue = metricValue;
         this.thresholdAtTrigger = thresholdAtTrigger;
+    }
+
+    /** NEW_PATTERN firing - carries the newly appeared template's identity/text instead of a numeric threshold comparison. */
+    public AlertEvent(Long alertRuleId, Instant triggeredAt, double metricValue, Long templateId, String templateText, String sampleRawLine) {
+        this.alertRuleId = alertRuleId;
+        this.triggeredAt = triggeredAt;
+        this.metricValue = metricValue;
+        this.templateId = templateId;
+        this.templateText = templateText;
+        this.sampleRawLine = sampleRawLine;
     }
 
     public Long getId() {
@@ -86,5 +107,17 @@ public class AlertEvent {
 
     public void setWebhookStatus(Integer webhookStatus) {
         this.webhookStatus = webhookStatus;
+    }
+
+    public Long getTemplateId() {
+        return templateId;
+    }
+
+    public String getTemplateText() {
+        return templateText;
+    }
+
+    public String getSampleRawLine() {
+        return sampleRawLine;
     }
 }

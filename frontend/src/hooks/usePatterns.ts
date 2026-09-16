@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { listTemplates } from "../api/client";
+import { deleteTemplate, listTemplates, splitTemplate } from "../api/client";
 import type { LogTemplate, TemplateSort } from "../api/types";
 import { createLogger } from "../utils/logger";
 
@@ -29,5 +29,26 @@ export function usePatterns(source: string | undefined, file: string | undefined
     refresh();
   }, [refresh]);
 
-  return { templates, loading, error, refresh };
+  // Refetch rather than splice the local list in place - a delete/split changes which rows
+  // exist and a split's new rows need to land in their correct sort position, which only the
+  // server-side sort (see listTemplates' sort param) actually knows how to compute.
+  const remove = useCallback(
+    async (id: number) => {
+      await deleteTemplate(id);
+      logger.info(`Deleted template ${id}`);
+      await refresh();
+    },
+    [refresh],
+  );
+
+  const split = useCallback(
+    async (id: number) => {
+      const created = await splitTemplate(id);
+      logger.info(`Split template ${id} into ${created.length} templates`);
+      await refresh();
+    },
+    [refresh],
+  );
+
+  return { templates, loading, error, refresh, remove, split };
 }

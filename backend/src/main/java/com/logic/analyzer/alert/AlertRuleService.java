@@ -100,12 +100,14 @@ public class AlertRuleService {
             if (request.comparisonOp() == null || request.threshold() == null) {
                 throw new IllegalArgumentException("comparisonOp and threshold are required for a THRESHOLD rule");
             }
-        } else {
+        } else if (request.ruleType() == AlertRuleType.ANOMALY) {
             if (request.anomalyBaselineWindows() == null || request.anomalyBaselineWindows() < 1
                     || request.anomalyStdDevMultiplier() == null || request.anomalyStdDevMultiplier() <= 0) {
                 throw new IllegalArgumentException(
                         "anomalyBaselineWindows (>=1) and anomalyStdDevMultiplier (>0) are required for an ANOMALY rule");
             }
+        } else if (request.source() == null || request.source().isBlank()) {
+            throw new IllegalArgumentException("source is required for a NEW_PATTERN rule");
         }
     }
 }
