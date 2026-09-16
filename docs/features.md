@@ -6,6 +6,7 @@ Table of contents
 
 - [Log Stream](#log-stream)
 - [Search & Query](#search--query)
+- [Patterns](#patterns)
 - [Alerting](#alerting)
 - [Redaction](#redaction)
 - [Dashboard](#dashboard)
@@ -44,11 +45,22 @@ Table of contents
 
 --------------------------------------------------------------------------------
 
+## Patterns
+
+- Automatic clustering: an incremental, streaming template miner (a simplified Drain) tokenizes each message, masks high-cardinality tokens (numbers, UUIDs, IPs, hex blobs, quoted strings, emails, dates, mixed alphanumeric IDs) and clusters similar shapes into templates per (source, file). Opt-in per source (toggle from the Sources screen) — off by default since it adds ingest-path cost.
+- Patterns screen: a sortable table (by volume or most-recently-new) with a trend sparkline, first/last-seen timestamps, and a sample raw line per template. A free-text search filters the currently loaded list by template text, sample line, or split lineage.
+- Drill down: "View matching lines" jumps to Log Stream pre-filtered to that exact pattern (source + file + template ID), shown with a dismissible "Filtered by pattern" chip and further filterable by the usual search/level controls.
+- Manual template management: Delete removes an over-generalized or noisy pattern — it doesn't retroactively reclassify already-counted history, so the next matching line simply mints a fresh pattern. Split re-clusters a pattern's currently-indexed lines at a stricter similarity threshold, breaking one over-generalized template into several; split-derived patterns show a "Split" badge (with the original pattern text in a tooltip and in the expanded row detail) so related patterns stay traceable to what they came from.
+- Tunable clustering: the similarity threshold two message shapes must clear to merge into one template is configurable (`app.template-mining.similarity-threshold` / `TEMPLATE_MINING_SIMILARITY_THRESHOLD`, default `0.5`) rather than fixed.
+
+--------------------------------------------------------------------------------
+
 ## Alerting
 
-- Rules watch a query-bar query or Simple-mode filter (same scope as a Saved Search) over a rolling time window and evaluate either:
+- Rules watch a query-bar query or Simple-mode filter (same scope as a Saved Search) over a rolling time window and evaluate one of:
   - Threshold — fires when the window's count (or rate) crosses a configured comparison (`>`, `>=`, `<`, `<=`, `=`) against a number. Pattern alerts are threshold rules with `count >= 1`.
   - Anomaly — fires when the window's count is > k standard deviations above the mean of configurable prior windows (statistical baseline, not ML).
+  - New pattern — fires once per newly-appeared message shape on a source (per Patterns' automatic clustering) within a configurable evaluation window; patterns that already existed before the rule was created never retroactively fire. No query/search/level/metric fields apply — just a source scope and a window.
 - Webhook notifications: optional per-rule URL receives a JSON payload on trigger, HMAC-SHA256-signed (`X-Logic-Signature: sha256=...`) with a per-rule secret; secrets are encrypted at rest the same way SFTP passwords are. A "test webhook" sends a synthetic payload.
 - Mute/unmute: muted rules continue evaluating (history preserved) but never send webhooks.
 - Trigger history: per-rule triggers include timestamp and the metric value that crossed the threshold; rules also show last-evaluated timestamps.
@@ -124,6 +136,8 @@ See the Security and configuration tables in the original README for full enviro
   - `SEARCH_INDEX_DIR` (default `./data/search-index`)
   - `SEARCH_INDEX_INTERVAL_MS` (default `5000`)
   - `SEARCH_INDEX_RETENTION_DAYS` (default `30`)
+- Pattern mining:
+  - `TEMPLATE_MINING_SIMILARITY_THRESHOLD` (default `0.5`) — how similar two masked-token shapes must be to merge into one pattern rather than minting a new one.
 
 Other operational variables (upload limits, SSE poll intervals, retention purge interval, etc.) are available in the README's Security section and in `application.yml`.
 

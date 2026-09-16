@@ -2,7 +2,7 @@
 
 ![license-badge](https://img.shields.io/badge/license-MIT-blue)
 
-Lightweight log analyzer: register log sources, tail and index logs, run ad-hoc queries, and alert on patterns.
+Lightweight log analyzer: register log sources, tail and index logs, run ad-hoc queries, cluster recurring message shapes into patterns, and alert on thresholds, anomalies, or newly-appeared patterns.
 
 Quick links
 - Features (detailed): [docs/features.md](docs/features.md)

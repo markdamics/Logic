@@ -1,6 +1,6 @@
 [package]
 name = "logic-desktop"
-version = "0.6.0"
+version = "0.10.0"
 description = "Desktop wrapper for Logic (log analyzer) - launches the bundled Spring Boot backend and shows its UI in a native window"
 edition = "2021"
 
