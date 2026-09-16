@@ -1,6 +1,7 @@
 package com.logic.analyzer.alert;
 
 import com.logic.analyzer.search.query.QueryLanguage;
+import com.logic.analyzer.template.LogTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -66,6 +67,22 @@ public class WebhookNotifier {
         });
     }
 
+    /** Same fire-and-forget contract as {@link #notifyAsync}, for a NEW_PATTERN rule's newly appeared template instead of a metric value. */
+    public void notifyNewPatternAsync(AlertRule rule, Instant triggeredAt, LogTemplate template, IntConsumer onStatus) {
+        String url = rule.getWebhookUrl();
+        if (url == null || url.isBlank()) {
+            return;
+        }
+        executor.submit(() -> {
+            try {
+                int status = sendNewPattern(rule, triggeredAt, template, url);
+                onStatus.accept(status);
+            } catch (Exception e) {
+                log.warn("Webhook delivery failed for alert rule {} ('{}'): {}", rule.getId(), rule.getName(), e.getMessage());
+            }
+        });
+    }
+
     private int send(AlertRule rule, Instant triggeredAt, double metricValue, String url) throws Exception {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("ruleId", rule.getId());
@@ -75,7 +92,24 @@ public class WebhookNotifier {
         payload.put("metricValue", metricValue);
         payload.put("threshold", rule.getThreshold());
         payload.put("query", rule.getQueryLanguage() == QueryLanguage.SIMPLE ? rule.getSearch() : rule.getQuery());
+        return post(rule, url, payload);
+    }
 
+    private int sendNewPattern(AlertRule rule, Instant triggeredAt, LogTemplate template, String url) throws Exception {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("ruleId", rule.getId());
+        payload.put("ruleName", rule.getName());
+        payload.put("ruleType", rule.getRuleType().name());
+        payload.put("triggeredAt", triggeredAt.toString());
+        payload.put("source", rule.getSource());
+        payload.put("file", rule.getFile());
+        payload.put("templateId", template.getId());
+        payload.put("templateText", template.getTemplateText());
+        payload.put("sampleRawLine", template.getSampleRawLine());
+        return post(rule, url, payload);
+    }
+
+    private int post(AlertRule rule, String url, Map<String, Object> payload) throws Exception {
         String body = JSON.writeValueAsString(payload);
 
         HttpRequest.Builder requestBuilder = HttpRequest.newBuilder(URI.create(url))

@@ -50,6 +50,22 @@ class LogTemplateTest {
     }
 
     @Test
+    void aFreshTemplateHasNoSplitLineage() {
+        LogTemplate template = new LogTemplate("src", "app.log", "hello *", 2, Instant.now(), "hello world", 1);
+
+        assertThat(template.getSplitFromTemplateText()).isNull();
+    }
+
+    @Test
+    void markSplitFromRecordsTheOriginalTemplateText() {
+        LogTemplate template = new LogTemplate("src", "app.log", "hello *", 2, Instant.now(), "hello world", 1);
+
+        template.markSplitFrom("hello <ID> from <IP>");
+
+        assertThat(template.getSplitFromTemplateText()).isEqualTo("hello <ID> from <IP>");
+    }
+
+    @Test
     void historyIsCappedAtTheConfiguredLength() {
         Instant now = Instant.ofEpochMilli(10 * BUCKET_MS);
         LogTemplate template = new LogTemplate("src", "app.log", "hello *", 2, now, "hello world", 1);

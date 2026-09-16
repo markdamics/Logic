@@ -10,4 +10,7 @@ public interface AlertEventRepository extends JpaRepository<AlertEvent, Long> {
     List<AlertEvent> findTop50ByAlertRuleIdOrderByTriggeredAtDesc(Long alertRuleId);
 
     Optional<AlertEvent> findFirstByAlertRuleIdAndResolvedAtIsNullOrderByTriggeredAtDesc(Long alertRuleId);
+
+    /** NEW_PATTERN dedup: has this rule already fired for this template? */
+    boolean existsByAlertRuleIdAndTemplateId(Long alertRuleId, Long templateId);
 }

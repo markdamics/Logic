@@ -52,6 +52,10 @@ public class LogTemplate {
 
     private Long historyBucketStartMillis;
 
+    /** Set only when this row was created by a LOGIC-119 split - a text snapshot rather than the original row's id, since that row is deleted as part of the same split. */
+    @Column(length = 2000)
+    private String splitFromTemplateText;
+
     protected LogTemplate() {
         // JPA
     }
@@ -161,5 +165,14 @@ public class LogTemplate {
 
     public List<Long> getHistoryCounts() {
         return parseHistory();
+    }
+
+    public String getSplitFromTemplateText() {
+        return splitFromTemplateText;
+    }
+
+    /** Called once, right after construction, by TemplateService's split - not part of the constructor since every other caller creates a template with no split lineage at all. */
+    public void markSplitFrom(String originalTemplateText) {
+        this.splitFromTemplateText = originalTemplateText;
     }
 }

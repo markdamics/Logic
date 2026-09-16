@@ -7,6 +7,8 @@ import com.logic.analyzer.search.SearchQueryService;
 import com.logic.analyzer.search.query.AggregationStage;
 import com.logic.analyzer.search.query.LuceneQueryExecutor;
 import com.logic.analyzer.search.query.QueryLanguage;
+import com.logic.analyzer.template.LogTemplate;
+import com.logic.analyzer.template.LogTemplateRepository;
 import org.apache.lucene.search.Query;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,19 +45,22 @@ public class AlertEvaluationService {
     private final SearchQueryService searchQueryService;
     private final LuceneQueryExecutor executor;
     private final WebhookNotifier webhookNotifier;
+    private final LogTemplateRepository templateRepository;
 
     /** Was this rule triggered as of the last evaluation? In-memory only - losing it on restart costs at most one duplicate AlertEvent, not a correctness issue. */
     private final Map<Long, Boolean> triggeredState = new ConcurrentHashMap<>();
 
     public AlertEvaluationService(AlertRuleRepository ruleRepository, AlertEventRepository eventRepository,
                                    LogQueryService logQueryService, SearchQueryService searchQueryService,
-                                   LuceneQueryExecutor executor, WebhookNotifier webhookNotifier) {
+                                   LuceneQueryExecutor executor, WebhookNotifier webhookNotifier,
+                                   LogTemplateRepository templateRepository) {
         this.ruleRepository = ruleRepository;
         this.eventRepository = eventRepository;
         this.logQueryService = logQueryService;
         this.searchQueryService = searchQueryService;
         this.executor = executor;
         this.webhookNotifier = webhookNotifier;
+        this.templateRepository = templateRepository;
     }
 
     @Scheduled(fixedDelayString = "${app.alerts.evaluation-interval-ms:30000}")
@@ -70,6 +75,11 @@ public class AlertEvaluationService {
     }
 
     private void evaluate(AlertRule rule) {
+        if (rule.getRuleType() == AlertRuleType.NEW_PATTERN) {
+            evaluateNewPattern(rule);
+            return;
+        }
+
         int totalWindows = rule.getRuleType() == AlertRuleType.ANOMALY ? rule.getAnomalyBaselineWindows() + 1 : 1;
         long rangeMinutes = (long) rule.getWindowMinutes() * totalWindows;
 
@@ -100,6 +110,51 @@ public class AlertEvaluationService {
         triggeredState.put(rule.getId(), triggered);
 
         ruleRepository.save(rule);
+    }
+
+    /**
+     * NEW_PATTERN has no count/rate to bucket - it fires once per {@link LogTemplate} whose
+     * {@link LogTemplate#getFirstSeenAt()} falls in this rule's lookback window, deduped against
+     * {@link AlertEventRepository#existsByAlertRuleIdAndTemplateId} so a template already alerted
+     * on doesn't fire again on the next (overlapping) evaluation pass. There's no "resolve" side
+     * to this - a newly appeared template isn't an ongoing condition that can clear.
+     */
+    private void evaluateNewPattern(AlertRule rule) {
+        rule.setLastEvaluatedAt(Instant.now());
+
+        // Never earlier than the rule's own creation - a template that predates the rule must
+        // never retroactively fire, no matter how wide the window is.
+        Instant cutoff = laterOf(Instant.now().minus(Duration.ofMinutes(rule.getWindowMinutes())), rule.getCreatedAt());
+        boolean fileScoped = rule.getFile() != null && !rule.getFile().isBlank();
+        List<LogTemplate> candidates = fileScoped
+                ? templateRepository.findBySourceAndFileAndFirstSeenAtAfter(rule.getSource(), rule.getFile(), cutoff)
+                : templateRepository.findBySourceAndFirstSeenAtAfter(rule.getSource(), cutoff);
+
+        for (LogTemplate template : candidates) {
+            if (!eventRepository.existsByAlertRuleIdAndTemplateId(rule.getId(), template.getId())) {
+                fireNewPattern(rule, template);
+            }
+        }
+
+        ruleRepository.save(rule);
+    }
+
+    private static Instant laterOf(Instant a, Instant b) {
+        return a.isAfter(b) ? a : b;
+    }
+
+    private void fireNewPattern(AlertRule rule, LogTemplate template) {
+        Instant now = Instant.now();
+        rule.setLastTriggeredAt(now);
+        AlertEvent event = eventRepository.save(new AlertEvent(
+                rule.getId(), now, template.getOccurrenceCount(), template.getId(), template.getTemplateText(), template.getSampleRawLine()));
+        log.info("Alert rule {} ('{}') triggered: new pattern '{}'", rule.getId(), rule.getName(), template.getTemplateText());
+        if (!rule.isMuted()) {
+            webhookNotifier.notifyNewPatternAsync(rule, now, template, status -> {
+                event.setWebhookStatus(status);
+                eventRepository.save(event);
+            });
+        }
     }
 
     /** True when the current bucket exceeds mean + k*stddev of the preceding baseline buckets. */

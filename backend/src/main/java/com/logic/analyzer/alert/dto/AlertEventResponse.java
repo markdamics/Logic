@@ -10,7 +10,10 @@ public record AlertEventResponse(
         Instant resolvedAt,
         double metricValue,
         Double thresholdAtTrigger,
-        Integer webhookStatus
+        Integer webhookStatus,
+        Long templateId,
+        String templateText,
+        String sampleRawLine
 ) {
     public static AlertEventResponse from(AlertEvent event) {
         return new AlertEventResponse(
@@ -19,7 +22,10 @@ public record AlertEventResponse(
                 event.getResolvedAt(),
                 event.getMetricValue(),
                 event.getThresholdAtTrigger(),
-                event.getWebhookStatus()
+                event.getWebhookStatus(),
+                event.getTemplateId(),
+                event.getTemplateText(),
+                event.getSampleRawLine()
         );
     }
 }

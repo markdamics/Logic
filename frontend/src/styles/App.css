@@ -1504,6 +1504,39 @@ select.input {
   color: var(--text-on-accent);
 }
 
+.pattern-template-cell {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.pattern-template-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.split-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  margin-right: 6px;
+  padding: 1px 6px;
+  border: 1px solid var(--line-accent);
+  border-radius: var(--radius-xs);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--tr-micro);
+  vertical-align: middle;
+  cursor: default;
+}
+
 .log-detail-field:last-of-type .log-detail-field-key,
 .log-detail-field:last-of-type .log-detail-field-value {
   border-bottom: none;

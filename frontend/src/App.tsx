@@ -83,11 +83,13 @@ function App() {
   const [patternsSource, setPatternsSource] = useState<string | undefined>(undefined);
   const [patternsFile, setPatternsFile] = useState<string | undefined>(undefined);
   const [patternsSort, setPatternsSort] = useState<TemplateSort>("volume");
-  const { templates, loading: templatesLoading, refresh: refreshPatterns } = usePatterns(
-    patternsSource,
-    patternsFile,
-    patternsSort,
-  );
+  const {
+    templates,
+    loading: templatesLoading,
+    refresh: refreshPatterns,
+    remove: removeTemplate,
+    split: splitTemplateAction,
+  } = usePatterns(patternsSource, patternsFile, patternsSort);
   const [patternDrilldown, setPatternDrilldown] = useState<PatternDrilldownFilter | null>(null);
 
   useEffect(() => {
@@ -299,6 +301,8 @@ function App() {
               onSortChange={setPatternsSort}
               onRefresh={refreshPatterns}
               onViewMatchingLines={handleViewMatchingLines}
+              onDelete={removeTemplate}
+              onSplit={splitTemplateAction}
             />
           )}
         </div>

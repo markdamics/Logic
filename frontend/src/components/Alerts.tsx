@@ -37,6 +37,9 @@ function describeCondition(rule: AlertRule): string {
     const op = rule.comparisonOp === "GTE" ? "≥" : ">";
     return `${rule.metric.toLowerCase()} ${op} ${rule.threshold} / ${rule.windowMinutes}m`;
   }
+  if (rule.ruleType === "NEW_PATTERN") {
+    return `new pattern within ${rule.windowMinutes}m`;
+  }
   return `${rule.metric.toLowerCase()} > baseline + ${rule.anomalyStdDevMultiplier}σ (${rule.anomalyBaselineWindows}×${rule.windowMinutes}m)`;
 }
 
@@ -109,8 +112,8 @@ export function Alerts({ sources, alertRules, loading, onCreate, onUpdate, onDel
             <AlertsIcon size={28} />
             <h4>No alert rules yet</h4>
             <p className="text-muted">
-              Arm a rule to watch for error spikes, specific patterns, or statistically anomalous volume — and
-              optionally fire a webhook to your incident tooling when it triggers.
+              Arm a rule to watch for error spikes, specific patterns, statistically anomalous volume, or a genuinely
+              new message shape — and optionally fire a webhook to your incident tooling when it triggers.
             </p>
           </div>
         </div>
@@ -181,7 +184,7 @@ export function Alerts({ sources, alertRules, loading, onCreate, onUpdate, onDel
                                 <tr>
                                   <th>Triggered</th>
                                   <th>Resolved</th>
-                                  <th>Value</th>
+                                  <th>{rule.ruleType === "NEW_PATTERN" ? "New template" : "Value"}</th>
                                   <th>Webhook</th>
                                 </tr>
                               </thead>
@@ -189,8 +192,20 @@ export function Alerts({ sources, alertRules, loading, onCreate, onUpdate, onDel
                                 {events.map((event) => (
                                   <tr key={event.id}>
                                     <td>{new Date(event.triggeredAt).toLocaleString()}</td>
-                                    <td>{event.resolvedAt ? new Date(event.resolvedAt).toLocaleString() : "still open"}</td>
-                                    <td>{event.metricValue}</td>
+                                    <td>
+                                      {rule.ruleType === "NEW_PATTERN"
+                                        ? "—"
+                                        : event.resolvedAt
+                                          ? new Date(event.resolvedAt).toLocaleString()
+                                          : "still open"}
+                                    </td>
+                                    <td className={rule.ruleType === "NEW_PATTERN" ? "log-message-truncated" : undefined}>
+                                      {rule.ruleType === "NEW_PATTERN" ? (
+                                        <code title={event.sampleRawLine ?? undefined}>{event.templateText}</code>
+                                      ) : (
+                                        event.metricValue
+                                      )}
+                                    </td>
                                     <td>{event.webhookStatus ?? "—"}</td>
                                   </tr>
                                 ))}

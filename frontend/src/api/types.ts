@@ -150,7 +150,7 @@ export interface CreateSavedSearchRequest {
   sortDir: string;
 }
 
-export type AlertRuleType = "THRESHOLD" | "ANOMALY";
+export type AlertRuleType = "THRESHOLD" | "ANOMALY" | "NEW_PATTERN";
 export type AlertMetric = "COUNT" | "RATE";
 export type ComparisonOperator = "GT" | "GTE";
 
@@ -204,6 +204,10 @@ export interface AlertEvent {
   metricValue: number;
   thresholdAtTrigger: number | null;
   webhookStatus: number | null;
+  /** NEW_PATTERN only. */
+  templateId: number | null;
+  templateText: string | null;
+  sampleRawLine: string | null;
 }
 
 export interface RedactionRule {
@@ -235,6 +239,8 @@ export interface LogTemplate {
   sampleRawLine: string | null;
   /** Per-minute occurrence counts, oldest first - backs the trend sparkline. */
   history: number[];
+  /** Set only when this template was created by splitting an over-generalized one; null otherwise. */
+  splitFromTemplateText: string | null;
 }
 
 export type TemplateSort = "volume" | "recent";

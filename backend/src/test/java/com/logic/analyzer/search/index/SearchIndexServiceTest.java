@@ -56,7 +56,7 @@ class SearchIndexServiceTest {
 
     private final FacetsConfig facetsConfig = new FacetsConfig();
     private final LogDocumentBuilder documentBuilder = new LogDocumentBuilder(facetsConfig);
-    private final TemplateMiningService templateMiningService = new TemplateMiningService(mock(LogTemplateRepository.class));
+    private final TemplateMiningService templateMiningService = new TemplateMiningService(mock(LogTemplateRepository.class), 0.5);
     private final LogSource testSource = mock(LogSource.class);
 
     private Directory directory;

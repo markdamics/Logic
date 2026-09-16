@@ -12,6 +12,8 @@ import com.logic.analyzer.search.query.QueryCompiler;
 import com.logic.analyzer.search.query.QueryLanguage;
 import com.logic.analyzer.source.LogSource;
 import com.logic.analyzer.source.LogSourceRepository;
+import com.logic.analyzer.template.LogTemplate;
+import com.logic.analyzer.template.LogTemplateRepository;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.core.KeywordAnalyzer;
 import org.apache.lucene.analysis.miscellaneous.PerFieldAnalyzerWrapper;
@@ -35,13 +37,16 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.lang.reflect.Field;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -69,6 +74,8 @@ class AlertEvaluationServiceTest {
     private WebhookNotifier webhookNotifier;
     @Mock
     private LogSourceRepository sourceRepository;
+    @Mock
+    private LogTemplateRepository templateRepository;
 
     private final Analyzer analyzer = new PerFieldAnalyzerWrapper(new KeywordAnalyzer(),
             Map.of("message", new StandardAnalyzer(), "_all", new StandardAnalyzer()));
@@ -84,7 +91,8 @@ class AlertEvaluationServiceTest {
     @BeforeEach
     void setUp() throws Exception {
         when(testSource.getId()).thenReturn(1L);
-        when(sourceRepository.findAll()).thenReturn(List.of());
+        // lenient: NEW_PATTERN evaluation never reaches LogQueryService/disabledSourceNames(), so this goes unused in those tests.
+        lenient().when(sourceRepository.findAll()).thenReturn(List.of());
         directory = new ByteBuffersDirectory();
         writer = new IndexWriter(directory, new IndexWriterConfig(analyzer));
         searcherManager = new SearcherManager(writer, false, false, null);
@@ -99,7 +107,7 @@ class AlertEvaluationServiceTest {
         lenient().when(eventRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         service = new AlertEvaluationService(ruleRepository, eventRepository, logQueryService, searchQueryService,
-                executor, webhookNotifier);
+                executor, webhookNotifier, templateRepository);
     }
 
     @AfterEach
@@ -268,5 +276,116 @@ class AlertEvaluationServiceTest {
         Field field = AlertRule.class.getDeclaredField("source");
         field.setAccessible(true);
         field.set(rule, source);
+    }
+
+    /** createdAt is normally set by @PrePersist, which never fires on a bare `new AlertRule(...)` in a unit test. */
+    private static void setCreatedAt(AlertRule rule, Instant createdAt) throws Exception {
+        Field field = AlertRule.class.getDeclaredField("createdAt");
+        field.setAccessible(true);
+        field.set(rule, createdAt);
+    }
+
+    /** LogTemplate's id is normally JPA-assigned on save; give the test fixture a real one so the dedup lookup has something to key on. */
+    private static void setTemplateId(LogTemplate template, long id) throws Exception {
+        Field field = LogTemplate.class.getDeclaredField("id");
+        field.setAccessible(true);
+        field.set(template, id);
+    }
+
+    private static AlertRule newPatternRule(String source, String file, int windowMinutes) {
+        return new AlertRule("new shapes", QueryLanguage.SIMPLE, null, null, Set.of(),
+                source, file, AlertRuleType.NEW_PATTERN, windowMinutes, AlertMetric.COUNT,
+                null, null, null, null, null, null);
+    }
+
+    @Test
+    void newPatternRuleFiresOnceForANewlyAppearedTemplate() throws Exception {
+        AlertRule rule = newPatternRule("svc", null, 5);
+        setId(rule, 1L);
+        setCreatedAt(rule, Instant.now().minusSeconds(60));
+        when(ruleRepository.findAll()).thenReturn(List.of(rule));
+
+        LogTemplate template = new LogTemplate("svc", null, "boom *", 2, Instant.now(), "boom 1", 1);
+        setTemplateId(template, 42L);
+        when(templateRepository.findBySourceAndFirstSeenAtAfter(eq("svc"), any())).thenReturn(List.of(template));
+
+        service.evaluateAll();
+
+        ArgumentCaptor<AlertEvent> captor = ArgumentCaptor.forClass(AlertEvent.class);
+        verify(eventRepository).save(captor.capture());
+        assertThat(captor.getValue().getTemplateId()).isEqualTo(42L);
+        assertThat(captor.getValue().getTemplateText()).isEqualTo("boom *");
+        assertThat(captor.getValue().getSampleRawLine()).isEqualTo("boom 1");
+        assertThat(rule.getLastTriggeredAt()).isNotNull();
+    }
+
+    @Test
+    void newPatternRuleNeverRefiresForATemplateItAlreadyAlertedOn() throws Exception {
+        AlertRule rule = newPatternRule("svc", null, 5);
+        setId(rule, 1L);
+        setCreatedAt(rule, Instant.now().minusSeconds(60));
+        when(ruleRepository.findAll()).thenReturn(List.of(rule));
+
+        LogTemplate template = new LogTemplate("svc", null, "boom *", 2, Instant.now(), "boom 1", 1);
+        setTemplateId(template, 42L);
+        when(templateRepository.findBySourceAndFirstSeenAtAfter(eq("svc"), any())).thenReturn(List.of(template));
+        when(eventRepository.existsByAlertRuleIdAndTemplateId(1L, 42L)).thenReturn(true);
+
+        service.evaluateAll();
+
+        verify(eventRepository, never()).save(any());
+        assertThat(rule.getLastTriggeredAt()).isNull();
+    }
+
+    @Test
+    void newPatternRuleNeverLooksBeforeItsOwnCreation() throws Exception {
+        AlertRule rule = newPatternRule("svc", null, 60);
+        setId(rule, 1L);
+        Instant createdAt = Instant.now().minusSeconds(10);
+        setCreatedAt(rule, createdAt);
+        when(ruleRepository.findAll()).thenReturn(List.of(rule));
+        when(templateRepository.findBySourceAndFirstSeenAtAfter(eq("svc"), any())).thenReturn(List.of());
+
+        service.evaluateAll();
+
+        // windowMinutes=60 would otherwise look back well before the rule's own 10-seconds-ago
+        // creation - the cutoff must clamp to createdAt so a pre-existing template never retroactively fires.
+        ArgumentCaptor<Instant> cutoffCaptor = ArgumentCaptor.forClass(Instant.class);
+        verify(templateRepository).findBySourceAndFirstSeenAtAfter(eq("svc"), cutoffCaptor.capture());
+        assertThat(cutoffCaptor.getValue()).isCloseTo(createdAt, within(500, ChronoUnit.MILLIS));
+    }
+
+    @Test
+    void newPatternRuleScopedToAFileUsesTheFileScopedFinder() throws Exception {
+        AlertRule rule = newPatternRule("svc", "app.log", 5);
+        setId(rule, 1L);
+        setCreatedAt(rule, Instant.now().minusSeconds(60));
+        when(ruleRepository.findAll()).thenReturn(List.of(rule));
+        when(templateRepository.findBySourceAndFileAndFirstSeenAtAfter(eq("svc"), eq("app.log"), any())).thenReturn(List.of());
+
+        service.evaluateAll();
+
+        verify(templateRepository).findBySourceAndFileAndFirstSeenAtAfter(eq("svc"), eq("app.log"), any());
+        verify(templateRepository, never()).findBySourceAndFirstSeenAtAfter(any(), any());
+    }
+
+    @Test
+    void mutedNewPatternRuleStillFiresButNeverNotifies() throws Exception {
+        AlertRule rule = new AlertRule("new shapes", QueryLanguage.SIMPLE, null, null, Set.of(),
+                "svc", null, AlertRuleType.NEW_PATTERN, 5, AlertMetric.COUNT,
+                null, null, null, null, "http://example.invalid/hook", null);
+        setId(rule, 1L);
+        rule.setMuted(true);
+        setCreatedAt(rule, Instant.now().minusSeconds(60));
+        when(ruleRepository.findAll()).thenReturn(List.of(rule));
+
+        LogTemplate template = new LogTemplate("svc", null, "boom *", 2, Instant.now(), "boom 1", 1);
+        setTemplateId(template, 42L);
+        when(templateRepository.findBySourceAndFirstSeenAtAfter(eq("svc"), any())).thenReturn(List.of(template));
+
+        service.evaluateAll();
+
+        verify(eventRepository).save(any());
+        verify(webhookNotifier, never()).notifyNewPatternAsync(any(), any(), any(), any());
     }
 }

@@ -88,13 +88,17 @@ export function AlertRuleDialog({ rule, sourceNames, onClose, onSubmit }: AlertR
     setError(null);
     setSubmitting(true);
     try {
-      const queryLanguageValue: SavedSearchLanguage = mode === "simple" ? "SIMPLE" : queryLanguage;
+      // NEW_PATTERN has no query/search/level fields (its Scope UI is hidden) - always treat it
+      // as a SIMPLE rule with none of them set, regardless of what mode was left over from
+      // before the user switched rule types.
+      const effectiveMode = ruleType === "NEW_PATTERN" ? "simple" : mode;
+      const queryLanguageValue: SavedSearchLanguage = effectiveMode === "simple" ? "SIMPLE" : queryLanguage;
       const req: CreateAlertRuleRequest = {
         name,
         queryLanguage: queryLanguageValue,
-        query: mode === "query" ? query : undefined,
-        search: mode === "simple" ? search || undefined : undefined,
-        levels: mode === "simple" && levels.size > 0 ? Array.from(levels) : undefined,
+        query: effectiveMode === "query" ? query : undefined,
+        search: ruleType !== "NEW_PATTERN" && effectiveMode === "simple" ? search || undefined : undefined,
+        levels: ruleType !== "NEW_PATTERN" && effectiveMode === "simple" && levels.size > 0 ? Array.from(levels) : undefined,
         source: source || undefined,
         file: file || undefined,
         ruleType,
@@ -134,69 +138,79 @@ export function AlertRuleDialog({ rule, sourceNames, onClose, onSubmit }: AlertR
             />
           </div>
 
-          <div className="form-field">
-            <label>Scope</label>
-            <div className="log-mode-toggle">
-              <button type="button" className={`log-mode-btn${mode === "simple" ? " active" : ""}`} onClick={() => setMode("simple")}>
-                Simple
-              </button>
-              <button type="button" className={`log-mode-btn${mode === "query" ? " active" : ""}`} onClick={() => setMode("query")}>
-                Query
-              </button>
-            </div>
-          </div>
-
-          {mode === "simple" ? (
+          {ruleType !== "NEW_PATTERN" && (
             <>
               <div className="form-field">
-                <label htmlFor="alert-search">Search text (optional)</label>
-                <input id="alert-search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="substring" />
-              </div>
-              <div className="form-field">
-                <label>Severity (any level if none selected)</label>
-                <div className="log-severity-chips">
-                  {LEVELS.map((level) => (
-                    <button
-                      key={level}
-                      type="button"
-                      className={`chip-toggle level-${level.toLowerCase()}${levels.has(level) ? " active" : ""}`}
-                      onClick={() => toggleLevel(level)}
-                    >
-                      {level}
-                    </button>
-                  ))}
+                <label>Scope</label>
+                <div className="log-mode-toggle">
+                  <button type="button" className={`log-mode-btn${mode === "simple" ? " active" : ""}`} onClick={() => setMode("simple")}>
+                    Simple
+                  </button>
+                  <button type="button" className={`log-mode-btn${mode === "query" ? " active" : ""}`} onClick={() => setMode("query")}>
+                    Query
+                  </button>
                 </div>
               </div>
-            </>
-          ) : (
-            <>
-              <div className="form-field">
-                <label htmlFor="alert-language">Language</label>
-                <select id="alert-language" value={queryLanguage} onChange={(e) => setQueryLanguage(e.target.value as QueryLanguage)}>
-                  {QUERY_LANGUAGES.map((lang) => (
-                    <option key={lang.value} value={lang.value}>
-                      {lang.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="form-field">
-                <label htmlFor="alert-query">Query</label>
-                <input
-                  id="alert-query"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder={QUERY_LANGUAGES.find((l) => l.value === queryLanguage)?.placeholder}
-                  required
-                />
-              </div>
+
+              {mode === "simple" ? (
+                <>
+                  <div className="form-field">
+                    <label htmlFor="alert-search">Search text (optional)</label>
+                    <input id="alert-search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="substring" />
+                  </div>
+                  <div className="form-field">
+                    <label>Severity (any level if none selected)</label>
+                    <div className="log-severity-chips">
+                      {LEVELS.map((level) => (
+                        <button
+                          key={level}
+                          type="button"
+                          className={`chip-toggle level-${level.toLowerCase()}${levels.has(level) ? " active" : ""}`}
+                          onClick={() => toggleLevel(level)}
+                        >
+                          {level}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="form-field">
+                    <label htmlFor="alert-language">Language</label>
+                    <select id="alert-language" value={queryLanguage} onChange={(e) => setQueryLanguage(e.target.value as QueryLanguage)}>
+                      {QUERY_LANGUAGES.map((lang) => (
+                        <option key={lang.value} value={lang.value}>
+                          {lang.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-field">
+                    <label htmlFor="alert-query">Query</label>
+                    <input
+                      id="alert-query"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder={QUERY_LANGUAGES.find((l) => l.value === queryLanguage)?.placeholder}
+                      required
+                    />
+                  </div>
+                </>
+              )}
             </>
           )}
 
           <div className="form-row">
             <div className="form-field">
-              <label htmlFor="alert-source">Source (optional)</label>
-              <input id="alert-source" list="alert-source-options" value={source} onChange={(e) => setSource(e.target.value)} />
+              <label htmlFor="alert-source">Source{ruleType === "NEW_PATTERN" ? "" : " (optional)"}</label>
+              <input
+                id="alert-source"
+                list="alert-source-options"
+                value={source}
+                onChange={(e) => setSource(e.target.value)}
+                required={ruleType === "NEW_PATTERN"}
+              />
               <datalist id="alert-source-options">
                 {sourceNames.map((s) => (
                   <option key={s} value={s} />
@@ -215,15 +229,18 @@ export function AlertRuleDialog({ rule, sourceNames, onClose, onSubmit }: AlertR
               <select id="alert-type" value={ruleType} onChange={(e) => setRuleType(e.target.value as AlertRuleType)}>
                 <option value="THRESHOLD">Threshold / pattern</option>
                 <option value="ANOMALY">Anomaly (statistical baseline)</option>
+                <option value="NEW_PATTERN">New pattern appeared</option>
               </select>
             </div>
-            <div className="form-field">
-              <label htmlFor="alert-metric">Metric</label>
-              <select id="alert-metric" value={metric} onChange={(e) => setMetric(e.target.value as AlertMetric)}>
-                <option value="COUNT">Count</option>
-                <option value="RATE">Rate (count/sec)</option>
-              </select>
-            </div>
+            {ruleType !== "NEW_PATTERN" && (
+              <div className="form-field">
+                <label htmlFor="alert-metric">Metric</label>
+                <select id="alert-metric" value={metric} onChange={(e) => setMetric(e.target.value as AlertMetric)}>
+                  <option value="COUNT">Count</option>
+                  <option value="RATE">Rate (count/sec)</option>
+                </select>
+              </div>
+            )}
             <div className="form-field" style={{ maxWidth: 140 }}>
               <label htmlFor="alert-window">Window (min)</label>
               <input
@@ -237,7 +254,14 @@ export function AlertRuleDialog({ rule, sourceNames, onClose, onSubmit }: AlertR
             </div>
           </div>
 
-          {ruleType === "THRESHOLD" ? (
+          {ruleType === "NEW_PATTERN" && (
+            <p className="text-muted">
+              Fires once for every log message shape not seen before on this source (and file, if set) - no
+              query/search/level fields apply.
+            </p>
+          )}
+
+          {ruleType === "THRESHOLD" && (
             <div className="form-row">
               <div className="form-field" style={{ maxWidth: 140 }}>
                 <label htmlFor="alert-comparison">Comparison</label>
@@ -251,7 +275,9 @@ export function AlertRuleDialog({ rule, sourceNames, onClose, onSubmit }: AlertR
                 <input id="alert-threshold" type="number" step="any" value={threshold} onChange={(e) => setThreshold(e.target.value)} required />
               </div>
             </div>
-          ) : (
+          )}
+
+          {ruleType === "ANOMALY" && (
             <div className="form-row">
               <div className="form-field">
                 <label htmlFor="alert-baseline">Baseline windows</label>

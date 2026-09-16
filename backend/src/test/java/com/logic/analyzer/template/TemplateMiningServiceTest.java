@@ -27,7 +27,7 @@ class TemplateMiningServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new TemplateMiningService(repository);
+        service = new TemplateMiningService(repository, 0.5);
         source = new LogSource("payments-api", SourceType.LOCAL_FILE, "/var/log/app.log", null, null, null, null);
         // repository.findBySourceAndFile(...) is left unstubbed deliberately - Mockito's
         // default answer for an unstubbed List-returning method is an empty list, which is
@@ -161,6 +161,62 @@ class TemplateMiningServiceTest {
         assertThat(templates).hasSize(1);
         assertThat(templates.get(0).getOccurrenceCount()).isEqualTo(3);
         assertThat(templates.get(0).getTemplateText()).isEqualTo("<NUM> Liu Brown <EMAIL> BR enterprise <DATE>");
+    }
+
+    @Test
+    void aHigherConfiguredSimilarityThresholdSplitsWhatTheDefaultWouldHaveMerged() {
+        // 3/5 tokens match (positions 1 and 4 differ) - similarity 0.6 clears the default 0.5
+        // threshold (see threeDistinctShapesAtVaryingFrequenciesClusterIntoExactlyThreeTemplates-
+        // style behavior) but not a configured 0.85.
+        TemplateMiningService strictService = new TemplateMiningService(repository, 0.85);
+        strictService.mine(source, "app.log", List.of(
+                entry("User bob request completed fast"),
+                entry("User carol request completed slow")));
+
+        assertThat(clusters()).hasSize(2);
+    }
+
+    @Test
+    void aLowerConfiguredSimilarityThresholdMergesWhatTheDefaultWouldHaveSplit() {
+        // 2/5 tokens match (positions 0 "User" and 3 "completed") - similarity 0.4 clears a
+        // configured 0.3 threshold but not the default 0.5.
+        TemplateMiningService looseService = new TemplateMiningService(repository, 0.3);
+        looseService.mine(source, "app.log", List.of(
+                entry("User bob request completed fast"),
+                entry("User zara task completed gone")));
+
+        assertThat(clusters()).hasSize(1);
+    }
+
+    @Test
+    void reclusterSplitsMembersThatOnlyBarelyClearedTheNormalThreshold() {
+        // 3/5 tokens match (positions 1 and 4 differ) - similarity 0.6 clears the normal
+        // SIMILARITY_THRESHOLD (0.5, so mining would merge these) but not a stricter 0.85.
+        List<TemplateMiningService.ReclusterGroup> groups = service.recluster(
+                List.of("User bob request completed fast", "User carol request completed slow"), 0.85);
+
+        assertThat(groups).hasSize(2);
+        assertThat(groups).flatExtracting(TemplateMiningService.ReclusterGroup::members)
+                .containsExactlyInAnyOrder("User bob request completed fast", "User carol request completed slow");
+    }
+
+    @Test
+    void reclusterStillMergesMembersThatAreIdenticalAsideFromMaskedTokens() {
+        List<TemplateMiningService.ReclusterGroup> groups = service.recluster(
+                List.of("User bob123 logged in from 10.0.0.5", "User alice99 logged in from 10.0.0.9"), 0.85);
+
+        assertThat(groups).hasSize(1);
+        assertThat(groups.get(0).templateText()).isEqualTo("User <ID> logged in from <IP>");
+        assertThat(groups.get(0).members()).hasSize(2);
+    }
+
+    @Test
+    void reclusterNeverPersistsAnything() {
+        // Unlike assignTemplates/mine, recluster() is read-only scratch work - the caller
+        // (TemplateService's split) decides what to actually save once it has the groups.
+        service.recluster(List.of("User bob request completed fast", "User carol request completed slow"), 0.85);
+
+        assertThat(clusters()).isEmpty();
     }
 
     private List<LogTemplate> clusters() {

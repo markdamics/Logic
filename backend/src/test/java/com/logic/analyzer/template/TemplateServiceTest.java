@@ -1,5 +1,11 @@
 package com.logic.analyzer.template;
 
+import com.logic.analyzer.exception.TemplateNotFoundException;
+import com.logic.analyzer.logstream.LogEntry;
+import com.logic.analyzer.logstream.LogLevel;
+import com.logic.analyzer.logstream.LogQueryService;
+import com.logic.analyzer.logstream.dto.LogQueryResult;
+import com.logic.analyzer.search.index.SearchIndexService;
 import com.logic.analyzer.source.LogSource;
 import com.logic.analyzer.source.LogSourceRepository;
 import com.logic.analyzer.source.SourceType;
@@ -12,8 +18,15 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -25,8 +38,17 @@ class TemplateServiceTest {
     @Mock
     private LogSourceRepository sourceRepository;
 
+    @Mock
+    private TemplateMiningService miningService;
+
+    @Mock
+    private LogQueryService logQueryService;
+
+    @Mock
+    private SearchIndexService searchIndexService;
+
     private TemplateService service() {
-        return new TemplateService(repository, sourceRepository);
+        return new TemplateService(repository, sourceRepository, miningService, logQueryService, searchIndexService);
     }
 
     private LogSource miningEnabledSource(String name) {
@@ -139,5 +161,112 @@ class TemplateServiceTest {
         List<TemplateResponse> result = service().list(null, null, "volume");
 
         assertThat(result).isEmpty();
+    }
+
+    @Test
+    void deleteRemovesTheRowAndInvalidatesTheMiningCache() {
+        when(repository.existsById(7L)).thenReturn(true);
+
+        service().delete(7L);
+
+        verify(repository).deleteById(7L);
+        verify(miningService).invalidateCache();
+    }
+
+    @Test
+    void deleteThrowsWhenTheTemplateDoesNotExist() {
+        when(repository.existsById(99L)).thenReturn(false);
+
+        assertThatThrownBy(() -> service().delete(99L))
+                .isInstanceOf(TemplateNotFoundException.class);
+
+        verify(repository, never()).deleteById(any());
+    }
+
+    @Test
+    void splitThrowsWhenTheTemplateDoesNotExist() {
+        when(repository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service().split(99L))
+                .isInstanceOf(TemplateNotFoundException.class);
+    }
+
+    @Test
+    void splitThrowsWhenNothingIsCurrentlyIndexedForTheTemplate() {
+        LogTemplate target = new LogTemplate("payments-api", "app.log", "User * request completed *", 5, Instant.now(), "sample", 2);
+        when(repository.findById(7L)).thenReturn(Optional.of(target));
+        when(logQueryService.query(any())).thenReturn(new LogQueryResult(List.of(), 0, 5000, 0, 0, null));
+
+        assertThatThrownBy(() -> service().split(7L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("scrolled out");
+
+        verify(repository, never()).deleteById(any());
+    }
+
+    @Test
+    void splitThrowsWhenReclusteringFindsOnlyOneGroup() {
+        LogTemplate target = new LogTemplate("payments-api", "app.log", "User * request completed *", 5, Instant.now(), "sample", 2);
+        when(repository.findById(7L)).thenReturn(Optional.of(target));
+        LogEntry entry = new LogEntry(1, Instant.now(), LogLevel.INFO, "payments-api", "app.log", "User bob request completed fast");
+        when(logQueryService.query(any())).thenReturn(new LogQueryResult(List.of(entry), 0, 5000, 1, 1, null));
+        when(miningService.recluster(anyCollection(), eq(0.85))).thenReturn(List.of(
+                new TemplateMiningService.ReclusterGroup("User bob request completed fast", 5, List.of("User bob request completed fast"))));
+
+        assertThatThrownBy(() -> service().split(7L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("nothing to split");
+
+        verify(repository, never()).deleteById(any());
+    }
+
+    @Test
+    void splitReplacesTheTemplateWithSeveralAndForcesAReindex() {
+        LogTemplate target = new LogTemplate("payments-api", "app.log", "User * request completed *", 5, Instant.now(), "sample", 2);
+        when(repository.findById(7L)).thenReturn(Optional.of(target));
+
+        Instant t1 = Instant.now().minusSeconds(20);
+        Instant t2 = Instant.now().minusSeconds(10);
+        LogEntry entryA = new LogEntry(1, t1, LogLevel.INFO, "payments-api", "app.log", "User bob request completed fast");
+        LogEntry entryB = new LogEntry(2, t2, LogLevel.INFO, "payments-api", "app.log", "User carol request completed slow");
+        when(logQueryService.query(any())).thenReturn(new LogQueryResult(List.of(entryA, entryB), 0, 5000, 2, 1, null));
+        when(miningService.recluster(anyCollection(), eq(0.85))).thenReturn(List.of(
+                new TemplateMiningService.ReclusterGroup("User bob request completed fast", 5, List.of("User bob request completed fast")),
+                new TemplateMiningService.ReclusterGroup("User carol request completed slow", 5, List.of("User carol request completed slow"))));
+
+        LogSource source = new LogSource("payments-api", SourceType.LOCAL_FILE, "/var/log/app.log", null, null, null, null);
+        when(sourceRepository.findFirstByName("payments-api")).thenReturn(Optional.of(source));
+        when(repository.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        List<TemplateResponse> result = service().split(7L);
+
+        assertThat(result).hasSize(2);
+        assertThat(result).extracting(TemplateResponse::occurrenceCount).containsExactly(1L, 1L);
+        assertThat(result).extracting(TemplateResponse::templateText)
+                .containsExactlyInAnyOrder("User bob request completed fast", "User carol request completed slow");
+        assertThat(result).extracting(TemplateResponse::splitFromTemplateText)
+                .containsExactly("User * request completed *", "User * request completed *");
+        verify(repository).deleteById(7L);
+        verify(miningService).invalidateCache();
+        verify(searchIndexService).forceReindexSource(source);
+    }
+
+    @Test
+    void splitThrowsWhenTheSourceNoLongerExists() {
+        LogTemplate target = new LogTemplate("payments-api", "app.log", "User * request completed *", 5, Instant.now(), "sample", 2);
+        when(repository.findById(7L)).thenReturn(Optional.of(target));
+        LogEntry entryA = new LogEntry(1, Instant.now(), LogLevel.INFO, "payments-api", "app.log", "User bob request completed fast");
+        LogEntry entryB = new LogEntry(2, Instant.now(), LogLevel.INFO, "payments-api", "app.log", "User carol request completed slow");
+        when(logQueryService.query(any())).thenReturn(new LogQueryResult(List.of(entryA, entryB), 0, 5000, 2, 1, null));
+        when(miningService.recluster(anyCollection(), eq(0.85))).thenReturn(List.of(
+                new TemplateMiningService.ReclusterGroup("User bob request completed fast", 5, List.of("User bob request completed fast")),
+                new TemplateMiningService.ReclusterGroup("User carol request completed slow", 5, List.of("User carol request completed slow"))));
+        when(sourceRepository.findFirstByName("payments-api")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service().split(7L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("no longer exists");
+
+        verify(repository, never()).deleteById(any());
     }
 }
