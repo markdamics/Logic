@@ -3,7 +3,7 @@ import type { Screen } from "../screens";
 import { SCREEN_TITLES } from "../screens";
 import type { MahoTheme } from "../theme";
 import { THEME_LABELS } from "../theme";
-import { AlertsIcon, CollapseIcon, DashboardIcon, LogicMarkIcon, LogsIcon, PatternsIcon, RedactionIcon, SourcesIcon } from "./icons";
+import { AlertsIcon, AuditIcon, CollapseIcon, DashboardIcon, LogicMarkIcon, LogsIcon, PatternsIcon, RedactionIcon, SourcesIcon } from "./icons";
 
 interface SidebarProps {
   screen: Screen;
@@ -21,6 +21,7 @@ const NAV_ITEMS: { screen: Screen; icon: (props: { size?: number }) => ReactElem
   { screen: "alerts", icon: AlertsIcon },
   { screen: "patterns", icon: PatternsIcon },
   { screen: "redaction", icon: RedactionIcon },
+  { screen: "audit", icon: AuditIcon },
 ];
 
 export function Sidebar({ screen, onNavigate, collapsed, onToggleCollapsed, mode, onToggleMode }: SidebarProps) {

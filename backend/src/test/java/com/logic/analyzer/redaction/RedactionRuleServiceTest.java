@@ -1,18 +1,24 @@
 package com.logic.analyzer.redaction;
 
+import com.logic.analyzer.audit.AuditEntityType;
+import com.logic.analyzer.audit.AuditService;
 import com.logic.analyzer.exception.RedactionRuleNotFoundException;
 import com.logic.analyzer.redaction.dto.RedactionRuleCreateRequest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -20,9 +26,11 @@ class RedactionRuleServiceTest {
 
     @Mock
     private RedactionRuleRepository repository;
+    @Mock
+    private AuditService auditService;
 
     private RedactionRuleService service() {
-        return new RedactionRuleService(repository);
+        return new RedactionRuleService(repository, auditService);
     }
 
     @Test
@@ -45,14 +53,32 @@ class RedactionRuleServiceTest {
         assertThat(response.name()).isEqualTo("emails");
         assertThat(response.source()).isNull();
         assertThat(response.enabled()).isTrue();
+        verify(auditService).recordCreate(eq(AuditEntityType.REDACTION_RULE), any(), eq("emails"), any());
     }
 
     @Test
     void deleteThrowsWhenTheRuleDoesNotExist() {
-        when(repository.existsById(99L)).thenReturn(false);
+        when(repository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service().delete(99L))
                 .isInstanceOf(RedactionRuleNotFoundException.class);
+    }
+
+    @Test
+    void updateAuditsTheOldAndNewPattern() {
+        RedactionRule existing = new RedactionRule("emails", "old-pattern", null, null, true);
+        when(repository.findById(1L)).thenReturn(Optional.of(existing));
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        RedactionRuleCreateRequest request = new RedactionRuleCreateRequest("emails", "new-pattern", null, null, true);
+
+        service().update(1L, request);
+
+        var oldSnapshot = ArgumentCaptor.forClass(Map.class);
+        var newSnapshot = ArgumentCaptor.forClass(Map.class);
+        verify(auditService).recordUpdate(eq(AuditEntityType.REDACTION_RULE), eq(1L), eq("emails"),
+                oldSnapshot.capture(), newSnapshot.capture());
+        assertThat(oldSnapshot.getValue()).containsEntry("pattern", "old-pattern");
+        assertThat(newSnapshot.getValue()).containsEntry("pattern", "new-pattern");
     }
 
     @Test

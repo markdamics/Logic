@@ -9,6 +9,7 @@ Table of contents
 - [Patterns](#patterns)
 - [Alerting](#alerting)
 - [Redaction](#redaction)
+- [Audit Log](#audit-log)
 - [Dashboard](#dashboard)
 - [Source management (Sources screen)](#source-management-sources-screen)
 - [Shared Reload action](#shared-reload-action)
@@ -40,6 +41,7 @@ Table of contents
   - LogQL (subset) — label selectors (`{level="ERROR"}`), line filters (`|=` contains, `|~` regex), and one aggregation stage: `count_over_time`, `rate`, or numeric stats over time buckets like `avg_over_time(field...[5m])`.
 - Aggregating queries render as a bar chart in place of the row table (grouped/time-bucketed counts and rates, plus numeric-stat values).
 - Trace correlation: fields that look like correlation IDs (`trace_id`, `request_id`, `correlation_id`, `span_id`, `req_id`, case-insensitive) get a "Correlate" button in the expanded row view; clicking it switches to Lucene mode and shows every log line across all sources with that value in chronological order.
+- Nearby events: expanding a row also shows a "Nearby events" panel listing entries from every other source/file within a configurable time window of that row's timestamp (presets from ±5s to ±5min, or a custom value up to the same 5min cap), chronologically ordered with a time-offset per row — useful for spotting related activity across sources/files that don't share a trace/correlation id. A toolbar toggle switches the panel on/off (persisted locally); off skips the extra query entirely when expanding a row.
 - APM deep-link: when `APM_TRACE_URL_TEMPLATE` is configured, correlation fields render an "Open in APM ↗" link that substitutes the field's value into the template and opens it in a new tab (stateless link-out).
 - Saved Searches: bookmark current filters (Simple mode) or query-bar strings (Lucene/SPL/LogQL + aggregation) under a name. Saved searches show as chips next to the filter bar. Click to re-run, or copy a `?savedSearch=<id>` URL that restores the filters and results.
 
@@ -71,6 +73,14 @@ Table of contents
 
 - Regex-based masking rules are applied at ingest time before an entry is cached, indexed, or displayed — the raw matched text is never persisted. Off by default.
 - Each rule includes: a regex pattern, an optional custom mask (default `***`), and an optional source scope (blank = global). Rules can be enabled/disabled without deletion.
+
+--------------------------------------------------------------------------------
+
+## Audit Log
+
+- Every create/update/delete of a Source, Alert Rule, or Redaction Rule (including enable/disable, live, pattern-mining, and mute/unmute toggles) is recorded to an append-only audit table — timestamp, the admin username (or `anonymous` when `AUTH_ENABLED=false`), and a before/after snapshot of the entity's fields. Secrets (SFTP passwords, webhook secrets) are never captured.
+- Read-only Audit Log screen: a table of every action, newest first, with a "Details" toggle per row that expands a Before/After field comparison, highlighting exactly what changed.
+- The audit log itself has no write path in the API — `GET /api/audit` is the only mapping, so there's no way to edit or delete an entry once recorded.
 
 --------------------------------------------------------------------------------
 

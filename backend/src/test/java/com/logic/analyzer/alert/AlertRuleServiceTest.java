@@ -1,6 +1,8 @@
 package com.logic.analyzer.alert;
 
 import com.logic.analyzer.alert.dto.AlertRuleCreateRequest;
+import com.logic.analyzer.audit.AuditEntityType;
+import com.logic.analyzer.audit.AuditService;
 import com.logic.analyzer.exception.AlertRuleNotFoundException;
 import com.logic.analyzer.logstream.LogLevel;
 import com.logic.analyzer.search.query.QueryLanguage;
@@ -15,6 +17,9 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -26,9 +31,11 @@ class AlertRuleServiceTest {
     private AlertEventRepository eventRepository;
     @Mock
     private WebhookNotifier webhookNotifier;
+    @Mock
+    private AuditService auditService;
 
     private AlertRuleService service() {
-        return new AlertRuleService(repository, eventRepository, webhookNotifier);
+        return new AlertRuleService(repository, eventRepository, webhookNotifier, auditService);
     }
 
     private AlertRuleCreateRequest thresholdRequest() {
@@ -105,6 +112,7 @@ class AlertRuleServiceTest {
         assertThat(response.ruleType()).isEqualTo(AlertRuleType.THRESHOLD);
         assertThat(response.levels()).containsExactly(LogLevel.ERROR);
         assertThat(response.webhookSecretConfigured()).isFalse();
+        verify(auditService).recordCreate(eq(AuditEntityType.ALERT_RULE), any(), eq("high errors"), any());
     }
 
     @Test
@@ -132,10 +140,21 @@ class AlertRuleServiceTest {
 
     @Test
     void deleteThrowsWhenTheRuleDoesNotExist() {
-        when(repository.existsById(99L)).thenReturn(false);
+        when(repository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service().delete(99L))
                 .isInstanceOf(AlertRuleNotFoundException.class);
+    }
+
+    @Test
+    void deleteAuditsTheRemovedRule() {
+        AlertRule rule = new AlertRule("r", QueryLanguage.SIMPLE, null, null, null, null, null,
+                AlertRuleType.THRESHOLD, 5, AlertMetric.COUNT, ComparisonOperator.GT, 1.0, null, null, null, null);
+        when(repository.findById(1L)).thenReturn(Optional.of(rule));
+
+        service().delete(1L);
+
+        verify(auditService).recordDelete(eq(AuditEntityType.ALERT_RULE), eq(1L), eq("r"), any());
     }
 
     @Test
@@ -151,6 +170,7 @@ class AlertRuleServiceTest {
 
         var unmuted = service().setMuted(1L, false);
         assertThat(unmuted.muted()).isFalse();
+        verify(auditService, times(2)).recordUpdate(eq(AuditEntityType.ALERT_RULE), eq(1L), eq("r"), any(), any());
     }
 
     @Test

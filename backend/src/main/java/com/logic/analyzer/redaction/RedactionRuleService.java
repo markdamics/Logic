@@ -1,5 +1,7 @@
 package com.logic.analyzer.redaction;
 
+import com.logic.analyzer.audit.AuditEntityType;
+import com.logic.analyzer.audit.AuditService;
 import com.logic.analyzer.exception.RedactionRuleNotFoundException;
 import com.logic.analyzer.redaction.dto.RedactionRuleCreateRequest;
 import com.logic.analyzer.redaction.dto.RedactionRuleResponse;
@@ -8,7 +10,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -21,9 +25,11 @@ public class RedactionRuleService {
     private static final String DEFAULT_MASK = "***";
 
     private final RedactionRuleRepository repository;
+    private final AuditService auditService;
 
-    public RedactionRuleService(RedactionRuleRepository repository) {
+    public RedactionRuleService(RedactionRuleRepository repository, AuditService auditService) {
         this.repository = repository;
+        this.auditService = auditService;
     }
 
     public List<RedactionRuleResponse> listAll() {
@@ -35,6 +41,7 @@ public class RedactionRuleService {
         RedactionRule rule = new RedactionRule(
                 request.name(), request.pattern(), request.replacement(), request.source(), request.enabled());
         RedactionRule saved = repository.save(rule);
+        auditService.recordCreate(AuditEntityType.REDACTION_RULE, saved.getId(), saved.getName(), snapshot(saved));
         log.info("Created redaction rule '{}' (id={}, scope={})", saved.getName(), saved.getId(),
                 saved.getSource() == null ? "global" : saved.getSource());
         return RedactionRuleResponse.from(saved);
@@ -43,18 +50,31 @@ public class RedactionRuleService {
     public RedactionRuleResponse update(Long id, RedactionRuleCreateRequest request) {
         validatePattern(request.pattern());
         RedactionRule rule = repository.findById(id).orElseThrow(() -> new RedactionRuleNotFoundException(id));
+        Map<String, Object> before = snapshot(rule);
         rule.update(request.name(), request.pattern(), request.replacement(), request.source(), request.enabled());
         RedactionRule saved = repository.save(rule);
+        auditService.recordUpdate(AuditEntityType.REDACTION_RULE, id, saved.getName(), before, snapshot(saved));
         log.info("Updated redaction rule {} -> '{}'", id, saved.getName());
         return RedactionRuleResponse.from(saved);
     }
 
     public void delete(Long id) {
-        if (!repository.existsById(id)) {
-            throw new RedactionRuleNotFoundException(id);
-        }
+        RedactionRule rule = repository.findById(id).orElseThrow(() -> new RedactionRuleNotFoundException(id));
+        Map<String, Object> before = snapshot(rule);
         repository.deleteById(id);
+        auditService.recordDelete(AuditEntityType.REDACTION_RULE, id, rule.getName(), before);
         log.info("Deleted redaction rule {}", id);
+    }
+
+    /** Mirrors {@link RedactionRuleResponse} field-for-field; unlike LogSource/AlertRule, nothing here is a secret. */
+    private Map<String, Object> snapshot(RedactionRule rule) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("name", rule.getName());
+        map.put("pattern", rule.getPattern());
+        map.put("replacement", rule.getReplacement());
+        map.put("source", rule.getSource());
+        map.put("enabled", rule.isEnabled());
+        return map;
     }
 
     /**

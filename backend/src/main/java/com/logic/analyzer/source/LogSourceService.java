@@ -1,5 +1,7 @@
 package com.logic.analyzer.source;
 
+import com.logic.analyzer.audit.AuditEntityType;
+import com.logic.analyzer.audit.AuditService;
 import com.logic.analyzer.exception.SourceNotFoundException;
 import com.logic.analyzer.logstream.LogIngestionService;
 import com.logic.analyzer.search.index.SearchIndexService;
@@ -12,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.EnumMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -24,15 +27,17 @@ public class LogSourceService {
     private final LogIngestionService ingestionService;
     private final SearchIndexService searchIndexService;
     private final SourceUploadService uploadService;
+    private final AuditService auditService;
     private final Map<SourceType, SourceConnectivityChecker> checkersByType;
 
     public LogSourceService(LogSourceRepository repository, LogIngestionService ingestionService,
                              SearchIndexService searchIndexService, SourceUploadService uploadService,
-                             List<SourceConnectivityChecker> checkers) {
+                             AuditService auditService, List<SourceConnectivityChecker> checkers) {
         this.repository = repository;
         this.ingestionService = ingestionService;
         this.searchIndexService = searchIndexService;
         this.uploadService = uploadService;
+        this.auditService = auditService;
         this.checkersByType = new EnumMap<>(SourceType.class);
         for (SourceConnectivityChecker checker : checkers) {
             for (SourceType type : checker.supports()) {
@@ -60,6 +65,7 @@ public class LogSourceService {
                 request.password()
         );
         LogSource saved = repository.save(source);
+        auditService.recordCreate(AuditEntityType.LOG_SOURCE, saved.getId(), saved.getName(), snapshot(saved));
         log.info("Created {} source '{}' (id={})", saved.getType(), saved.getName(), saved.getId());
         return LogSourceResponse.from(saved);
     }
@@ -68,6 +74,7 @@ public class LogSourceService {
         validateTypeSpecificFields(request);
 
         LogSource source = repository.findById(id).orElseThrow(() -> new SourceNotFoundException(id));
+        Map<String, Object> before = snapshot(source);
         source.update(
                 request.name(),
                 request.type(),
@@ -78,14 +85,17 @@ public class LogSourceService {
                 request.password()
         );
         LogSource saved = repository.save(source);
+        auditService.recordUpdate(AuditEntityType.LOG_SOURCE, id, saved.getName(), before, snapshot(saved));
         log.info("Updated source {} -> '{}' ({})", id, saved.getName(), saved.getType());
         return LogSourceResponse.from(saved);
     }
 
     public LogSourceResponse setEnabled(Long id, boolean enabled) {
         LogSource source = repository.findById(id).orElseThrow(() -> new SourceNotFoundException(id));
+        Map<String, Object> before = snapshot(source);
         source.setEnabled(enabled);
         LogSource saved = repository.save(source);
+        auditService.recordUpdate(AuditEntityType.LOG_SOURCE, id, saved.getName(), before, snapshot(saved));
         log.info("{} source {} ('{}')", enabled ? "Enabled" : "Disabled", id, saved.getName());
         return LogSourceResponse.from(saved);
     }
@@ -95,16 +105,20 @@ public class LogSourceService {
         if (live && (source.getType() == SourceType.UPLOAD_FILE || source.getType() == SourceType.UPLOAD_DIRECTORY)) {
             throw new IllegalArgumentException("Live mode is not supported for uploaded sources");
         }
+        Map<String, Object> before = snapshot(source);
         source.setLive(live);
         LogSource saved = repository.save(source);
+        auditService.recordUpdate(AuditEntityType.LOG_SOURCE, id, saved.getName(), before, snapshot(saved));
         log.info("Marked source {} ('{}') as {}", id, saved.getName(), live ? "live" : "not live");
         return LogSourceResponse.from(saved);
     }
 
     public LogSourceResponse setPatternMiningEnabled(Long id, boolean enabled) {
         LogSource source = repository.findById(id).orElseThrow(() -> new SourceNotFoundException(id));
+        Map<String, Object> before = snapshot(source);
         source.setPatternMiningEnabled(enabled);
         LogSource saved = repository.save(source);
+        auditService.recordUpdate(AuditEntityType.LOG_SOURCE, id, saved.getName(), before, snapshot(saved));
         if (enabled) {
             // Otherwise content already on disk (indexed before this was turned on) stays
             // unmined until a file next changes - the fingerprint gate would skip it as
@@ -117,10 +131,27 @@ public class LogSourceService {
 
     public void delete(Long id) {
         LogSource source = repository.findById(id).orElseThrow(() -> new SourceNotFoundException(id));
+        Map<String, Object> before = snapshot(source);
         repository.deleteById(id);
         searchIndexService.purgeSource(source);
         uploadService.deleteStorage(source);
+        auditService.recordDelete(AuditEntityType.LOG_SOURCE, id, source.getName(), before);
         log.info("Deleted source {}", id);
+    }
+
+    /** Excludes {@code password} - audit snapshots never carry secrets, matching {@link LogSourceResponse}. */
+    private Map<String, Object> snapshot(LogSource source) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("name", source.getName());
+        map.put("type", source.getType().name());
+        map.put("path", source.getPath());
+        map.put("host", source.getHost());
+        map.put("port", source.getPort());
+        map.put("username", source.getUsername());
+        map.put("enabled", source.isEnabled());
+        map.put("live", source.isLive());
+        map.put("patternMiningEnabled", source.isPatternMiningEnabled());
+        return map;
     }
 
     public ConnectionTestResult testConnection(Long id) {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Alerts } from "./components/Alerts";
+import { AuditLog } from "./components/AuditLog";
 import { Dashboard } from "./components/Dashboard";
 import { LogStream } from "./components/LogStream";
 import type { PatternDrilldownFilter } from "./components/LogStream";
@@ -9,6 +10,7 @@ import { Sidebar } from "./components/Sidebar";
 import { SourceDialog } from "./components/SourceDialog";
 import { SourceGrid } from "./components/SourceGrid";
 import { useAlertRules } from "./hooks/useAlertRules";
+import { useAuditLog } from "./hooks/useAuditLog";
 import { usePatterns } from "./hooks/usePatterns";
 import { useRedactionRules } from "./hooks/useRedactionRules";
 import { useSavedSearches } from "./hooks/useSavedSearches";
@@ -80,6 +82,7 @@ function App() {
     update: updateRedactionRule,
     remove: removeRedactionRule,
   } = useRedactionRules();
+  const { auditLog, loading: auditLogLoading, error: auditLogError, refresh: refreshAuditLog } = useAuditLog();
   const [patternsSource, setPatternsSource] = useState<string | undefined>(undefined);
   const [patternsFile, setPatternsFile] = useState<string | undefined>(undefined);
   const [patternsSort, setPatternsSort] = useState<TemplateSort>("volume");
@@ -283,6 +286,10 @@ function App() {
               onUpdate={updateRedactionRule}
               onDelete={removeRedactionRule}
             />
+          )}
+
+          {screen === "audit" && (
+            <AuditLog entries={auditLog} loading={auditLogLoading} error={auditLogError} onRefresh={refreshAuditLog} />
           )}
 
           {screen === "patterns" && (

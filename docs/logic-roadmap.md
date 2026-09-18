@@ -236,24 +236,23 @@ entry point that compiles to one of them.
 - Effort: M/L (depends on LLM provider/cost decision — needs scoping before
   estimating further)
 
-### LOGIC-109 — Cross-source correlation on a log line
+### LOGIC-109 — Cross-source correlation on a log line - done
 
-No way today to see "what else happened around this event" across sources.
+Expanding a Log Stream row shows a "Nearby events" panel listing entries from
+every other source within ±5s of that row's timestamp. See
+`docs/roadmap.md` for the full implementation note.
 
-- From a selected LogEntry, query other sources/files within a small time
-  window (e.g. ±5s) and surface related entries.
 - AC: clicking a log row shows a "nearby events" panel with entries from other
   sources in the same window.
 - Effort: M
 
-### LOGIC-110 — Admin action audit trail
+### LOGIC-110 — Admin action audit trail - done
 
-Single-admin model still benefits from an audit log for accountability (config
-drift, who changed an alert rule and when).
+Every create/update/delete (including enable/disable, live, pattern-mining,
+and mute toggles) on a LogSource, AlertRule, or RedactionRule is recorded to
+an append-only audit table, with a read-only Audit Log screen in the UI. See
+`docs/roadmap.md` for the full implementation note.
 
-- Log create/update/delete on LogSource, AlertRule (and mutation of
-  retention/redaction settings once built) to an append-only audit table.
-- Simple read-only view in the UI.
 - AC: every source/alert-rule change is recorded with timestamp and old/new
   values; audit log itself isn't editable via the API.
 - Effort: S/M

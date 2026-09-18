@@ -1,21 +1,26 @@
 package com.logic.analyzer.source;
 
+import com.logic.analyzer.audit.AuditEntityType;
+import com.logic.analyzer.audit.AuditService;
 import com.logic.analyzer.exception.SourceNotFoundException;
 import com.logic.analyzer.logstream.LogIngestionService;
 import com.logic.analyzer.search.index.SearchIndexService;
 import com.logic.analyzer.source.dto.LogSourceCreateRequest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -35,8 +40,11 @@ class LogSourceValidationTest {
     @Mock
     private SourceUploadService uploadService;
 
+    @Mock
+    private AuditService auditService;
+
     private LogSourceService service() {
-        return new LogSourceService(repository, ingestionService, searchIndexService, uploadService, List.of());
+        return new LogSourceService(repository, ingestionService, searchIndexService, uploadService, auditService, List.of());
     }
 
     @Test
@@ -109,6 +117,37 @@ class LogSourceValidationTest {
         assertThat(response.username()).isEqualTo("newuser");
         assertThat(response.status()).isEqualTo(SourceStatus.UNVERIFIED);
         assertThat(existing.getPassword()).isEqualTo("oldpass");
+
+        var oldSnapshot = ArgumentCaptor.forClass(Map.class);
+        var newSnapshot = ArgumentCaptor.forClass(Map.class);
+        verify(auditService).recordUpdate(eq(AuditEntityType.LOG_SOURCE), eq(1L), eq("new-name"),
+                oldSnapshot.capture(), newSnapshot.capture());
+        assertThat(oldSnapshot.getValue()).containsEntry("name", "old-name").doesNotContainKey("password");
+        assertThat(newSnapshot.getValue()).containsEntry("name", "new-name").doesNotContainKey("password");
+    }
+
+    @Test
+    void createAuditsTheNewSourceWithoutItsPassword() {
+        when(repository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service().create(new LogSourceCreateRequest(
+                "prod-web1", SourceType.SFTP, "/var/log/nginx/access.log", "10.0.0.5", 22, "deploy", "s3cret"));
+
+        var newSnapshot = ArgumentCaptor.forClass(Map.class);
+        verify(auditService).recordCreate(eq(AuditEntityType.LOG_SOURCE), any(), eq("prod-web1"),
+                newSnapshot.capture());
+        assertThat(newSnapshot.getValue()).containsEntry("name", "prod-web1").doesNotContainValue("s3cret");
+    }
+
+    @Test
+    void deleteAuditsTheRemovedSource() {
+        LogSource existing = new LogSource(
+                "app-log", SourceType.LOCAL_FILE, "/var/log/app.log", null, null, null, null);
+        when(repository.findById(1L)).thenReturn(Optional.of(existing));
+
+        service().delete(1L);
+
+        verify(auditService).recordDelete(eq(AuditEntityType.LOG_SOURCE), eq(1L), eq("app-log"), any());
     }
 
     @Test

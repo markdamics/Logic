@@ -2,6 +2,7 @@ import type {
   AlertEvent,
   AlertRule,
   AppConfig,
+  AuditLogEntry,
   ConnectionTestResult,
   CreateAlertRuleRequest,
   CreateRedactionRuleRequest,
@@ -149,6 +150,22 @@ export function queryLogs(params: LogQueryLanguageParams): Promise<LogQueryResul
   return request<LogQueryResult>(`/logs/query?${query.toString()}`);
 }
 
+/** LOGIC-109 "nearby events": entries from other sources/files within +/- windowSeconds of timestamp (excludeFile scopes the self-exclusion to the origin's own file, not its whole source, so sibling files under one directory source still correlate). */
+export function fetchNearbyLogs(params: {
+  timestamp: string;
+  excludeSource?: string;
+  excludeFile?: string | null;
+  windowSeconds?: number;
+}): Promise<LogQueryResult> {
+  const query = new URLSearchParams();
+  query.set("timestamp", params.timestamp);
+  if (params.excludeSource) query.set("excludeSource", params.excludeSource);
+  if (params.excludeFile) query.set("excludeFile", params.excludeFile);
+  if (params.windowSeconds !== undefined) query.set("windowSeconds", String(params.windowSeconds));
+
+  return request<LogQueryResult>(`/logs/nearby?${query.toString()}`);
+}
+
 /** URL for the push-based live-tail SSE stream, filtered the same way GET /logs is. */
 export function logStreamUrl(params: {
   search?: string;
@@ -258,6 +275,10 @@ export function updateRedactionRule(id: number, req: CreateRedactionRuleRequest)
 
 export function deleteRedactionRule(id: number): Promise<void> {
   return request<void>(`/redaction/rules/${id}`, { method: "DELETE" });
+}
+
+export function listAuditLog(): Promise<AuditLogEntry[]> {
+  return request<AuditLogEntry[]>("/audit");
 }
 
 export function listTemplates(source?: string, file?: string, sort: TemplateSort = "volume"): Promise<LogTemplate[]> {

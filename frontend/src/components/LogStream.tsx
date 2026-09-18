@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { fetchLogs, listLogFiles, logStreamUrl, queryLogs } from "../api/client";
+import { fetchLogs, fetchNearbyLogs, listLogFiles, logStreamUrl, queryLogs } from "../api/client";
 import type {
   CreateSavedSearchRequest,
   LogAggregationResult,
@@ -44,6 +44,7 @@ const SSE_RECONNECT_MAX_MS = 15000;
 // views, which are already bounded by pageSize.
 const LIVE_BUFFER_MAX = 5000;
 const ROW_ESTIMATED_HEIGHT = 34;
+const NEARBY_EVENTS_ENABLED_STORAGE_KEY = "logic.nearby-events-enabled";
 
 const TIME_RANGES: { value: string; label: string; minutes: number }[] = [
   { value: "15m", label: "Last 15 min", minutes: 15 },
@@ -119,6 +120,9 @@ export function LogStream({
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [liveTick, setLiveTick] = useState(0);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [nearbyEventsEnabled, setNearbyEventsEnabled] = useState(
+    () => localStorage.getItem(NEARBY_EVENTS_ENABLED_STORAGE_KEY) !== "false",
+  );
 
   const [data, setData] = useState<LogQueryResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -132,6 +136,10 @@ export function LogStream({
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const appliedSavedSearchFromUrl = useRef(false);
   const appConfig = useAppConfig();
+
+  useEffect(() => {
+    localStorage.setItem(NEARBY_EVENTS_ENABLED_STORAGE_KEY, String(nearbyEventsEnabled));
+  }, [nearbyEventsEnabled]);
 
   const hasLiveSource = sources.some((s) => s.enabled && s.live);
   const isLiveBuffered = mode === "simple" && sortColumn === "time" && sortDirection === "desc" && page === 0 && hasLiveSource;
@@ -727,6 +735,17 @@ export function LogStream({
             </option>
           ))}
         </select>
+        <label className="switch-row" title="Show a 'nearby events' panel (other sources/files, same time window) when expanding a log row">
+          <span className="switch">
+            <input
+              type="checkbox"
+              checked={nearbyEventsEnabled}
+              onChange={(e) => setNearbyEventsEnabled(e.target.checked)}
+            />
+            <span className="switch-slider" />
+          </span>
+          <span className="switch-row-label">Nearby events</span>
+        </label>
         <div className="log-severity-chips">
           {mode === "simple" && LEVELS.map((level) => (
             <button
@@ -878,6 +897,7 @@ export function LogStream({
                           onToggle={toggleExpand}
                           onCorrelate={handleCorrelate}
                           apmTraceUrlTemplate={appConfig?.apmTraceUrlTemplate ?? null}
+                          nearbyEventsEnabled={nearbyEventsEnabled}
                         />
                       </div>
                     );
@@ -947,9 +967,10 @@ interface LogRowProps {
   onToggle: (key: string) => void;
   onCorrelate: (fieldName: string, value: string) => void;
   apmTraceUrlTemplate: string | null;
+  nearbyEventsEnabled: boolean;
 }
 
-function LogRow({ entry, rowKey, isExpanded, onToggle, onCorrelate, apmTraceUrlTemplate }: LogRowProps) {
+function LogRow({ entry, rowKey, isExpanded, onToggle, onCorrelate, apmTraceUrlTemplate, nearbyEventsEnabled }: LogRowProps) {
   return (
     <div>
       <div
@@ -972,6 +993,134 @@ function LogRow({ entry, rowKey, isExpanded, onToggle, onCorrelate, apmTraceUrlT
       {isExpanded && (
         <div className="log-detail-row" role="row">
           <LogEntryDetail message={entry.message} onCorrelate={onCorrelate} apmTraceUrlTemplate={apmTraceUrlTemplate} />
+          {nearbyEventsEnabled && <NearbyEventsPanel entry={entry} />}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Mirrors the backend's MAX_NEARBY_WINDOW_SECONDS cap (LogQueryService) - the widest preset and the custom-input clamp both match that ceiling, so every value this UI can produce reaches the server uncapped. */
+const NEARBY_WINDOW_OPTIONS: { value: number; label: string }[] = [
+  { value: 5, label: "±5s" },
+  { value: 10, label: "±10s" },
+  { value: 30, label: "±30s" },
+  { value: 60, label: "±1 min" },
+  { value: 300, label: "±5 min" },
+];
+const NEARBY_WINDOW_MIN_SECONDS = 1;
+const NEARBY_WINDOW_MAX_SECONDS = 300;
+const DEFAULT_NEARBY_WINDOW_SECONDS = 5;
+const CUSTOM_WINDOW_SENTINEL = "custom";
+
+type NearbyEventsState =
+  | { status: "loading" }
+  | { status: "error" }
+  | { status: "ready"; entries: LogEntry[] };
+
+function NearbyEventsPanel({ entry }: { entry: LogEntry }) {
+  const [windowSeconds, setWindowSeconds] = useState(DEFAULT_NEARBY_WINDOW_SECONDS);
+  const [isCustom, setIsCustom] = useState(false);
+  const [customInput, setCustomInput] = useState(String(DEFAULT_NEARBY_WINDOW_SECONDS));
+  const [state, setState] = useState<NearbyEventsState>({ status: "loading" });
+
+  useEffect(() => {
+    let cancelled = false;
+    setState({ status: "loading" });
+    fetchNearbyLogs({ timestamp: entry.timestamp, excludeSource: entry.source, excludeFile: entry.file, windowSeconds })
+      .then((result) => {
+        if (!cancelled) setState({ status: "ready", entries: result.content });
+      })
+      .catch((e) => {
+        logger.error("Failed to load nearby events", e);
+        if (!cancelled) setState({ status: "error" });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [entry.timestamp, entry.source, entry.file, windowSeconds]);
+
+  const originMs = useMemo(() => new Date(entry.timestamp).getTime(), [entry.timestamp]);
+
+  const commitCustomInput = () => {
+    const parsed = Math.round(Number(customInput));
+    const clamped = Number.isFinite(parsed)
+      ? Math.min(NEARBY_WINDOW_MAX_SECONDS, Math.max(NEARBY_WINDOW_MIN_SECONDS, parsed))
+      : windowSeconds;
+    setCustomInput(String(clamped));
+    setWindowSeconds(clamped);
+  };
+
+  return (
+    <div className="nearby-events-panel">
+      <div className="nearby-events-header">
+        <div className="log-detail-message-label">Nearby events (other sources)</div>
+        <div className="nearby-window-controls">
+          <select
+            className="input nearby-window-select"
+            value={isCustom ? CUSTOM_WINDOW_SENTINEL : windowSeconds}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => {
+              e.stopPropagation();
+              if (e.target.value === CUSTOM_WINDOW_SENTINEL) {
+                setCustomInput(String(windowSeconds));
+                setIsCustom(true);
+                return;
+              }
+              setIsCustom(false);
+              setWindowSeconds(Number(e.target.value));
+            }}
+          >
+            {NEARBY_WINDOW_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+            <option value={CUSTOM_WINDOW_SENTINEL}>Custom…</option>
+          </select>
+          {isCustom && (
+            <span className="nearby-window-custom">
+              ±
+              <input
+                type="number"
+                className="input nearby-window-custom-input"
+                min={NEARBY_WINDOW_MIN_SECONDS}
+                max={NEARBY_WINDOW_MAX_SECONDS}
+                value={customInput}
+                autoFocus
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => setCustomInput(e.target.value)}
+                onBlur={commitCustomInput}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.currentTarget.blur();
+                  }
+                }}
+              />
+              s
+            </span>
+          )}
+        </div>
+      </div>
+      {state.status === "loading" && <div className="nearby-events-status">Loading…</div>}
+      {state.status === "error" && <div className="nearby-events-status">Failed to load nearby events.</div>}
+      {state.status === "ready" && state.entries.length === 0 && (
+        <div className="nearby-events-status">No events from other sources in this window.</div>
+      )}
+      {state.status === "ready" && state.entries.length > 0 && (
+        <div className="nearby-events-list" role="table">
+          {state.entries.map((nearby, i) => {
+            const deltaSeconds = (new Date(nearby.timestamp).getTime() - originMs) / 1000;
+            const deltaLabel = deltaSeconds === 0 ? "±0.0s" : `${deltaSeconds > 0 ? "+" : ""}${deltaSeconds.toFixed(1)}s`;
+            return (
+              <div className="nearby-event-row" role="row" key={`${nearby.source}-${nearby.file ?? ""}-${nearby.timestamp}-${i}`}>
+                <span className="nearby-event-delta" role="cell">{deltaLabel}</span>
+                <span className={`level-chip level-${nearby.level.toLowerCase()}`} role="cell">{nearby.level}</span>
+                <span className="nearby-event-source" role="cell">{nearby.source}{nearby.file ? ` / ${nearby.file}` : ""}</span>
+                <span className="nearby-event-message" role="cell">{nearby.message}</span>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

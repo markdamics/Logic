@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 
@@ -72,6 +73,18 @@ public class LogStreamController {
     public List<String> listFiles(@RequestParam(required = false) String source) {
         log.info("GET /api/logs/files source='{}'", source);
         return queryService.listFiles(source);
+    }
+
+    @GetMapping("/nearby")
+    public LogQueryResult nearby(
+            @RequestParam String timestamp,
+            @RequestParam(required = false) String excludeSource,
+            @RequestParam(required = false) String excludeFile,
+            @RequestParam(defaultValue = "5") int windowSeconds
+    ) {
+        log.info("GET /api/logs/nearby timestamp='{}' excludeSource='{}' excludeFile='{}' windowSeconds={}",
+                timestamp, excludeSource, excludeFile, windowSeconds);
+        return queryService.nearby(Instant.parse(timestamp), excludeSource, excludeFile, windowSeconds);
     }
 
     @PostMapping("/reload")

@@ -10,6 +10,8 @@ import com.logic.analyzer.source.LogSourceRepository;
 import org.apache.lucene.search.Query;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,6 +26,9 @@ import java.util.List;
  */
 @Service
 public class LogQueryService {
+
+    private static final int MAX_NEARBY_WINDOW_SECONDS = 300;
+    private static final int NEARBY_RESULT_LIMIT = 50;
 
     private final LogIngestionService ingestionService;
     private final SearchIndexService searchIndexService;
@@ -58,6 +63,28 @@ public class LogQueryService {
     /** Distinct, sorted file labels seen across indexed entries, optionally scoped to one source - disabled sources' files are left out either way. */
     public List<String> listFiles(String source) {
         return executor.listFiles(source, disabledSourceNames());
+    }
+
+    public LogQueryResult nearby(Instant timestamp, String excludeSource, String excludeFile, int windowSeconds) {
+        long clampedWindowSeconds = Math.max(1, Math.min(windowSeconds, MAX_NEARBY_WINDOW_SECONDS));
+        long windowMillis = Duration.ofSeconds(clampedWindowSeconds).toMillis();
+        long center = timestamp.toEpochMilli();
+
+        List<QueryNode> clauses = new ArrayList<>();
+        clauses.add(new QueryNode.RangeNode("timestampMillis", center - windowMillis, center + windowMillis, true, true));
+        if (excludeSource != null && !excludeSource.isBlank()) {
+            QueryNode origin = new QueryNode.FieldMatchNode("source", excludeSource, true);
+            if (excludeFile != null && !excludeFile.isBlank()) {
+                origin = new QueryNode.AndNode(List.of(origin, new QueryNode.FieldMatchNode("file", excludeFile, true)));
+            }
+            clauses.add(new QueryNode.NotNode(origin));
+        }
+        for (String excluded : disabledSourceNames()) {
+            clauses.add(new QueryNode.NotNode(new QueryNode.FieldMatchNode("source", excluded, true)));
+        }
+
+        Query query = queryCompiler.compile(new QueryNode.AndNode(clauses));
+        return executor.execute(query, "time", "asc", 0, NEARBY_RESULT_LIMIT);
     }
 
     private QueryNode toQueryNode(LogQueryParams params) {

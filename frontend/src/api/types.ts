@@ -228,6 +228,22 @@ export interface CreateRedactionRuleRequest {
   enabled: boolean;
 }
 
+export type AuditEntityType = "LOG_SOURCE" | "ALERT_RULE" | "REDACTION_RULE";
+export type AuditAction = "CREATE" | "UPDATE" | "DELETE";
+
+export interface AuditLogEntry {
+  id: number;
+  entityType: AuditEntityType;
+  entityId: number;
+  entityName: string;
+  action: AuditAction;
+  actor: string;
+  /** JSON strings (or null), pretty-printed by the frontend for display. */
+  oldValue: string | null;
+  newValue: string | null;
+  timestamp: string;
+}
+
 export interface LogTemplate {
   id: number;
   source: string;

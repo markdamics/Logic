@@ -52,8 +52,8 @@ became real tickets: LOGIC-129 (native alert channels) and LOGIC-130
 | LOGIC-105 | Log retention policy | P1 | done | S/M |
 | LOGIC-106 | PII masking/redaction on ingest | P1 | done | M |
 | LOGIC-107 | Pattern clustering (template mining) | P2 | done | L |
-| LOGIC-109 | Cross-source correlation on a log line | P2 | open | M |
-| LOGIC-110 | Admin action audit trail | P2 | open | S/M |
+| LOGIC-109 | Cross-source correlation on a log line | P2 | done | M |
+| LOGIC-110 | Admin action audit trail | P2 | done | S/M |
 | LOGIC-117 | Drill down from pattern → matching lines | P2.1 | done | M |
 | LOGIC-118 | Alert on a newly appeared template | P2.1 | done | M |
 | LOGIC-119 | Manual template management (delete/split) | P2.1 | done | S/L |
@@ -137,23 +137,75 @@ loop end-to-end — no drill-down from pattern to lines, no new-pattern
 alerting, no manual merge/split, no threshold tuning. Those four gaps are
 LOGIC-117 through LOGIC-120, tier **P2.1** below.
 
-### LOGIC-109 — Cross-source correlation on a log line
+### LOGIC-109 — Cross-source correlation on a log line — done
 
-No way today to see "what else happened around this event" across sources.
+Expanding a Log Stream row now shows a "Nearby events" panel (below the
+existing structured-field detail) listing entries from every other
+source/file within a configurable window of that row's timestamp, sorted
+chronologically with a `±N.Ns` offset per row. Keyed on time rather than a
+shared trace/correlation id, since the existing "Correlate" feature already
+covers the case where a shared id exists and most ingested sources don't
+have one.
 
-- From a selected LogEntry, query other sources/files within a small time
-  window (e.g. ±5s) and surface related entries.
+- **Note:** new `LogQueryService.nearby(Instant, String excludeSource, String
+  excludeFile, int windowSeconds)` builds a `RangeNode` on `timestampMillis`
+  plus a `NotNode` excluding only the origin entry's own `(source, file)`
+  pair (and any disabled sources, same as every other query path), compiled/
+  executed through the existing shared `QueryCompiler`/`LuceneQueryExecutor`
+  rather than a new query path — the Lucene index already carries what a
+  windowed cross-source scan needs, no raw-storage query required.
+  Excluding by `(source, file)` rather than `source` alone matters in
+  practice: a `LOCAL_DIRECTORY` source ingesting several services' logs as
+  separate files shares one `source` name across all of them, so a
+  source-wide exclusion made the panel a no-op for that (common) setup —
+  caught via manual testing, not the original unit tests, which only ever
+  seeded distinct sources per file. Exposed as `GET /api/logs/nearby?timestamp=
+  ...&excludeSource=...&excludeFile=...&windowSeconds=5` (`windowSeconds`
+  clamped to 300 max, results capped at 50, oldest-to-newest) in
+  `LogStreamController`. Frontend: `fetchNearbyLogs` (`api/client.ts`)
+  called from a new `NearbyEventsPanel` component, rendered inside
+  `LogRow`'s expanded section alongside `LogEntryDetail`. The window is
+  user-adjustable per panel (preset chips from ±5s to ±5min, plus a
+  custom-seconds input clamped client-side to the same 300s server cap), and
+  a toolbar switch toggles the whole panel on/off, persisted to
+  `localStorage` (`logic.nearby-events-enabled`) — off skips the query
+  entirely rather than just hiding the result.
 - **AC:** clicking a log row shows a "nearby events" panel with entries from
   other sources in the same window.
 - **Effort:** M
 
-### LOGIC-110 — Admin action audit trail
+### LOGIC-110 — Admin action audit trail — done
 
 Single-admin model still benefits from an audit log for accountability
 (config drift, who changed an alert rule and when).
 
-- Log create/update/delete on LogSource, AlertRule (and retention/redaction
-  settings) to an append-only audit table. Read-only view in the UI.
+- **Note:** new `audit` package: an `AuditLogEntry` JPA entity (append-only -
+  no `update()`, no setters beyond construction) written by a single
+  `AuditService.record{Create,Update,Delete}` per action, called from
+  `LogSourceService`, `AlertRuleService`, and `RedactionRuleService` right
+  after each `repository.save()`/`deleteById()` - covering create/update/
+  delete plus every toggle that's really an update in disguise (enable/
+  disable, live, pattern-mining, mute/unmute). Retention wasn't included:
+  unlike redaction, it's still a static `app.search.retention-days` config
+  value with no mutable entity/endpoint behind it, so there's nothing yet to
+  audit there. Each entity's owning service builds its own `Map<String,
+  Object>` snapshot (mirroring how each already owns its `*Response#from`
+  conversion) - deliberately excluding secrets (`LogSource.password`,
+  `AlertRule.webhookSecret`) and excluding timestamps already covered by the
+  audit row's own. Snapshots are serialized to JSON strings (`old_value`/
+  `new_value` columns, `V9__create_audit_log_entry.sql`) rather than reusing
+  the `*Response` DTOs directly, since those carry `java.time.Instant`
+  fields this project's `ObjectMapper` has no module registered for. Actor
+  is read from `SecurityContextHolder` inside `AuditService` itself (falls
+  back to `"anonymous"` for Spring Security's default anonymous principal
+  when `AUTH_ENABLED=false`) rather than threading a `Principal` through
+  every service method signature. Exposed read-only at `GET /api/audit`
+  (`AuditLogController`, capped to the 500 most recent rows) - no POST/PUT/
+  DELETE mapping exists at all, which is what actually satisfies "not
+  editable via the API" rather than any runtime check. Frontend: a new
+  read-only Audit Log screen (`AuditLog.tsx`, `useAuditLog` hook), listed
+  newest-first with a per-row "Details" toggle that expands a Before/After
+  field table, highlighting exactly which fields changed.
 - **AC:** every source/alert-rule change is recorded with timestamp and
   old/new values; audit log itself isn't editable via the API.
 - **Effort:** S/M

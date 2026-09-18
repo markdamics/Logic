@@ -258,6 +258,82 @@ class LogQueryServiceTest {
         assertThat(result.content()).extracting(LogEntry::message).containsExactlyInAnyOrder("boom failure", "careful now");
     }
 
+    @Test
+    void nearbyReturnsOtherEntriesWithinTheWindowExcludingOnlyTheOriginFile() throws Exception {
+        Instant anchor = Instant.now();
+        seed(List.of(
+                new LogEntry(1, anchor, LogLevel.ERROR, "source-a", "app.log", "the clicked entry"),
+                new LogEntry(2, anchor.plusSeconds(2), LogLevel.INFO, "source-b", "web.log", "within window, other source"),
+                new LogEntry(3, anchor.minusSeconds(3), LogLevel.WARN, "source-c", "db.log", "within window, other source"),
+                new LogEntry(4, anchor.plusSeconds(1), LogLevel.INFO, "source-a", "app.log", "within window, same file excluded"),
+                new LogEntry(5, anchor.plusSeconds(30), LogLevel.INFO, "source-b", "web.log", "outside window")
+        ));
+
+        LogQueryResult result = service().nearby(anchor, "source-a", "app.log", 5);
+
+        assertThat(result.content()).extracting(LogEntry::message)
+                .containsExactly("within window, other source", "within window, other source");
+    }
+
+    @Test
+    void nearbyIncludesOtherFilesUnderTheSameDirectorySource() throws Exception {
+        // Reproduces a real bug: a LOCAL_DIRECTORY source ingesting several
+        // services' logs as separate files shares one `source` name across
+        // all of them - excluding by source alone would hide every sibling
+        // file's events too, making "nearby" a no-op for that (common) setup.
+        Instant anchor = Instant.now();
+        seed(List.of(
+                new LogEntry(1, anchor, LogLevel.ERROR, "multi-file-source", "checkout.log", "the clicked entry"),
+                new LogEntry(2, anchor.plusSeconds(2), LogLevel.WARN, "multi-file-source", "payment.log", "same source, different file"),
+                new LogEntry(3, anchor.plusSeconds(1), LogLevel.INFO, "multi-file-source", "checkout.log", "same source, same file excluded")
+        ));
+
+        LogQueryResult result = service().nearby(anchor, "multi-file-source", "checkout.log", 5);
+
+        assertThat(result.content()).extracting(LogEntry::message).containsExactly("same source, different file");
+    }
+
+    @Test
+    void nearbyOrdersResultsChronologically() throws Exception {
+        Instant anchor = Instant.now();
+        seed(List.of(
+                new LogEntry(1, anchor, LogLevel.ERROR, "source-a", "app.log", "clicked entry"),
+                new LogEntry(2, anchor.plusSeconds(2), LogLevel.INFO, "source-b", "web.log", "later"),
+                new LogEntry(3, anchor.minusSeconds(3), LogLevel.WARN, "source-c", "db.log", "earlier")
+        ));
+
+        LogQueryResult result = service().nearby(anchor, "source-a", "app.log", 5);
+
+        assertThat(result.content()).extracting(LogEntry::message).containsExactly("earlier", "later");
+    }
+
+    @Test
+    void nearbyClampsAnOversizedWindowToTheMax() throws Exception {
+        Instant anchor = Instant.now();
+        seed(List.of(
+                new LogEntry(1, anchor, LogLevel.ERROR, "source-a", "app.log", "clicked entry"),
+                new LogEntry(2, anchor.plus(Duration.ofSeconds(301)), LogLevel.INFO, "source-b", "web.log", "just past the 300s cap")
+        ));
+
+        LogQueryResult result = service().nearby(anchor, "source-a", "app.log", 10_000);
+
+        assertThat(result.content()).isEmpty();
+    }
+
+    @Test
+    void nearbyExcludesAlreadyIndexedEntriesFromADisabledSource() throws Exception {
+        Instant anchor = Instant.now();
+        seed(List.of(
+                new LogEntry(1, anchor, LogLevel.ERROR, "source-a", "app.log", "clicked entry"),
+                new LogEntry(2, anchor.plusSeconds(1), LogLevel.INFO, "source-b", "web.log", "disabled source")
+        ));
+        disable("source-b");
+
+        LogQueryResult result = service().nearby(anchor, "source-a", "app.log", 5);
+
+        assertThat(result.content()).isEmpty();
+    }
+
     private void disable(String sourceName) {
         LogSource disabled = mock(LogSource.class);
         when(disabled.getName()).thenReturn(sourceName);
